@@ -48,6 +48,10 @@ func _check(path: String) -> void:
 				var extra := ""
 				if m is BaseMaterial3D:
 					extra = " #" + (m as BaseMaterial3D).albedo_color.to_html(false)
+					if (m as BaseMaterial3D).vertex_color_use_as_albedo:
+						extra += " vcol"
+					if (m as BaseMaterial3D).cull_mode != BaseMaterial3D.CULL_BACK:
+						extra += " cull=" + str((m as BaseMaterial3D).cull_mode)
 					if (m as BaseMaterial3D).emission_enabled:
 						extra += " emis=" + str(snapped((m as BaseMaterial3D).emission_energy_multiplier, 0.01))
 				names.append((m.resource_name if m else "<null>") + extra)
@@ -81,7 +85,7 @@ func _check(path: String) -> void:
 	for e in nodes:
 		if e[0] is Skeleton3D:
 			var sk: Skeleton3D = e[0]
-			for bname in ["Head", "Mouth", "Ear_L", "Hand_R", "Foot_L", "Jaw", "Tail4", "FrontPaw_L"]:
+			for bname in ["Head", "Mouth", "Ear_L", "Foot_L", "Jaw", "Tail4", "FrontPaw_L"]:
 				var i := sk.find_bone(bname)
 				if i >= 0:
 					print("  hueso ", bname, " en ", (_gt(sk, root) * sk.get_bone_global_rest(i)).origin.snapped(Vector3(0.001, 0.001, 0.001)))

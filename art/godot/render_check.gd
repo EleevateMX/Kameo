@@ -7,20 +7,21 @@ var out_dir := "user://"
 var shots := [
 	# glb, anim, t, yaw, pitch, dist, target, hat, name
 	["alux", "", 0.0, 30.0, 10.0, 3.2, Vector3(0, 0.78, 0), "Hat_Palma", "a01"],
-	["alux", "", 0.0, 150.0, 14.0, 3.2, Vector3(0, 0.78, 0), "Hat_Penacho", "a02"],
+	["alux", "", 0.0, 155.0, 14.0, 3.2, Vector3(0, 0.78, 0), "Hat_Penacho", "a02"],
 	["alux", "", 0.0, 12.0, 3.0, 1.7, Vector3(0, 1.04, 0), "Hat_Flor", "a03"],
-	["alux", "Idle", 0.62, 20.0, -25.0, 2.6, Vector3(0, 0.8, 0), "Hat_Palma", "a04"],
-	["alux", "Run", 0.15, 70.0, 8.0, 3.2, Vector3(0, 0.78, 0), "", "a05"],
-	["alux", "Cast", 0.2, 50.0, 8.0, 3.2, Vector3(0, 0.78, 0), "Hat_Palma", "a06"],
-	["alux", "Dodge", 0.133, 90.0, 5.0, 3.2, Vector3(0, 0.6, 0), "", "a07"],
+	["alux", "Idle", 0.5, 20.0, -25.0, 2.6, Vector3(0, 0.8, 0), "Hat_Palma", "a04"],
+	["alux", "Run", 0.0667, 80.0, 6.0, 3.2, Vector3(0, 0.7, 0), "", "a05"],
+	["alux", "Cast", 0.1, 50.0, 8.0, 3.2, Vector3(0, 0.78, 0), "Hat_Palma", "a06"],
+	["alux", "Transform", 0.1, 25.0, 8.0, 3.4, Vector3(0, 0.85, 0), "Hat_Flor", "a07"],
 	["alux", "Death", 0.9, 55.0, 30.0, 3.3, Vector3(0, 0.3, -0.4), "Hat_Flor", "a08"],
-	["balam", "", 0.0, 35.0, 12.0, 3.8, Vector3(0, 0.55, -0.15), "", "b01"],
-	["balam", "", 0.0, 30.0, 8.0, 1.6, Vector3(0, 0.85, 0.6), "", "b02"],
-	["balam", "Run", 0.3, 90.0, 4.0, 3.8, Vector3(0, 0.55, -0.15), "", "b03"],
-	["balam", "Claw", 0.17, 330.0, 8.0, 3.4, Vector3(0, 0.6, 0.1), "", "b04"],
-	["balam", "Pounce", 0.25, 80.0, 5.0, 4.0, Vector3(0, 0.65, 0), "", "b05"],
-	["balam", "Death", 1.0, 60.0, 28.0, 3.7, Vector3(0, 0.3, -0.1), "", "b06"],
-	["balam", "Charge", 0.2, 40.0, -15.0, 3.4, Vector3(0, 0.5, 0), "", "b07"],
+	["balam", "", 0.0, 35.0, 12.0, 3.9, Vector3(0, 0.55, -0.15), "", "b01"],
+	["balam", "", 0.0, 150.0, 16.0, 3.9, Vector3(0, 0.55, -0.15), "", "b02"],
+	["balam", "", 0.0, 28.0, 8.0, 1.7, Vector3(0, 0.85, 0.6), "", "b03"],
+	["balam", "Run", 0.2, 90.0, 4.0, 4.0, Vector3(0, 0.55, -0.15), "", "b04"],
+	["balam", "Claw", 0.1, 330.0, 8.0, 3.6, Vector3(0, 0.6, 0.1), "", "b05"],
+	["balam", "Pounce", 0.25, 80.0, 5.0, 4.2, Vector3(0, 0.65, 0), "", "b06"],
+	["balam", "Transform", 0.25, 60.0, 5.0, 4.4, Vector3(0, 0.8, 0), "", "b07"],
+	["balam", "Charge", 0.2, 40.0, -15.0, 3.6, Vector3(0, 0.5, 0), "", "b08"],
 ]
 var idx := 0
 var wait := 0
@@ -90,6 +91,10 @@ func _setup_shot() -> void:
 			n.visible = (hat == s[7]) or (hat == "Hair" and s[7] in ["Hat_Flor", "Hat_Penacho", ""])
 	var ap: AnimationPlayer = _find(model, "AnimationPlayer")
 	if s[1] != "":
+		if not ap.has_animation(s[1]):
+			push_warning("falta la animación " + s[1])
+			wait = 0
+			return
 		ap.play(s[1])
 		ap.seek(s[2], true)
 		ap.pause()

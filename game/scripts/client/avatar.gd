@@ -15,8 +15,10 @@ const HAT_NODES := ["Hat_Palma", "Hat_Penacho", "Hat_Flor", "Hair"]
 ## Acción del juego -> animación del .glb, por forma. [nombre, mantener hasta nueva orden]
 const GLB_ACTIONS := {
 	"alux": {"bolt": "Cast", "dodge": "Dodge", "interact": "Interact", "hit": "Hit"},
-	"balam": {"claw": "Claw", "charge_start": "Charge", "charged": "ChargeRelease", "pounce": "Pounce", "hit": "Hit"},
+	"balam": {"claw": "Claw", "charge_start": "Charge", "charged": "ChargeRelease", "pounce": "Pounce", "pounce_land": "PounceLand", "hit": "Hit"},
 }
+## Velocidad (m/s) para la que se animó la carrera de cada modelo: a esa velocidad los pies no patinan.
+const RUN_SPEED := {"alux": 5.2, "balam": 8.4}
 
 var player_name := "Alux"
 var color := Color("#2ec4a6")
@@ -112,12 +114,11 @@ func _load_glb(f: String) -> Node3D:
 				var own := mat.duplicate() as StandardMaterial3D
 				own.albedo_color = color
 				(mi as MeshInstance3D).set_surface_override_material(i, own)
-			elif mat_name == "Skin" or mat_name == "Blush" or mat_name == "Fur" or mat_name == "FurLight":
-				# Un poco de luz propia para que la cara se lea a la sombra del sombrero y de los árboles
+			elif mat_name == "Body" or mat_name == "Headwear":
+				# El color vive en los vértices: se aclara un poco el conjunto para que la cara
+				# se lea a la sombra del sombrero y de los árboles (sin textura ni luz extra)
 				var lit := mat.duplicate() as StandardMaterial3D
-				lit.emission_enabled = true
-				lit.emission = lit.albedo_color
-				lit.emission_energy_multiplier = 0.22
+				lit.albedo_color = Color(1.12, 1.12, 1.12)
 				(mi as MeshInstance3D).set_surface_override_material(i, lit)
 	if f == "alux":
 		# (el cabello va también bajo el sombrero y el penacho: sin él la nuca queda calva)
@@ -146,6 +147,7 @@ func set_form(f: String, with_effect := true) -> void:
 		var gold := Color(1.0, 0.72, 0.25)
 		Fx.transform_burst(get_parent(), global_position, gold if form == "balam" else EYE, color.lightened(0.25))
 		if _players.has(form) and (_players[form] as AnimationPlayer).has_animation("Transform"):
+			(_players[form] as AnimationPlayer).speed_scale = 1.0
 			(_players[form] as AnimationPlayer).play("Transform", 0.0)
 			_act = "transform"
 			_act_t = 0.0
@@ -169,6 +171,7 @@ func set_dead(d: bool) -> void:
 	if dead and _players.has(form):
 		var ap: AnimationPlayer = _players[form]
 		if ap.has_animation("Death"):
+			ap.speed_scale = 1.0
 			ap.play("Death", 0.1)
 	_apply()
 
@@ -204,7 +207,7 @@ func play_action(kind: String) -> void:
 			_hold = "pounce"
 		"pounce_land":
 			_hold = ""
-	var durations := {"bolt": 0.3, "dodge": 0.22, "interact": 0.5, "hit": 0.25, "claw": 0.3, "charged": 0.42, "pounce": 0.5}
+	var durations := {"bolt": 0.3, "dodge": 0.22, "interact": 0.5, "hit": 0.25, "claw": 0.3, "charged": 0.42, "pounce": 0.5, "pounce_land": 0.36}
 	if durations.has(kind):
 		_act = kind
 		_act_t = 0.0
@@ -213,6 +216,7 @@ func play_action(kind: String) -> void:
 		var ap: AnimationPlayer = _players[form]
 		var anim: String = GLB_ACTIONS[form].get(kind, "")
 		if anim != "" and ap.has_animation(anim):
+			ap.speed_scale = 1.0
 			ap.play(anim, 0.06)
 			ap.seek(0.0, true)
 			_loco = ""
@@ -221,9 +225,12 @@ func play_action(kind: String) -> void:
 ## Animación según lo que se movió desde el cuadro anterior.
 func animate(delta: float, grounded: bool, swim: bool) -> void:
 	var speed := 0.0
+	var rising := false
 	if _has_last and delta > 0.0:
 		var d := global_position - _last_pos
 		speed = Vector2(d.x, d.z).length() / delta
+		rising = d.y > 0.0
+	_speed = lerpf(_speed, speed, minf(1.0, delta * 10.0))
 	_last_pos = global_position
 	_has_last = true
 	var moving := speed > 0.4
@@ -240,6 +247,8 @@ func animate(delta: float, grounded: bool, swim: bool) -> void:
 		_squash = -0.2 if grounded else 0.16
 		if grounded:
 			_play_glb_once("Land")
+		elif rising:
+			_play_glb_once("Jump")
 	_was_grounded = grounded
 	_squash = lerpf(_squash, 0.0, minf(1.0, delta * 9.0))
 	var stretch := Vector3(1.0 - _squash * 0.5, 1.0 + _squash, 1.0 - _squash * 0.5)
@@ -333,6 +342,7 @@ func _play_glb_once(anim: String) -> void:
 	var ap: AnimationPlayer = _players[form]
 	if not ap.has_animation(anim) or (_act != "" and _act != "land"):
 		return
+	ap.speed_scale = 1.0
 	ap.play(anim, 0.04)
 	_act = "land"
 	_act_t = 0.0
@@ -357,6 +367,11 @@ func _animate_glb(ap: AnimationPlayer, moving: bool, grounded: bool, swim: bool)
 	if want != _loco and ap.has_animation(want):
 		_loco = want
 		ap.play(want, 0.14)
+	# La carrera se reproduce al ritmo de la velocidad real: así el pie apoyado no patina
+	if _loco == "Run":
+		ap.speed_scale = clampf(_speed / float(RUN_SPEED.get(form, 5.2)), 0.55, 1.5)
+	else:
+		ap.speed_scale = 1.0
 
 
 # ───────────────────────── Modelos de respaldo (primitivas) ─────────────────────────
