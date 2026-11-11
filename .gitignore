@@ -17,3 +17,7 @@ art/previews/*
 !art/previews/alux_01_frente34_palma.png
 !art/previews/alux_06_cara_cabello.png
 !art/previews/balam_05_cara.png
+
+# Python
+__pycache__/
+*.pyc
