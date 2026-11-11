@@ -545,7 +545,7 @@ func _build_hints(root: Control) -> void:
 		["W A S D", "Moverse"], ["Espacio", "Saltar"], ["Ratón  ·  Q / E", "Girar la cámara"],
 		["Clic  ·  J", "Habilidad primaria (mantener)"], ["Clic derecho  ·  K", "Habilidad secundaria"],
 		["F", "Habilidad especial / tocar"], ["1  ·  2", "Alux / Balam"], ["Esc", "Soltar el ratón"],
-		["H", "Mostrar u ocultar esta ayuda"], ["F3", "Rendimiento"],
+		["H", "Mostrar u ocultar esta ayuda"], ["F4", "Calidad gráfica: alta, baja o mínima"], ["F3", "Rendimiento"],
 	]:
 		grid.add_child(Kit.label(line[0], 14, Kit.JADE, Kit.bold_font()))
 		grid.add_child(Kit.label(line[1], 14, Kit.LIME))

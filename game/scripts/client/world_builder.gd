@@ -310,7 +310,10 @@ func _terrain(root: Node3D) -> void:
 	var m := StandardMaterial3D.new()
 	m.vertex_color_use_as_albedo = true
 	m.roughness = 1.0
-	root.add_child(Avatar.part(st.commit(), m, Vector3.ZERO))
+	var ground := Avatar.part(st.commit(), m, Vector3.ZERO)
+	# el suelo recibe sombras pero no las proyecta (ahorra el pase de sombras del terreno entero)
+	ground.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(ground)
 
 	# Losas irregulares a lo largo de los senderos
 	_stone.reseed(9931)

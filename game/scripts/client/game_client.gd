@@ -179,7 +179,7 @@ func _setup_input() -> void:
 	var keys := {
 		"fwd": [KEY_W, KEY_UP], "back": [KEY_S, KEY_DOWN], "left": [KEY_A, KEY_LEFT], "right": [KEY_D, KEY_RIGHT],
 		"jump": [KEY_SPACE], "form1": [KEY_1], "form2": [KEY_2], "cam_l": [KEY_Q], "cam_r": [KEY_E],
-		"atk1": [KEY_J], "atk2": [KEY_K], "atk3": [KEY_F, KEY_L], "perf": [KEY_F3], "help": [KEY_H],
+		"atk1": [KEY_J], "atk2": [KEY_K], "atk3": [KEY_F, KEY_L], "perf": [KEY_F3], "help": [KEY_H], "quality": [KEY_F4],
 	}
 	for action in keys:
 		if not InputMap.has_action(action):
@@ -220,6 +220,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_perf_on = _hud.toggle_perf()
 	elif event.is_action_pressed("help"):
 		_hud.toggle_help()
+	elif event.is_action_pressed("quality"):
+		# El jugador elige: se respeta su nivel y se apaga la bajada automática
+		_quality_locked = true
+		_set_quality((_quality + 1) % 3)
+		_hud.hint("Calidad gráfica: " + ["alta", "baja", "mínima"][_quality], 3.0)
 
 
 # ───────────────────────── Red ─────────────────────────
