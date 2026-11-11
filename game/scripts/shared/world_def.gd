@@ -79,10 +79,15 @@ static func _ensure() -> void:
 	_add_box("san_w2", sx - 6.0, sz + 4.25, 1.0, 4.5, 3.2, "wall")
 	_add_box(GATE_ID, sx - 6.0, sz, 0.7, 4.0, 3.2, "gate")
 	_add_box("altar", sx + 1.5, sz, 2.2, 2.2, 0.8, "altar")
+	# Sello de energía: mientras la puerta está cerrada cubre todo el interior, de modo
+	# que tampoco se puede entrar saltando los muros desde la ladera.
+	# Abarca también los muros para que no queden rincones entre sello y pared.
+	_add_box("seal", sx, sz, 13.0, 13.0, 40.0, "seal")
 
 	# Mirador de Balam: sólo se alcanza con el salto del jaguar
 	_add_box("ledge", LEDGE.x, LEDGE.y, 4.5, 4.5, 2.0, "ledge")
-	_add_box("ledge_step", LEDGE.x - 4.0, LEDGE.y + 0.5, 2.0, 2.0, 0.45, "ruin")
+	# (pegado al mirador: entre dos sólidos no debe quedar un hueco más estrecho que el cuerpo)
+	_add_box("ledge_step", LEDGE.x - 3.25, LEDGE.y + 0.5, 2.0, 2.0, 0.45, "ruin")
 
 	# Ruinas sueltas alrededor de la plaza
 	_add_box("ruin1", -7.0, -9.5, 2.4, 1.4, 0.45, "ruin")
@@ -95,10 +100,13 @@ static func _ensure() -> void:
 	for a in [PI * 0.25, PI * 0.75, PI * 1.25, PI * 1.75]:
 		_cyls.append({"x": cos(a) * 8.5, "z": sin(a) * 8.5, "r": 0.55, "h": 3.4, "kind": "pillar"})
 
+	# Brasero de la plaza (sólido; además cura y es punto de reaparición)
+	_cyls.append({"x": 0.0, "z": 0.0, "r": 0.95, "h": 1.0, "kind": "brazier"})
+
 	# Árboles (generador propio para que sea idéntico en todas las plataformas)
 	var seed_v := 20261109
 	var tries := 0
-	while _cyls.size() < 74 and tries < 900:
+	while _cyls.size() < 75 and tries < 900:
 		tries += 1
 		seed_v = (seed_v * 1103515245 + 12345) % 2147483648
 		var ang := float(seed_v) / 2147483648.0 * TAU
@@ -140,6 +148,8 @@ static func _add_box(id: String, cx: float, cz: float, sx: float, sz: float, hei
 		"x0": cx - sx * 0.5, "x1": cx + sx * 0.5,
 		"z0": cz - sz * 0.5, "z1": cz + sz * 0.5,
 		"y0": base - 2.5, "top": base + height,
+		# "sealed": desaparece cuando el santuario se abre
+		"sealed": kind == "gate" or kind == "seal",
 	})
 
 

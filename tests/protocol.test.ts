@@ -8,7 +8,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { after, before, test } from 'node:test';
-import { GAME_TICKET_AUDIENCE, signJwt, type FormId, type RosterEntry, type ServerMessage, type SnapshotPlayer } from '@alux/shared-contracts';
+import { ENEMY_STATES, GAME_TICKET_AUDIENCE, signJwt, type CombatEvent, type FormId, type RosterEntry, type ServerMessage, type SnapshotPlayer } from '@alux/shared-contracts';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const GODOT = process.env.GODOT_BIN || path.join(ROOT, '.tools/godot');
@@ -36,6 +36,7 @@ class Bot {
   roster: RosterEntry[] = [];
   snap: Extract<ServerMessage, { t: 'snap' }> | null = null;
   events: any[] = [];
+  combat: CombatEvent[] = [];
   error: { code: string } | null = null;
   closed = false;
   seq = 0;
@@ -51,7 +52,7 @@ class Bot {
     return new Promise<void>((resolve) => {
       this.ws = new WebSocket(`ws://127.0.0.1:${PORT}`);
       this.ws.onopen = () => {
-        this.ws.send(JSON.stringify({ t: 'hello', v: 1, ticket: token }));
+        this.ws.send(JSON.stringify({ t: 'hello', v: 2, ticket: token }));
         // Un cliente real manda su entrada 30 veces por segundo; el bot al menos da señales de vida
         const ws = this.ws;
         const alive = setInterval(() => (ws.readyState === WebSocket.OPEN ? ws.send('{"t":"ping","c":0}') : clearInterval(alive)), 2000);
@@ -60,7 +61,7 @@ class Bot {
         const m = JSON.parse(String(ev.data));
         if (m.t === 'welcome') { this.welcome = m; this.slot = m.slot; this.roster = m.players; resolve(); }
         else if (m.t === 'roster') this.roster = m.players;
-        else if (m.t === 'snap') this.snap = m;
+        else if (m.t === 'snap') { this.snap = m; if (m.ev?.length) this.combat.push(...m.ev); }
         else if (m.t === 'event') this.events.push(m);
         else if (m.t === 'error') { this.error = m; resolve(); }
       };
@@ -70,27 +71,56 @@ class Bot {
   }
 
   send(msg: unknown) { if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg)); }
-  input(mx: number, mz: number, extra: { j?: 0 | 1; f?: string } = {}) {
-    this.send({ t: 'in', s: ++this.seq, mx, mz, j: extra.j ?? 0, f: extra.f ?? '' });
+  input(mx: number, mz: number, extra: { j?: 0 | 1; f?: string; a?: number; r?: number } = {}) {
+    this.send({ t: 'in', s: ++this.seq, mx, mz, j: extra.j ?? 0, f: extra.f ?? '', a: extra.a ?? 0, r: extra.r ?? 0 });
   }
   me(): SnapshotPlayer | undefined { return this.snap?.p.find((p) => p[0] === this.slot); }
-  pos() { const m = this.me()!; return { x: m[3], y: m[4], z: m[5] }; }
-  seen(slot: number) { const p = this.snap!.p.find((q) => q[0] === slot)!; return { x: p[3], y: p[4], z: p[5] }; }
+  pos() { const m = this.me()!; return { x: m[4], y: m[5], z: m[6] }; }
+  hp() { return this.me()![3]; }
+  form() { return this.me()![9]; }
+  dead() { return (this.me()![11] & 8) !== 0; }
+  energy() { return this.me()![12]; }
+  seen(slot: number) { const p = this.snap!.p.find((q) => q[0] === slot)!; return { x: p[4], y: p[5], z: p[6] }; }
+  /** Enemigos vivos según el último estado: {id, kind, x, z, hp, maxHp, state, target} */
+  foes() {
+    return (this.snap?.e ?? []).map((e) => ({ id: e[0], kind: e[1], x: e[2], z: e[4], hp: e[6], maxHp: e[7], state: ENEMY_STATES[e[8]], target: e[9] }))
+      .filter((e) => e.state !== 'dead');
+  }
+  ofType(type: string) { return this.combat.filter((e) => e[0] === type); }
 
   /** Camina hacia un punto a ritmo de tiempo real (30 inputs por segundo). */
-  async walkTo(x: number, z: number, maxSeconds = 12) {
+  async walkTo(x: number, z: number, maxSeconds = 12, extra: { f?: string } = {}) {
     const end = Date.now() + maxSeconds * 1000;
     while (Date.now() < end) {
       const m = this.me();
       if (m) {
-        const dx = x - m[3], dz = z - m[5];
+        const dx = x - m[4], dz = z - m[6];
         const d = Math.hypot(dx, dz);
         if (d < 0.35) return true;
-        this.input(dx / d, dz / d);
+        this.input(dx / d, dz / d, extra);
       }
       await sleep(33);
     }
     return false;
+  }
+
+  /** Pelea como lo haría un jugador: se acerca al enemigo elegido y ataca apuntándole. */
+  async fight(pick: (b: Bot) => { x: number; z: number } | undefined, until: () => boolean, maxSeconds: number, opts: { form?: string; reach?: number } = {}) {
+    const end = Date.now() + maxSeconds * 1000;
+    while (Date.now() < end && !until()) {
+      const m = this.me();
+      const foe = pick(this);
+      if (m && foe && !this.dead()) {
+        const dx = foe.x - m[4], dz = foe.z - m[6];
+        const d = Math.hypot(dx, dz) || 1;
+        const near = d < (opts.reach ?? 1.9);
+        this.input(near ? 0 : dx / d, near ? 0 : dz / d, { a: near || (opts.reach ?? 0) > 5 ? 1 : 0, r: Math.atan2(dx, dz), f: opts.form ?? '' });
+      } else {
+        this.input(0, 0);
+      }
+      await sleep(33);
+    }
+    return until();
   }
   close() { this.ws.close(); }
 }
@@ -225,7 +255,7 @@ test('trampas: velocidad, teletransporte, formas bloqueadas y recompensas invent
   cheat.input(0, 0, { f: 'balam' });
   cheat.input(0, 0, { f: 'kukulkan' });
   await sleep(300);
-  assert.equal(cheat.me()![8], 0, 'sigue siendo alux');
+  assert.equal(cheat.form(), 0, 'sigue siendo alux');
 
   // 4) Inundar de mensajes provoca expulsión
   for (let i = 0; i < 400; i++) cheat.send({ t: 'ping', c: i });
@@ -267,7 +297,7 @@ test('reconexión: el jugador conserva identidad, lugar y posición', async () =
   b.close();
 });
 
-test('acertijo cooperativo: hacen falta los 4 altares a la vez y la recompensa se pide una sola vez', async () => {
+test('acertijo + emboscada: 4 altares abren el santuario, los 4 pelean juntos y el sello se da una sola vez al vencer', async () => {
   const room = 'COOP44';
   const bots = [0, 1, 2, 3].map((i) => new Bot(randomUUID(), `Coop${i + 1}`));
   for (const b of bots) await b.connect(ticket({ id: b.id, room, name: b.name }));
@@ -282,16 +312,46 @@ test('acertijo cooperativo: hacen falta los 4 altares a la vez y la recompensa s
   await sleep(400);
   assert.equal(bots[0].snap!.w[1], 0b0111, 'tres altares activos');
   assert.equal(bots[0].snap!.w[0], 0, 'el santuario sigue cerrado con 3 de 4');
+  assert.equal(bots[0].snap!.w[3], 0, 'la emboscada no ha empezado');
 
-  // Antes de abrir, la puerta bloquea el paso
-  // (el cuarto alux pisa su altar y se abre)
+  // El cuarto alux pisa su altar: se abre y despiertan los guardianes
   assert.ok(await bots[3].walkTo(plates[3][0], plates[3][1], 14));
   await sleep(600);
   for (const b of bots) {
     assert.equal(b.snap!.w[0], 1, 'todos ven el santuario abierto');
     assert.ok(b.events.some((e) => e.e === 'gate_open'));
+    assert.equal(b.snap!.w[3], 1, 'todos ven la emboscada en curso');
   }
-  await sleep(800);
+  const wave = bots[0].snap!.w[4];
+  assert.equal(wave, 8, 'con 4 jugadores aparecen 5 criaturas y 3 guardianes');
+  assert.equal(rewardCalls.length, before, 'abrir la puerta ya no da el sello: hay que vencer');
+
+  // Los cuatro pelean como Balam contra el enemigo de la emboscada más cercano a cada uno
+  const homes = new Set([[-22, -14], [20, -20], [-3, 28], [24, 14]].map(([x, z]) => `${x},${z}`));
+  const targetsSeen = new Set<number>();
+  const nearestWave = (b: Bot) => {
+    const m = b.me()!;
+    const foes = b.foes().filter((f) => Math.hypot(f.x - 15, f.z) < 26);
+    for (const f of foes) if (f.target >= 0) targetsSeen.add(f.target);
+    return foes.sort((p, q) => Math.hypot(p.x - m[4], p.z - m[6]) - Math.hypot(q.x - m[4], q.z - m[6]))[0];
+  };
+  void homes;
+  const done = () => bots[0].snap!.w[3] === 2;
+  const results = await Promise.all(bots.map((b) => b.fight(nearestWave, done, 120, { form: 'balam' })));
+  assert.ok(results.every(Boolean), `la emboscada debería superarse (quedan ${bots[0].snap!.w[4]})`);
+  await sleep(1000);
+
+  // Todos ven lo mismo: mismas bajas, mismo estado, mismo punto de reaparición nuevo
+  for (const b of bots) {
+    assert.equal(b.snap!.w[3], 2);
+    assert.equal(b.snap!.w[5], 1, 'el punto de reaparición pasa al santuario');
+    assert.ok(b.ofType('enc').some((e) => e[1] === 'clear'));
+    assert.equal(b.form(), 1, 'sigue transformado en Balam');
+  }
+  const kills = bots.map((b) => b.ofType('die').filter((e) => e[1] === 'e').map((e) => e[2]).sort().join(','));
+  assert.equal(new Set(kills).size, 1, 'los cuatro recibieron exactamente las mismas bajas');
+  assert.ok(targetsSeen.size >= 2, `los enemigos persiguieron a ${targetsSeen.size} jugador(es) distintos`);
+
   const calls = rewardCalls.slice(before);
   assert.equal(calls.length, 1, 'una sola petición de recompensa');
   assert.equal(calls[0].reward, 'sello_del_claro');
@@ -299,9 +359,99 @@ test('acertijo cooperativo: hacen falta los 4 altares a la vez y la recompensa s
   assert.ok(bots.every((b) => b.events.some((e) => e.e === 'reward' && e.saved === true)));
 
   // Con la puerta abierta se puede entrar al santuario
-  assert.ok(await bots[3].walkTo(19, 0, 8));
+  assert.ok(await bots[3].walkTo(19, 0, 10));
   assert.ok(await bots[3].walkTo(25, 0, 8), 'debería cruzar la puerta abierta');
   bots.forEach((b) => b.close());
+});
+
+test('combate: el servidor decide daño, enfriamientos y energía; el cliente no puede inventarlos', async () => {
+  const room = 'PELEA1';
+  const a = new Bot(randomUUID(), 'Maga');
+  await a.connect(ticket({ id: a.id, room }));
+  await sleep(300);
+  assert.equal(a.foes().length, 4, 'hay 4 enemigos rondando el claro');
+  assert.equal(a.hp(), 100);
+  const foe0 = a.foes().find((f) => f.kind === 1 && f.z > 20)!; // criatura corrompida del sur
+  assert.equal(foe0.hp, 40);
+
+  // Atacar desde lejos no hace nada: garras a 25 m y chispas que no llegan
+  for (let i = 0; i < 20; i++) { a.input(0, 0, { a: 1, r: Math.atan2(foe0.x - a.pos().x, foe0.z - a.pos().z) }); await sleep(33); }
+  await sleep(600);
+  assert.equal(a.foes().find((f) => f.id === foe0.id)!.hp, 40, 'fuera de alcance no hay daño');
+  assert.equal(a.ofType('hit').length, 0);
+
+  // Ráfaga de 80 inputs con el botón de ataque (más sería expulsión por inundación):
+  // el enfriamiento lo lleva el servidor, no el cliente
+  const boltsBefore = a.ofType('bolt').length;
+  const t0 = Date.now();
+  for (let i = 0; i < 80; i++) a.send({ t: 'in', s: ++a.seq, mx: 0, mz: 0, j: 0, f: '', a: 1, r: 0 });
+  await sleep(1200);
+  const fired = a.ofType('bolt').length - boltsBefore;
+  const maxLegit = Math.ceil(((Date.now() - t0) / 1000 + 0.8) / 0.42) + 1;
+  assert.ok(fired >= 1 && fired <= maxLegit, `disparó ${fired} chispas (máximo legítimo ${maxLegit})`);
+
+  // Mensajes inventados de daño/vida/energía: se ignoran
+  a.send({ t: 'hit', target: foe0.id, dmg: 9999 });
+  a.send({ t: 'in', s: ++a.seq, mx: 0, mz: 0, j: 0, f: '', a: 0, r: 0, hp: 9999, energy: 9999, dmg: 9999, cd1: 0 });
+  await sleep(300);
+  assert.equal(a.foes().find((f) => f.id === foe0.id)!.hp, 40);
+  assert.ok(a.hp() <= 100 && a.energy() <= 100);
+
+  // Acercarse y disparar de verdad: 12 de daño ×1.5 contra corrompidas = 18 por chispa
+  const aimAt = (b: Bot) => b.foes().find((f) => f.id === foe0.id);
+  await a.fight(aimAt, () => a.ofType('hit').some((e) => e[1] === 'e' && e[2] === foe0.id), 20, { reach: 9 });
+  const firstHit = a.ofType('hit').find((e) => e[1] === 'e' && e[2] === foe0.id)!;
+  assert.equal(firstHit[3], 18, 'el daño lo calcula el servidor con sus reglas');
+  assert.equal(firstHit[5], a.slot);
+
+  // La esquiva gasta energía y tiene enfriamiento: pulsarla 30 veces sólo esquiva una o dos
+  const dodgesBefore = a.ofType('act').filter((e) => e[2] === 'dodge').length;
+  for (let i = 0; i < 30; i++) { a.input(0, 0, { a: i % 2 ? 2 : 0 }); await sleep(33); }
+  await sleep(300);
+  const dodges = a.ofType('act').filter((e) => e[2] === 'dodge').length - dodgesBefore;
+  assert.ok(dodges >= 1 && dodges <= 2, `esquivó ${dodges} veces en 1 s`);
+  assert.ok(a.energy() < 100, 'la esquiva consume energía');
+
+  // Debilitada (≤40 %), un alux puede purificarla tocándola: muere "purificada" y cura
+  await a.fight(aimAt, () => { const f = aimAt(a); return !f || f.hp <= 16; }, 20, { reach: 9 });
+  const weak = aimAt(a);
+  if (weak) {
+    const end = Date.now() + 15_000;
+    while (Date.now() < end && aimAt(a)) {
+      const f = aimAt(a)!;
+      const m = a.me()!;
+      const d = Math.hypot(f.x - m[4], f.z - m[6]) || 1;
+      a.input(d > 1.6 ? (f.x - m[4]) / d : 0, d > 1.6 ? (f.z - m[6]) / d : 0, { a: a.seq % 6 === 0 ? 4 : 0 });
+      await sleep(33);
+    }
+    const death = a.ofType('die').find((e) => e[1] === 'e' && e[2] === foe0.id);
+    assert.ok(death, 'la criatura debería caer');
+    assert.equal(death![3], 1, 'cae purificada, no a golpes');
+  }
+  a.close();
+});
+
+test('combate: un jugador que no se defiende cae y reaparece en el punto de control con la vida completa', async () => {
+  const room = 'CAIDA1';
+  const a = new Bot(randomUUID(), 'Quieto');
+  await a.connect(ticket({ id: a.id, room }));
+  await sleep(300);
+  // Se planta junto al guardián de piedra del noroeste y no hace nada
+  assert.ok(await a.walkTo(-17, -13, 14));
+  const fell = await a.fight(() => undefined, () => a.dead(), 40);
+  assert.ok(fell, 'debería caer');
+  assert.equal(a.hp(), 0);
+  assert.ok(a.ofType('hit').some((e) => e[1] === 'p' && e[2] === a.slot && e[3] === 15), 'cada golpe del guardián quita 15');
+  // Caído no puede moverse ni atacar
+  const where = a.pos();
+  for (let i = 0; i < 20; i++) { a.input(1, 0, { a: 1 }); await sleep(33); }
+  assert.ok(Math.hypot(a.pos().x - where.x, a.pos().z - where.z) < 1.5, 'caído no camina');
+  await a.fight(() => undefined, () => !a.dead(), 10);
+  assert.equal(a.dead(), false, 'reaparece');
+  assert.equal(a.hp(), 100);
+  assert.ok(Math.hypot(a.pos().x, a.pos().z - 3.2) < 2.5, `reaparece en la plaza (está en ${a.pos().x.toFixed(1)}, ${a.pos().z.toFixed(1)})`);
+  assert.ok(a.ofType('respawn').some((e) => e[1] === a.slot));
+  a.close();
 });
 
 test('una conexión que deja de enviar se libera sola y el jugador puede volver', async () => {
@@ -312,7 +462,7 @@ test('una conexión que deja de enviar se libera sola y el jugador puede volver'
   // Conexión "muda": se autentica y luego no manda nada (como una red cortada sin cerrar)
   const silent = new WebSocket(`ws://127.0.0.1:${PORT}`);
   await new Promise((r) => (silent.onopen = r));
-  silent.send(JSON.stringify({ t: 'hello', v: 1, ticket: ticket({ id, room, name: 'Muda' }) }));
+  silent.send(JSON.stringify({ t: 'hello', v: 2, ticket: ticket({ id, room, name: 'Muda' }) }));
   await sleep(1000);
   assert.equal(witness.roster.find((r) => r.id === id)?.on, true);
   await sleep(16_000);

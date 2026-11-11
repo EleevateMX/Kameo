@@ -17,8 +17,10 @@ extends Node
 const Sim := preload("res://scripts/shared/sim.gd")
 const World := preload("res://scripts/shared/world_def.gd")
 const Ticket := preload("res://scripts/shared/ticket.gd")
+const Defs := preload("res://scripts/shared/combat_def.gd")
+const Combat := preload("res://scripts/server/combat.gd")
 
-const PROTOCOL := 1
+const PROTOCOL := 2
 const MAX_PLAYERS := 4
 const MAX_ROOMS := 64
 const MAX_CONNS := 300
@@ -60,6 +62,11 @@ class Player:
 	var budget := 0
 	var queue: Array = []
 	var gone_at := -1.0
+	# Combate (sólo el servidor conoce y modifica estos valores)
+	var hp := Defs.MAX_HP
+	var respawn_t := 0.0
+	var invuln_t := 0.0
+	var hurt_at := -99.0
 
 
 class Room:
@@ -71,6 +78,7 @@ class Room:
 	var need := 1
 	var tick := 0
 	var empty_since := -1.0
+	var combat := Combat.new()
 
 
 var _tcp := TCPServer.new()
@@ -271,6 +279,8 @@ func _handle(c: Conn, msg: Dictionary) -> void:
 				"mz": clampf(_num(msg.get("mz")), -1.0, 1.0),
 				"j": 1 if _num(msg.get("j")) != 0.0 else 0,
 				"f": form,
+				"a": clampi(int(_num(msg.get("a"))), 0, 7),
+				"r": wrapf(_num(msg.get("r")), -PI, PI),
 			}
 			p.queued_seq = seq
 			if p.queue.size() >= INPUT_QUEUE_MAX:
@@ -364,8 +374,8 @@ func _handle_hello(c: Conn, msg: Dictionary) -> void:
 
 	_send(c, {
 		"t": "welcome", "v": PROTOCOL, "id": pid, "slot": p.slot, "room": code,
-		"rejoin": rejoin, "unlocked": p.unlocked, "me": p.state.to_array(),
-		"players": _roster(room), "w": _world_state(room), "tick_rate": Sim.TICK_RATE,
+		"rejoin": rejoin, "unlocked": p.unlocked, "me": p.state.to_array(), "hp": int(ceil(p.hp)),
+		"players": _roster(room), "w": _world_state(room), "e": room.combat.snapshot(), "tick_rate": Sim.TICK_RATE,
 	})
 	_broadcast_roster(room)
 	print("[alux] %s %s en %s (%d/%d)" % [p.name, "volvió" if rejoin else "entró", code, room.players.size(), MAX_PLAYERS])
@@ -396,7 +406,9 @@ func _world_state(room: Room) -> Array:
 	for i in room.plates.size():
 		if room.plates[i]:
 			mask |= 1 << i
-	return [1 if room.gate_open else 0, mask, room.need]
+	## [santuarioAbierto, altares, altaresNecesarios, emboscada(0/1/2), enemigosRestantes, puntoDeReaparición, braseroListo]
+	return [1 if room.gate_open else 0, mask, room.need, room.combat.encounter, room.combat.wave_alive(),
+		room.combat.checkpoint, 1 if room.combat.brazier_cd <= 0.0 else 0]
 
 
 # ───────────────────────── Simulación de sala ─────────────────────────
@@ -404,7 +416,8 @@ func _world_state(room: Room) -> Array:
 func _tick_room(room: Room) -> void:
 	room.tick += 1
 	var connected := 0
-	for p in room.players.values():
+	var everyone: Array = room.players.values()
+	for p in everyone:
 		if p.conn_id == 0:
 			continue
 		connected += 1
@@ -412,9 +425,13 @@ func _tick_room(room: Room) -> void:
 		p.budget = mini(p.budget + 1, INPUT_BUDGET_MAX)
 		while p.budget > 0 and not p.queue.is_empty():
 			var inp: Dictionary = p.queue.pop_front()
-			Sim.step(p.state, inp, p.unlocked, room.gate_open)
+			var actions: Array = []
+			Sim.step(p.state, inp, p.unlocked, room.gate_open, actions)
 			p.last_seq = inp.s
 			p.budget -= 1
+			# La simulación sólo dice "intentó atacar"; el combate decide a quién alcanza
+			for ev in actions:
+				room.combat.player_action(p, ev, everyone)
 
 	# Altares de presión: escalan con el número de aluxes conectados (1–4)
 	room.need = clampi(connected, 1, World.PLATES.size())
@@ -436,12 +453,22 @@ func _tick_room(room: Room) -> void:
 		room.gate_open = true
 		_on_gate_open(room)
 
-	if room.tick % SNAP_EVERY == 0 and connected > 0:
+	# Combate: enemigos, proyectiles, vida, reaparición y emboscada
+	if room.combat.tick(everyone, room.gate_open):
+		_on_encounter_clear(room)
+
+	if connected == 0:
+		room.combat.events.clear()
+	elif room.tick % SNAP_EVERY == 0:
 		var ps := []
-		for p in room.players.values():
+		for p in everyone:
 			var a: Array = p.state.to_array()
-			ps.append([p.slot, p.last_seq, 1 if p.conn_id != 0 else 0] + a)
-		_broadcast(room, {"t": "snap", "k": room.tick, "w": _world_state(room), "p": ps})
+			ps.append([p.slot, p.last_seq, 1 if p.conn_id != 0 else 0, int(ceil(p.hp))] + a)
+		_broadcast(room, {
+			"t": "snap", "k": room.tick, "w": _world_state(room), "p": ps,
+			"e": room.combat.snapshot(), "ev": room.combat.events,
+		})
+		room.combat.events = []
 
 
 func _on_gate_open(room: Room) -> void:
@@ -453,6 +480,16 @@ func _on_gate_open(room: Room) -> void:
 			names.append(p.name)
 	print("[alux] Sala %s: santuario abierto por %s" % [room.code, ", ".join(names)])
 	_broadcast(room, {"t": "event", "e": "gate_open", "by": names})
+	# Al abrirse despiertan los guardianes corrompidos: el sello se gana al vencerlos
+	room.combat.start_encounter(ids.size())
+
+
+func _on_encounter_clear(room: Room) -> void:
+	var ids := []
+	for p in room.players.values():
+		if p.conn_id != 0:
+			ids.append(p.id)
+	print("[alux] Sala %s: emboscada superada" % room.code)
 	_grant_reward(room, REWARD_SEAL, ids)
 
 
