@@ -36,6 +36,16 @@ $GODOT_HEAD_INCLUDE
 </div>
 <script src="$GODOT_URL"></script>
 <script>
+// El juego crea su propio contexto de audio; se guarda una referencia para poder informar,
+// en las métricas de la sesión, de si el navegador llegó a dejarlo sonar ("running").
+(() => {
+  const Native = window.AudioContext || window.webkitAudioContext;
+  if (!Native) return;
+  const Wrapped = function (...args) { const ctx = new Native(...args); window.ALUX_AUDIO = ctx; return ctx; };
+  Wrapped.prototype = Native.prototype;
+  window.AudioContext = Wrapped;
+})();
+
 // Configuración que lee el juego (game/scripts/client/game_client.gd)
 const params = new URLSearchParams(location.search);
 const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -77,6 +87,7 @@ if (missing.length) {
       if (total > 0) document.querySelector('#bar > div').style.width = Math.round((current / total) * 100) + '%';
     },
   }).then(() => {
+    ALUX.engineMs = Math.round(performance.now());   // desde que se abrió la página hasta que arrancó el motor
     document.getElementById('loading').classList.add('done');
     document.getElementById('canvas').focus();
   }).catch((err) => {

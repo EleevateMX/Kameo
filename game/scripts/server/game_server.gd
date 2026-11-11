@@ -119,7 +119,7 @@ func _ready() -> void:
 		_service_key = "dev-service-key-no-usar-en-produccion"
 	_server_id = _env("ALUX_SERVER_ID", "local-1")
 
-	var err := _tcp.listen(port)
+	var err := _tcp.listen(port, _env("ALUX_BIND", "*"))
 	if err != OK:
 		push_error("No se pudo abrir el puerto %d (error %d)" % [port, err])
 		get_tree().quit(1)

@@ -124,6 +124,10 @@ var _prev_buttons := 0
 var _net_note_t := 0.0
 var _travelled := 0.0
 
+# Métricas de la sesión (beta): se envían a la API cada minuto y al terminar una ronda
+var _m := {"sid": "", "fps": [], "ping_sum": 0.0, "ping_n": 0, "ping_max": 0.0, "load_ms": -1.0, "seconds": 0.0,
+	"q_changes": 0, "wins": 0, "losses": 0, "falls": 0, "renderer": "", "report_in": 30.0}
+
 
 func _ready() -> void:
 	_is_web = OS.has_feature("web")
@@ -200,6 +204,8 @@ func _prewarm() -> void:
 ## Calidad gráfica: 0 alta · 1 baja · 2 mínima. Se elige con ?q=high|low|min en la dirección
 ## o baja sola si el equipo no llega a 20 FPS (ver _auto_quality).
 func _set_quality(level: int) -> void:
+	if clampi(level, 0, 2) != _quality:
+		_m.q_changes = int(_m.q_changes) + 1
 	_quality = clampi(level, 0, 2)
 	var vp := get_viewport()
 	vp.msaa_3d = Viewport.MSAA_2X if _quality == 0 else Viewport.MSAA_DISABLED
@@ -366,6 +372,7 @@ func _recenter() -> void:
 
 
 func _exit_to_portal() -> void:
+	_metrics_send(true)
 	if _ws:
 		_ws.close()
 	if _is_web:
@@ -597,6 +604,7 @@ func _on_message(m: Dictionary) -> void:
 			else:
 				# Primera entrada de esta sesión: bienvenida con el objetivo y los controles
 				_welcomed = true
+				_metrics_begin()
 				_hud.show_intro()
 				_audio.loop("amb_selva", "Ambience", -4.0)
 				_audio.loop("amb_brasero", "Ambience", -60.0)
@@ -743,8 +751,12 @@ func _on_phase(from: int, to: int, instant: bool) -> void:
 		_stats.secs = _time - float(_stats.t0)
 		_result_kind = "victory"
 		_result_in = 1.6
+		_m.wins = int(_m.wins) + 1
+		_m.report_in = 3.0
 	elif to == 3:
 		_stats.secs = _time - float(_stats.t0)
+		_m.losses = int(_m.losses) + 1
+		_m.report_in = 3.0
 		_result_kind = "defeat"
 		_result_in = 1.0
 	elif to == 0:
@@ -994,6 +1006,7 @@ func _on_combat_event(ev: Array) -> void:
 					Fx.burst(self, av.global_position + Vector3(0, 0.6, 0), av.color, 18, 4.0)
 					Audio.play("caida", av.global_position, -4.0 if int(ev[2]) == _my_slot else -10.0)
 				if int(ev[2]) == _my_slot:
+					_m.falls = int(_m.falls) + 1
 					_respawn_at = _time + (Defs.RESPAWN_TIME_ENCOUNTER if _encounter == 1 else Defs.RESPAWN_TIME)
 				elif av != null and _encounter == 1:
 					_hud.hint("%s ha caído  ·  volverá junto al brasero" % av.player_name, 3.5)
@@ -1379,6 +1392,65 @@ func _auto_quality(delta: float) -> void:
 		_hud.hint("Calidad gráfica reducida para ir más fluido", 5.0)
 
 
+# ───────────────────────── Métricas de sesión ─────────────────────────
+
+func _metrics_begin() -> void:
+	if not _is_web:
+		return
+	_m.sid = str(_js("(self.crypto && crypto.randomUUID) ? crypto.randomUUID() : ''"))
+	_m.load_ms = float(_js("Math.round(performance.now())"))   # desde abrir la página hasta estar dentro de la sala
+	_m.renderer = str(_js("(function(){try{var c=document.createElement('canvas');var g=c.getContext('webgl2')||c.getContext('webgl');" +
+		"var e=g.getExtension('WEBGL_debug_renderer_info');return String(e?g.getParameter(e.UNMASKED_RENDERER_WEBGL):g.getParameter(g.RENDERER))}catch(e){return ''}})()"))
+
+
+## Una muestra por segundo mientras se juega (la llama _update_perf).
+func _metrics_sample() -> void:
+	if _net != Net.PLAYING or str(_m.sid).is_empty():
+		return
+	_m.seconds = float(_m.seconds) + 1.0
+	var fps: Array = _m.fps
+	if fps.size() < 7200:
+		fps.append(Engine.get_frames_per_second())
+	if _ping_ms >= 0.0:
+		_m.ping_sum = float(_m.ping_sum) + _ping_ms
+		_m.ping_n = int(_m.ping_n) + 1
+		_m.ping_max = maxf(float(_m.ping_max), _ping_ms)
+	_m.report_in = float(_m.report_in) - 1.0
+	if float(_m.report_in) <= 0.0:
+		_m.report_in = 60.0
+		_metrics_send(false)
+
+
+## Envía el resumen de la sesión a la API (una fila por sesión, que se va actualizando).
+func _metrics_send(final: bool) -> void:
+	if not _is_web or str(_m.sid).is_empty():
+		return
+	var fps: Array = (_m.fps as Array).duplicate()
+	if fps.is_empty():
+		return
+	fps.sort()
+	var sum := 0.0
+	for f in fps:
+		sum += float(f)
+	var body := {
+		"sid": _m.sid, "room": _room, "quality": ["high", "low", "min"][_quality], "qualityAuto": not _quality_locked,
+		"qualityChanges": _m.q_changes,
+		"fpsAvg": snappedf(sum / float(fps.size()), 0.1), "fpsMin": fps[int(float(fps.size()) * 0.05)],   # percentil 5
+		"pingAvg": snappedf(float(_m.ping_sum) / float(_m.ping_n), 0.1) if int(_m.ping_n) > 0 else null,
+		"pingMax": snappedf(float(_m.ping_max), 0.1) if int(_m.ping_n) > 0 else null,
+		"loadMs": _m.load_ms, "seconds": _m.seconds,
+		"heapMb": _perf_stats().heap, "memMb": _perf_stats().mem,
+		"rejoins": _rejoins, "wins": _m.wins, "losses": _m.losses, "falls": _m.falls, "players": _connected,
+		"renderer": _m.renderer, "build": Hud.BUILD, "final": final,
+		"audio": {"master": _settings.vol_master, "music": _settings.vol_music, "sfx": _settings.vol_sfx, "amb": _settings.vol_amb},
+	}
+	# El navegador añade resolución y estado del audio; keepalive deja terminar el envío al salir de la página
+	_js("(function(b){try{b.viewport=innerWidth+'x'+innerHeight;b.dpr=devicePixelRatio||1;" +
+		"b.audio.context=(window.ALUX_AUDIO&&ALUX_AUDIO.state)||'';" +
+		"fetch('/api/v1/telemetry',{method:'POST',keepalive:true,credentials:'same-origin'," +
+		"headers:{'content-type':'application/json','x-alux-csrf':'1'},body:JSON.stringify(b)}).catch(function(){})}catch(e){}})(%s)" % JSON.stringify(body))
+
+
 func _update_perf(delta: float) -> void:
 	_auto_quality(delta)
 	_perf_in -= delta
@@ -1387,6 +1459,7 @@ func _update_perf(delta: float) -> void:
 	_snap_rate = float(_snaps)
 	_snaps = 0
 	_perf_in = 1.0
+	_metrics_sample()
 	if _perf_on:
 		var s := _perf_stats()
 		_hud.set_perf("%d FPS · ping %s ms · %s estados/s\n%d dibujados · %d enemigos · memoria %s MB%s" % [
@@ -1428,5 +1501,6 @@ func _debug_export(delta: float) -> void:
 			"objective": _hud.objective_text(), "captured": Input.mouse_mode == Input.MOUSE_MODE_CAPTURED},
 		"votes": _votes, "connected": _connected, "lock": _lock, "voted": _voted,
 		"stats": _stats, "audio": _audio.loaded(), "music": _audio.music(), "settings": _settings,
+		"metrics": {"sid": _m.sid, "seconds": _m.seconds, "samples": (_m.fps as Array).size(), "loadMs": _m.load_ms},
 	}
 	_js("window.__aluxState = %s" % JSON.stringify(state))
