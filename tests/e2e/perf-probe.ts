@@ -9,10 +9,16 @@ await page.click('text=Crear sala privada');
 const code = (await page.textContent('.room-code'))!.trim();
 await page.goto(`${BASE}/game/index.html?room=${code}&debug=1${extra}`);
 await waitFor('jugando', async () => (await state(page))?.net === 'PLAYING', 240_000);
+// Fija el nivel pedido: sin esto, en equipos lentos «low» baja solo a «min» y se mediría otra cosa.
+const q = /q=(high|low|min)/.exec(extra)?.[1];
+if (q) {
+  await page.evaluate((v) => { (window as any).ALUX_SET_QUALITY = v; }, q);
+  await waitFor('calidad fijada', async () => (await state(page))?.quality === q, 120_000);
+}
 await sleep(8000);
 const a = (await state(page))!; const t0 = Date.now();
 await sleep(15000);
 const b = (await state(page))!; const secs = (Date.now() - t0) / 1000;
-console.log(`${w}x${h}${extra} · ${((b.frames - a.frames) / secs).toFixed(2)} FPS reales · glb=${b.glb} · dibujados=${b.perf.draws} · triángulos=${(b.perf as any).tris} · objetos=${(b.perf as any).objects} · ping=${b.perf.ping} ms · JS ${b.perf.heap} MB`);
+console.log(`${w}x${h}${extra} · ${((b.frames - a.frames) / secs).toFixed(2)} FPS reales · calidad=${(b as any).quality} · glb=${b.glb} · dibujados=${b.perf.draws} · triángulos=${(b.perf as any).tris} · objetos=${(b.perf as any).objects} · ping=${b.perf.ping} ms · JS ${b.perf.heap} MB`);
 await browser.close();
 process.exit(0);

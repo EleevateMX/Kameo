@@ -17,9 +17,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import kameo_common as kc  # noqa: E402  (importa bpy antes que mathutils)
+import alux_common as kc  # noqa: E402  (importa bpy antes que mathutils)
 from mathutils import Matrix, Vector  # noqa: E402
-from kameo_common import (C, K, L, WHITE, Loft, MeshBuilder, Rig, add_pose, blend_pose, both,  # noqa: E402
+from alux_common import (C, K, L, WHITE, Loft, MeshBuilder, Rig, add_pose, blend_pose, both,  # noqa: E402
                           bump, mixc, mulc, ngon, pose_keys, scale_pose, squash)
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))

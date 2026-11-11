@@ -8,7 +8,7 @@ reproducible: los `.glb` salen idénticos, byte a byte, cada vez que se ejecutan
 | --- | --- |
 | `blender/build_alux.py` | Genera `game/assets/characters/alux.glb` (el alux y sus cuatro tocados). |
 | `blender/build_balam.py` | Genera `game/assets/characters/balam.glb` (Balam, el jaguar). |
-| `blender/kameo_common.py` | Utilidades: mallas, dibujos recortados en la superficie, oclusión, esqueleto, cinemática inversa, horneado de animaciones, exportación, renders. |
+| `blender/alux_common.py` | Utilidades: mallas, dibujos recortados en la superficie, oclusión, esqueleto, cinemática inversa, horneado de animaciones, exportación, renders. |
 | `blender/render_previews.py` | Renders de vista previa en `previews/` y retratos del HUD en `game/assets/ui/`. |
 | `godot/check_characters.gd` | Comprobación sin ventana de lo que Godot importa. |
 | `godot/render_check.gd` | Capturas con el renderer real de Godot (bajo `xvfb`). |
