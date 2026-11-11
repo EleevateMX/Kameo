@@ -59,6 +59,9 @@ var _seq := 0
 var _want_form := ""
 var _hp := Defs.MAX_HP
 var _team_hp := {}
+var _team := {}             # slot -> {hp, dead, form} para el panel de grupo
+var _brazier_ready := true
+var _hint_in := 0.0
 var _mouse_l := false
 var _mouse_r := false
 
@@ -138,6 +141,7 @@ func _prewarm() -> void:
 	Fx.burst(self, at, Color(1, 1, 1), 2, 0.5, 0.01, 0.5)
 	Fx.number(self, at, " ", Color(1, 1, 1, 0.02))
 	Fx.telegraph(self, at, 0.2, 0.5)
+	Fx.pillar(self, at, Color(1, 1, 1, 0.02), 0.3, 0.1, 0.5)
 	var temp: Array[Node3D] = [Fx.make_bolt(self, JADE)]
 	for kind in Defs.ENEMY_IDS:
 		var v := EnemyView.new()
@@ -171,17 +175,14 @@ func _set_quality(low: bool) -> void:
 	var vp := get_viewport()
 	vp.msaa_3d = Viewport.MSAA_DISABLED if low else Viewport.MSAA_2X
 	vp.scaling_3d_scale = 0.6 if low else 1.0
-	_builder.sun.shadow_enabled = not low
-	_builder.env.glow_enabled = not low
-	_builder.fireflies.emitting = not low
-	_builder.fireflies.visible = not low
+	_builder.set_quality(low)
 
 
 func _setup_input() -> void:
 	var keys := {
 		"fwd": [KEY_W, KEY_UP], "back": [KEY_S, KEY_DOWN], "left": [KEY_A, KEY_LEFT], "right": [KEY_D, KEY_RIGHT],
 		"jump": [KEY_SPACE], "form1": [KEY_1], "form2": [KEY_2], "cam_l": [KEY_Q], "cam_r": [KEY_E],
-		"atk1": [KEY_J], "atk2": [KEY_K], "atk3": [KEY_F, KEY_L], "perf": [KEY_F3],
+		"atk1": [KEY_J], "atk2": [KEY_K], "atk3": [KEY_F, KEY_L], "perf": [KEY_F3], "help": [KEY_H],
 	}
 	for action in keys:
 		if not InputMap.has_action(action):
@@ -220,6 +221,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_want_form = "balam"
 	elif event.is_action_pressed("perf"):
 		_perf_on = _hud.toggle_perf()
+	elif event.is_action_pressed("help"):
+		_hud.toggle_help()
 
 
 # ───────────────────────── Red ─────────────────────────
@@ -362,7 +365,8 @@ func _on_message(m: Dictionary) -> void:
 				_rejoins += 1
 				_hud.banner("Conexión recuperada", Color(0.6, 1.0, 0.85), 2.5)
 			else:
-				_hud.banner("Bienvenido al Claro de los Aluxes", Color(0.6, 1.0, 0.85))
+				_hud.banner("El Claro de los Aluxes", Color(0.6, 1.0, 0.85))
+				_hud.hint("Clic para mirar con el ratón  ·  H muestra los controles", 12.0)
 			_net = Net.PLAYING
 		"roster":
 			_set_roster(m.players)
@@ -416,7 +420,7 @@ func _set_roster(players: Array) -> void:
 			_avatars.erase(slot)
 			_remote.erase(slot)
 	_hud.set_roster(players, _my_id)
-	_hud.set_team_hp(_team_hp)
+	_hud.set_team(_team)
 
 
 func _apply_world(w: Array, instant := false) -> void:
@@ -438,10 +442,11 @@ func _apply_world(w: Array, instant := false) -> void:
 	for i in World.PLATES.size():
 		if (_plates_mask & (1 << i)) != 0:
 			pressed += 1
+	_brazier_ready = w.size() <= 6 or int(w[6]) != 0
 	if _encounter == 1:
-		_hud.set_objective("¡Emboscada! Quedan %d guardianes corrompidos" % _wave_left)
+		_hud.set_objective("¡Emboscada!  Quedan %d guardianes corrompidos" % _wave_left, "alert")
 	elif _encounter == 2:
-		_hud.set_objective("Santuario liberado · Explora el claro")
+		_hud.set_objective("Santuario liberado  ·  Explora el claro", "success")
 	else:
 		_hud.set_objective("Pisen %d altar%s al mismo tiempo para abrir el santuario  (%d/%d)" % [
 			_need, "" if _need == 1 else "es", pressed, _need])
@@ -473,9 +478,11 @@ func _on_snapshot(m: Dictionary) -> void:
 		var slot := int(p[0])
 		var state: Array = p.slice(4)
 		_team_hp[slot] = float(p[3])
+		var fallen := (int(state[7]) & 8) != 0
+		_team[slot] = {"hp": float(p[3]), "dead": fallen, "form": Sim.FORM_IDS[clampi(int(state[5]), 0, Sim.FORM_IDS.size() - 1)]}
 		var av: Avatar = _avatars.get(slot)
 		if av != null:
-			av.set_dead((int(state[7]) & 8) != 0)
+			av.set_dead(fallen)
 		if slot == _my_slot:
 			_hp = float(p[3])
 			# Se reconcilia una sola vez por cuadro, con el estado más reciente (ver _poll_net)
@@ -487,7 +494,7 @@ func _on_snapshot(m: Dictionary) -> void:
 				"form": Sim.FORM_IDS[clampi(int(state[5]), 0, Sim.FORM_IDS.size() - 1)], "flags": int(state[7])})
 			while buf.size() > 12:
 				buf.pop_front()
-	_hud.set_team_hp(_team_hp)
+	_hud.set_team(_team)
 	_apply_enemies(m.get("e", []))
 	for ev in m.get("ev", []):
 		_on_combat_event(ev)
@@ -518,6 +525,7 @@ func _on_event(m: Dictionary) -> void:
 				_hud.banner("Sello del Claro (no se pudo guardar el progreso)", Color(1, 0.6, 0.5), 5.0)
 			elif bool(m.get("new", false)):
 				_hud.banner("Obtuviste el Sello del Claro", GOLD, 6.0)
+				_hud.toast("Sello del Claro\nguardado en tu perfil")
 			else:
 				_hud.banner("Ya tenías el Sello del Claro", Color(1, 1, 1, 0.9), 4.0)
 
@@ -539,7 +547,7 @@ func _show_action(slot: int, kind: String, yaw: float, power: float) -> void:
 	match kind:
 		"claw":
 			var ab: Dictionary = Defs.FORMS.balam.primary
-			Fx.slash(self, pos + Vector3(0, 0.8, 0), yaw, ab.range, ab.arc, Color(1.0, 0.75, 0.3))
+			Fx.claws(self, pos + Vector3(0, 0.8, 0), yaw, ab.range, ab.arc, Color(1.0, 0.75, 0.3))
 		"charged":
 			var ab: Dictionary = Defs.FORMS.balam.secondary
 			Fx.slash(self, pos + Vector3(0, 0.8, 0), yaw, ab.range * (1.0 + 0.2 * power), ab.arc, Color(1.0, 0.45, 0.15), 0.32)
@@ -590,6 +598,8 @@ func _on_combat_event(ev: Array) -> void:
 				_bolts[id].node.queue_free()
 				_bolts.erase(id)
 			Fx.burst(self, Vector3(ev[2], ev[3], ev[4]), JADE, 12 if int(ev[5]) != 0 else 5, 3.5, 0.06, 0.35)
+			if int(ev[5]) != 0:
+				Fx.ring(self, Vector3(ev[2], float(ev[3]) - 0.5, ev[4]), 1.1, JADE, 0.3)
 		"hit":
 			var tally: Dictionary = _seen_enemy_dmg if str(ev[1]) == "e" else _seen_player_dmg
 			var key := str(int(ev[2]))
@@ -627,11 +637,16 @@ func _on_combat_event(ev: Array) -> void:
 			if av != null:
 				av.set_dead(false)
 			var c: Vector2 = Defs.CHECKPOINTS[clampi(1 if _encounter == 2 else 0, 0, 1)]
-			Fx.ring(self, Vector3(c.x, World.terrain_h(c.x, c.y), c.y), 2.4, JADE, 0.6)
+			var at := Vector3(c.x, World.terrain_h(c.x, c.y), c.y)
+			Fx.ring(self, at, 2.4, JADE, 0.6)
+			Fx.pillar(self, at, JADE, 8.0, 1.4, 0.8)
 			if int(ev[1]) == _my_slot:
 				_hud.banner("De vuelta en el punto de control", Color(0.6, 1.0, 0.85), 2.5)
 		"heal":
 			Fx.number(self, _avatar_pos(int(ev[1])) + Vector3(0, 1.9, 0), "+%d" % int(ev[2]), Color(0.5, 1.0, 0.6))
+			Fx.heal(self, _avatar_pos(int(ev[1])))
+			if int(ev[1]) == _my_slot:
+				_hud.healed()
 		"evade":
 			Fx.number(self, _avatar_pos(int(ev[1])) + Vector3(0, 1.9, 0), "¡Esquiva!", Color(0.6, 0.95, 1.0))
 		"eatk":
@@ -750,6 +765,8 @@ func _process(delta: float) -> void:
 			float(_pred.cd3) / float(Sim.ticks(form.special.cd)),
 		], _pred.energy, float(_pred.charge_t) / float(Sim.ticks(Defs.FORMS.balam.secondary.max_t)))
 		_hud.set_death(_pred.dead)
+		_hud.set_compass(_cam_yaw, me.global_position)
+		_update_hints(delta)
 
 	# Los demás: interpolados un poco en el pasado entre estados del servidor
 	var render_t := _time - INTERP_DELAY
@@ -781,24 +798,36 @@ func _process(delta: float) -> void:
 			_bolts.erase(id)
 	_local_bolts = _local_bolts.filter(func(b: Dictionary) -> bool: return _advance_bolt(b, delta))
 
-	# Puerta y sello del santuario, glifo
+	# Puerta y sello del santuario, glifo, fuego
 	if _gate_open and _gate_anim < 1.0:
 		_gate_anim = minf(1.0, _gate_anim + delta * 0.8)
-	if _builder.gate_bars:
-		var base_y := World.terrain_h(World.SANCTUARY.x - 6.0, World.SANCTUARY.y)
-		_builder.gate_bars.position.y = base_y - _gate_anim * 3.6
-		_builder.gate_bars.visible = _gate_anim < 1.0
-		_builder.gate_light.light_energy = 1.8 * (1.0 - _gate_anim)
-	if _builder.seal_veil:
-		_builder.seal_veil.visible = _gate_anim < 1.0
-		_builder.seal_mat.albedo_color.a = 0.16 * (1.0 - _gate_anim) * (0.8 + 0.2 * sin(_time * 2.0))
-	if _builder.glyph:
-		_builder.glyph.rotation.y += delta * 1.2
-		_builder.glyph.position.y += sin(_time * 2.0) * delta * 0.25
+	_builder.update(_time, delta, _gate_anim)
 
 	_update_camera()
 	_update_perf(delta)
 	_debug_export(delta)
+
+
+## Consejos contextuales: qué se puede tocar aquí y con qué forma.
+func _update_hints(delta: float) -> void:
+	_hint_in -= delta
+	if _hint_in > 0.0:
+		return
+	_hint_in = 0.25
+	var here := Vector2(_pred.pos.x, _pred.pos.z)
+	var text := ""
+	if not _pred.dead:
+		var can_touch := _pred.form == "alux"
+		for id in _enemies:
+			var v: EnemyView = _enemies[id]
+			var purify_at: float = Defs.ENEMIES[v.kind].purify_at
+			if v.dying or purify_at <= 0.0 or v.hp > v.max_hp * purify_at:
+				continue
+			if Vector2(v.global_position.x - here.x, v.global_position.z - here.y).length() < 3.6:
+				text = "F  ·  Purificar a la criatura" if can_touch else "1  ·  Vuelve a ser alux para purificarla"
+		if text.is_empty() and _brazier_ready and _hp < Defs.MAX_HP - 1.0 and (here - Defs.BRAZIER).length() < Defs.BRAZIER_RANGE:
+			text = "F  ·  Tocar el brasero para curar al grupo" if can_touch else "1  ·  Vuelve a ser alux para tocar el brasero"
+	_hud.context_hint(text)
 
 
 func _advance_bolt(b: Dictionary, delta: float) -> bool:
@@ -834,6 +863,8 @@ func _perf_stats() -> Dictionary:
 		"fps": Engine.get_frames_per_second(), "ping": snappedf(_ping_ms, 0.1), "snaps": snappedf(_snap_rate, 0.1),
 		"mem": snappedf(mem, 0.1), "heap": snappedf(heap, 0.1),
 		"draws": RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
+		"tris": RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME),
+		"objects": RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME),
 		"enemies": _enemies.size(), "pending": _pending.size(),
 	}
 

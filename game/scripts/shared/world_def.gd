@@ -11,6 +11,10 @@ const PYRAMID := Vector2(0.0, -27.0)
 const SANCTUARY := Vector2(28.0, 0.0)
 const LEDGE := Vector2(12.0, 21.0)
 const PLATE_R := 1.4
+const STAIR_W := 3.2
+const CEIBA := Vector2(-28.0, 3.0)
+## Piedras señaleras (una por altar, en el mismo orden que PLATES)
+const PLATE_MARKERS: Array[Vector2] = [Vector2(-3.4, -16.4), Vector2(-12.2, 4.6), Vector2(5.6, 17.0), Vector2(19.7, -5.6)]
 const GATE_ID := "gate"
 
 const SPAWNS: Array[Vector2] = [
@@ -69,6 +73,12 @@ static func _ensure() -> void:
 	for i in sizes.size():
 		_add_box("pyr%d" % i, PYRAMID.x, PYRAMID.y, sizes[i], sizes[i], float(i + 1), "pyramid")
 
+	# Escalinata central (cara sur): dos peldaños de 1/3 m por nivel; se sube caminando
+	for i in sizes.size():
+		var front: float = PYRAMID.y + sizes[i] * 0.5
+		_add_box("stair%da" % i, PYRAMID.x, front + 0.6, STAIR_W, 1.2, float(i) + 1.0 / 3.0, "stair")
+		_add_box("stair%db" % i, PYRAMID.x, front + 0.3, STAIR_W, 0.6, float(i) + 2.0 / 3.0, "stair")
+
 	# Santuario: muros + puerta sellada
 	var sx := SANCTUARY.x
 	var sz := SANCTUARY.y
@@ -101,12 +111,21 @@ static func _ensure() -> void:
 		_cyls.append({"x": cos(a) * 8.5, "z": sin(a) * 8.5, "r": 0.55, "h": 3.4, "kind": "pillar"})
 
 	# Brasero de la plaza (sólido; además cura y es punto de reaparición)
-	_cyls.append({"x": 0.0, "z": 0.0, "r": 0.95, "h": 1.0, "kind": "brazier"})
+	_cyls.append({"x": 0.0, "z": 0.0, "r": 1.15, "h": 1.0, "kind": "brazier"})
+
+	# Gran ceiba junto al cenote: punto de referencia del claro
+	_cyls.append({"x": CEIBA.x, "z": CEIBA.y, "r": 1.5, "h": 12.0, "kind": "ceiba"})
+
+	# Piedra señalera de cada altar
+	for i in PLATE_MARKERS.size():
+		var m: Vector2 = PLATE_MARKERS[i]
+		_cyls.append({"x": m.x, "z": m.y, "r": 0.42, "h": 2.2, "kind": "marker", "i": i})
 
 	# Árboles (generador propio para que sea idéntico en todas las plataformas)
 	var seed_v := 20261109
 	var tries := 0
-	while _cyls.size() < 75 and tries < 900:
+	var trees := 0
+	while trees < 70 and tries < 900:
 		tries += 1
 		seed_v = (seed_v * 1103515245 + 12345) % 2147483648
 		var ang := float(seed_v) / 2147483648.0 * TAU
@@ -118,7 +137,12 @@ static func _ensure() -> void:
 		var tz := sin(ang) * rad
 		if _tree_blocked(tx, tz):
 			continue
-		_cyls.append({"x": tx, "z": tz, "r": 0.45 * scale, "h": 5.0 * scale, "kind": "tree", "s": scale})
+		# variante visual: 0 y 1 frondosos, 2 palma (más frecuentes cerca del cenote)
+		var variant := trees % 3
+		if variant == 2 and Vector2(tx - CENOTE.x, tz - CENOTE.y).length() > 30.0 and trees % 2 == 0:
+			variant = 0
+		_cyls.append({"x": tx, "z": tz, "r": 0.45 * scale, "h": 5.0 * scale, "kind": "tree", "s": scale, "v": variant})
+		trees += 1
 	_build_grid()
 
 
@@ -132,6 +156,8 @@ static func _tree_blocked(x: float, z: float) -> bool:
 	if absf(x - SANCTUARY.x + 9.0) < 6.0 and absf(z - SANCTUARY.y) < 4.0:
 		return true  # camino hacia la puerta
 	if Vector2(x - LEDGE.x, z - LEDGE.y).length() < 6.5:
+		return true
+	if Vector2(x - CEIBA.x, z - CEIBA.y).length() < 8.0:
 		return true
 	for p in PLATES:
 		if Vector2(x - p.x, z - p.y).length() < 3.5:
