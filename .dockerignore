@@ -1,0 +1,11 @@
+.git
+.tools
+node_modules
+**/node_modules
+apps/portal/.next
+apps/portal/public/game
+apps/api/data
+tests/e2e/screenshots
+art/previews
+.env
+*.log

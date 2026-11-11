@@ -1,7 +1,9 @@
 # Despliegue de una beta
 
-> Los Dockerfile y el Compose están escritos pero **no se han probado en un servidor real**.
-> Trátalos como punto de partida y verifica cada paso.
+> **Probado en una sola máquina** con `scripts/test-deploy.sh` (ver más abajo): imágenes, proxy
+> HTTPS/WSS, portal, API, servidor de juego y PostgreSQL en contenedor.
+> **No probado todavía:** un VPS real, un dominio con certificado de Let's Encrypt, Supabase como
+> base de datos y el inicio de sesión real con Discord.
 
 ## Qué necesitas
 
@@ -22,6 +24,30 @@ docker compose -f infra/docker/docker-compose.yml --env-file .env up -d --build
 ```
 
 3. Abre `https://TU-DOMINIO`. Caddy obtiene el certificado HTTPS automáticamente.
+
+## Probar el despliegue en tu máquina
+
+```bash
+scripts/test-deploy.sh
+```
+
+Construye las tres imágenes, levanta todo con `DOMAIN=localhost` (Caddy usa su certificado interno) y
+un PostgreSQL en contenedor con la migración aplicada, y ejecuta `tests/deploy-check.ts`, que comprueba:
+
+1. el portal responde por HTTPS;
+2. las rutas `/internal/*` no son accesibles desde fuera;
+3. sesión con cookie `Secure`, y el perfil se guarda y se lee de la base de datos;
+4. se crea una sala y la API entrega un ticket con dirección `wss://`;
+5. el juego acepta la conexión WebSocket segura a través del proxy;
+6. el servidor de juego informa a la API (la sala muestra al jugador).
+
+Con `KEEP=1` deja los contenedores arriba en `https://localhost`. La misma comprobación sirve contra un
+servidor real: `npx tsx tests/deploy-check.ts https://tu-dominio` (necesita la entrada de prueba activada).
+
+### Detrás de un proxy corporativo
+
+Si la red inspecciona HTTPS, copia el certificado raíz en `infra/docker/certs/` (extensión `.crt`);
+los Dockerfile lo instalan antes de descargar nada.
 
 ## Qué queda expuesto
 

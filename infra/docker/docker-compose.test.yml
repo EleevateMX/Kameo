@@ -1,0 +1,29 @@
+# Complemento para PROBAR el despliegue en una sola máquina, sin Supabase ni dominio real:
+#   - PostgreSQL en un contenedor (con la migración aplicada al arrancar)
+#   - DOMAIN=localhost → Caddy usa su certificado interno
+#   - entrada de prueba activada (sin Discord)
+# Uso: scripts/test-deploy.sh
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: alux
+      POSTGRES_PASSWORD: alux-prueba-local
+      POSTGRES_DB: alux
+    volumes:
+      - ../../supabase/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alux -d alux"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      PGSSLMODE: disable
+
+  portal:
+    environment:
+      ALLOW_DEV_LOGIN: "true"

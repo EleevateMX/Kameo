@@ -3,8 +3,11 @@
 #   docker build -f services/game-server/Dockerfile -t alux-game .
 FROM debian:bookworm-slim
 ARG GODOT_VERSION=4.5.1
+# Certificados raíz extra (sólo si hay un proxy que inspecciona HTTPS; ver infra/docker/certs)
+COPY infra/docker/certs/ /usr/local/share/ca-certificates/extra/
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl unzip libfontconfig1 \
+ && update-ca-certificates \
  && curl -fL -o /tmp/godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip" \
  && unzip -q /tmp/godot.zip -d /opt \
  && mv "/opt/Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot \
