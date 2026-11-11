@@ -8,3 +8,12 @@ apps/portal/public/game/
 apps/api/data/
 *.log
 tests/e2e/screenshots/
+infra/docker/certs/*.crt
+.env.deploy-test
+# Vistas previas del arte: sólo se versionan las hojas de contacto y unas pocas de referencia
+art/previews/*
+!art/previews/*_hoja.png
+!art/previews/godot_validacion.png
+!art/previews/alux_01_frente34_palma.png
+!art/previews/alux_06_cara_cabello.png
+!art/previews/balam_05_cara.png
