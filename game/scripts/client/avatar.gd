@@ -41,6 +41,9 @@ var _act_dur := 0.0
 var _hold := ""              # animación que se mantiene (carga, salto ofensivo)
 var _morph := 1.0
 var _loco := ""
+var _squash := 0.0
+var _was_grounded := true
+var _speed := 0.0
 
 
 func setup(p_name: String, color_hex: String, p_hat: int) -> void:
@@ -138,11 +141,15 @@ func set_form(f: String, with_effect := true) -> void:
 	_loco = ""
 	_apply()
 	if with_effect:
-		# Animación de transformación: el modelo nuevo brota girando entre chispas
+		# Transformación: el modelo nuevo brota girando dentro de una columna de luz
 		_morph = 0.0
-		var gold := Color(1.0, 0.82, 0.3)
-		Fx.burst(get_parent(), global_position + Vector3(0, 0.8, 0), gold if form == "balam" else color.lightened(0.3), 28, 4.5, 0.08, 0.7)
-		Fx.ring(get_parent(), global_position, 2.2, gold if form == "balam" else EYE, 0.45)
+		var gold := Color(1.0, 0.72, 0.25)
+		Fx.transform_burst(get_parent(), global_position, gold if form == "balam" else EYE, color.lightened(0.25))
+		if _players.has(form) and (_players[form] as AnimationPlayer).has_animation("Transform"):
+			(_players[form] as AnimationPlayer).play("Transform", 0.0)
+			_act = "transform"
+			_act_t = 0.0
+			_act_dur = (_players[form] as AnimationPlayer).get_animation("Transform").length
 
 
 func set_online(on: bool) -> void:
@@ -228,14 +235,23 @@ func animate(delta: float, grounded: bool, swim: bool) -> void:
 	if model == null:
 		return
 
+	# Estirar al despegar y aplastar al caer (se recupera solo)
+	if grounded != _was_grounded and not swim:
+		_squash = -0.2 if grounded else 0.16
+		if grounded:
+			_play_glb_once("Land")
+	_was_grounded = grounded
+	_squash = lerpf(_squash, 0.0, minf(1.0, delta * 9.0))
+	var stretch := Vector3(1.0 - _squash * 0.5, 1.0 + _squash, 1.0 - _squash * 0.5)
+
 	# Transformación: el modelo crece girando
 	if _morph < 1.0:
-		_morph = minf(1.0, _morph + delta / 0.32)
+		_morph = minf(1.0, _morph + delta / 0.36)
 		var k := 1.0 - pow(1.0 - _morph, 3.0)
-		model.scale = Vector3.ONE * (0.25 + 0.75 * k + sin(_morph * PI) * 0.18)
-		model.rotation.y = (1.0 - k) * TAU
+		model.scale = stretch * (0.2 + 0.8 * k + sin(_morph * PI) * 0.22)
+		model.rotation.y = (1.0 - k) * TAU * 1.5
 	else:
-		model.scale = Vector3.ONE
+		model.scale = stretch
 		model.rotation.y = 0.0
 
 	if _players.has(form):
@@ -308,6 +324,20 @@ func animate(delta: float, grounded: bool, swim: bool) -> void:
 			_balam_legs[i].rotation.x = r
 		if _balam_tail:
 			_balam_tail.rotation.y = sin(Time.get_ticks_msec() * 0.004) * 0.4
+
+
+## Reproduce una animación corta del .glb si existe (aterrizaje, impacto…).
+func _play_glb_once(anim: String) -> void:
+	if dead or not _players.has(form) or _hold != "":
+		return
+	var ap: AnimationPlayer = _players[form]
+	if not ap.has_animation(anim) or (_act != "" and _act != "land"):
+		return
+	ap.play(anim, 0.04)
+	_act = "land"
+	_act_t = 0.0
+	_act_dur = ap.get_animation(anim).length
+	_loco = ""
 
 
 func _animate_glb(ap: AnimationPlayer, moving: bool, grounded: bool, swim: bool) -> void:

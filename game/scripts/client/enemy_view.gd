@@ -215,9 +215,11 @@ static func _sphere(r: float, squash := 1.0) -> SphereMesh:
 ## Guardián pequeño de piedra: bloques tallados con musgo, glifo y ojos de ámbar.
 func _build_piedra() -> Node3D:
 	var root := Node3D.new()
-	var stone := Avatar.mat(Color(0.56, 0.54, 0.5), 0.0, 1.0)
-	var dark := Avatar.mat(Color(0.38, 0.37, 0.36), 0.0, 1.0)
-	var moss := Avatar.mat(Color(0.3, 0.5, 0.25), 0.0, 1.0)
+	# misma caliza tallada que las ruinas del claro, con vetas de corrupción magenta
+	var stone := Avatar.mat(Color(0.8, 0.74, 0.6), 0.0, 1.0)
+	var dark := Avatar.mat(Color(0.56, 0.52, 0.44), 0.0, 1.0)
+	var moss := Avatar.mat(Color(0.36, 0.58, 0.27), 0.0, 1.0)
+	var vein := Avatar.mat(Color(0.98, 0.2, 0.6), 1.6, 0.4)
 	_eye_mat = Avatar.mat(Color(1.0, 0.62, 0.15), 1.8, 0.3)
 	var box := BoxMesh.new()
 	box.size = Vector3(1.0, 1.0, 1.0)
@@ -233,6 +235,8 @@ func _build_piedra() -> Node3D:
 	root.add_child(Avatar.part(box, dark, Vector3(0, 1.08, 0.37), Vector3.ZERO, Vector3(0.34, 0.05, 0.04)))
 	for i in 3:
 		root.add_child(Avatar.part(box, _eye_mat, Vector3(-0.2 + 0.2 * i, 0.68, 0.42), Vector3(0, 0, 0.78), Vector3(0.1, 0.1, 0.03)))
+	for v in [[Vector3(0.36, 0.5, 0.41), 0.5], [Vector3(-0.4, 0.84, 0.41), -0.7], [Vector3(0.2, 1.44, 0.32), 1.1]]:
+		root.add_child(Avatar.part(box, vein, v[0], Vector3(0, 0, v[1]), Vector3(0.3, 0.045, 0.03)))
 	# brazos con puños
 	for side in [1.0, -1.0]:
 		var pivot := Node3D.new()

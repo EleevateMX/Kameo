@@ -175,3 +175,128 @@ static func make_bolt(parent: Node, color: Color) -> Node3D:
 	root.add_child(trail)
 	parent.add_child(root)
 	return root
+
+
+## Curación: motas verdes que suben y un aro suave.
+static func heal(parent: Node, pos: Vector3) -> void:
+	ring(parent, pos, 1.3, Color(0.45, 1.0, 0.6), 0.5)
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 0.6
+	p.amount = 16
+	p.lifetime = 0.9
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 0.5
+	p.direction = Vector3.UP
+	p.spread = 12.0
+	p.initial_velocity_min = 1.2
+	p.initial_velocity_max = 2.4
+	p.gravity = Vector3(0, 0.5, 0)
+	p.scale_amount_min = 0.5
+	p.scale_amount_max = 1.2
+	var m := SphereMesh.new()
+	m.radius = 0.06
+	m.height = 0.12
+	m.radial_segments = 6
+	m.rings = 3
+	m.material = glow_mat(Color(0.55, 1.0, 0.65))
+	p.mesh = m
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	p.position = pos + Vector3(0, 0.3, 0)
+	parent.add_child(p)
+	p.emitting = true
+	parent.get_tree().create_timer(1.4).timeout.connect(p.queue_free)
+
+
+## Columna de luz que sube y se desvanece (transformación, reaparición).
+static func pillar(parent: Node, pos: Vector3, color: Color, height := 6.0, radius := 0.9, dur := 0.55) -> void:
+	var c := CylinderMesh.new()
+	c.top_radius = radius * 0.55
+	c.bottom_radius = radius
+	c.height = height
+	c.radial_segments = 14
+	c.cap_top = false
+	c.cap_bottom = false
+	var mi := MeshInstance3D.new()
+	mi.mesh = c
+	var mat := glow_mat(color, 0.55)
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = pos + Vector3(0, height * 0.5, 0)
+	mi.scale = Vector3(1.0, 0.15, 1.0)
+	parent.add_child(mi)
+	var tw := mi.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(mi, "scale", Vector3(0.25, 1.0, 0.25), dur).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART)
+	tw.tween_property(mat, "albedo_color:a", 0.0, dur).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(mi.queue_free)
+
+
+## Transformación: columna de luz, dos ondas, chispas en espiral y un glifo que gira en el suelo.
+static func transform_burst(parent: Node, pos: Vector3, color: Color, accent: Color) -> void:
+	pillar(parent, pos, color.lightened(0.3), 7.0, 1.1)
+	ring(parent, pos, 2.6, color, 0.5)
+	ring(parent, pos + Vector3(0, 0.05, 0), 1.5, accent, 0.7)
+	burst(parent, pos + Vector3(0, 0.9, 0), accent, 34, 5.5, 0.07, 0.8)
+	# chispas que suben en espiral
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 0.2
+	p.amount = 26
+	p.lifetime = 0.9
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	p.emission_ring_axis = Vector3.UP
+	p.emission_ring_radius = 0.9
+	p.emission_ring_inner_radius = 0.7
+	p.emission_ring_height = 0.1
+	p.direction = Vector3.UP
+	p.spread = 6.0
+	p.initial_velocity_min = 2.5
+	p.initial_velocity_max = 4.5
+	p.orbit_velocity_min = 0.9
+	p.orbit_velocity_max = 1.4
+	p.gravity = Vector3.ZERO
+	p.scale_amount_min = 0.6
+	p.scale_amount_max = 1.3
+	var m := SphereMesh.new()
+	m.radius = 0.06
+	m.height = 0.12
+	m.radial_segments = 6
+	m.rings = 3
+	m.material = glow_mat(color.lightened(0.5))
+	p.mesh = m
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	p.position = pos + Vector3(0, 0.2, 0)
+	parent.add_child(p)
+	p.emitting = true
+	parent.get_tree().create_timer(1.5).timeout.connect(p.queue_free)
+	# glifo de ocho trazos en el suelo
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 8:
+		var a := TAU * float(i) / 8.0
+		var d := Vector3(cos(a), 0, sin(a))
+		var t := Vector3(-sin(a), 0, cos(a)) * 0.09
+		for v in [d * 0.7 - t, d * 0.7 + t, d * 1.5 + t, d * 0.7 - t, d * 1.5 + t, d * 1.5 - t]:
+			st.add_vertex(v)
+	var gi := MeshInstance3D.new()
+	gi.mesh = st.commit()
+	var gm := glow_mat(accent, 0.9)
+	gi.material_override = gm
+	gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	gi.position = pos + Vector3(0, 0.1, 0)
+	parent.add_child(gi)
+	var gt := gi.create_tween()
+	gt.set_parallel(true)
+	gt.tween_property(gi, "rotation:y", 2.4, 0.8).set_ease(Tween.EASE_OUT)
+	gt.tween_property(gi, "scale", Vector3(1.5, 1, 1.5), 0.8).set_ease(Tween.EASE_OUT)
+	gt.tween_property(gm, "albedo_color:a", 0.0, 0.8).set_ease(Tween.EASE_IN)
+	gt.chain().tween_callback(gi.queue_free)
+
+
+## Tres zarpazos paralelos (garras de Balam).
+static func claws(parent: Node, pos: Vector3, yaw: float, radius: float, arc: float, color: Color, dur := 0.22) -> void:
+	for i in 3:
+		var offset := Vector3(0, 0.28 * (i - 1), 0)
+		slash(parent, pos + offset, yaw + 0.05 * (i - 1), radius * (1.0 - 0.06 * absf(i - 1.0)), arc * 0.9, color.lightened(0.15 * i), dur + 0.03 * i)
