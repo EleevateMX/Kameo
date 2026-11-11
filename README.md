@@ -150,6 +150,14 @@ menú, altares, emboscada, victoria, otra ronda, derrota, reintentar y salir al 
 captura de cada paso en `tests/e2e/screenshots/playtest/`.
 
 ```bash
+scripts/test-beta-image.sh
+```
+
+Construye la imagen única de la beta (`infra/render/Dockerfile`) y la prueba como la ejecuta Render:
+un solo puerto, HTTPS puesto por delante y PostgreSQL aparte. Comprueba migraciones, acceso sólo con
+invitación, partida por `wss://`, métricas y persistencia tras reiniciar los contenedores.
+
+```bash
 scripts/test-deploy.sh
 ```
 
@@ -171,7 +179,8 @@ game/                     Proyecto Godot 4 (cliente Web y servidor dedicado en e
 services/game-server/     Imagen Docker del servidor de juego
 packages/shared-contracts Protocolo, JWT y tipos compartidos
 supabase/migrations/      Esquema de base de datos
-infra/                    Docker Compose y proxy HTTPS/WSS (Caddy)
+infra/                    Docker Compose y proxy HTTPS/WSS (Caddy); imagen única para Render (infra/render)
+render.yaml               Blueprint de Render para la beta privada
 tests/                    Prueba de protocolo con bots y prueba de 4 navegadores
 art/                      Scripts que generan los personajes (.glb, Blender) y el audio provisional (.wav)
 docs/                     Arquitectura, protocolo, combate, simulación, rendimiento, despliegue
@@ -180,6 +189,7 @@ docs/                     Arquitectura, protocolo, combate, simulación, rendimi
 ## Documentación
 
 - [Arquitectura y plan por fases](docs/arquitectura.md)
+- [Beta privada: despliegue en Render, invitaciones, métricas, rollback y respaldo](docs/beta.md)
 - [Build de playtest: cómo se juega una sesión y qué observar](docs/playtest.md)
 - [Dirección artística: HUD, personajes, escenario y niveles de calidad](docs/direccion-artistica.md)
 - [Combate: formas, habilidades, enemigos y emboscada](docs/combate.md)

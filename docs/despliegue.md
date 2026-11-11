@@ -1,5 +1,9 @@
 # Despliegue de una beta
 
+> **Para la beta privada en Render** (un solo contenedor, acceso por invitación, migraciones
+> automáticas) la guía es [beta.md](beta.md). Este documento describe la variante con varios
+> contenedores para un servidor propio.
+
 > **Probado en una sola máquina** con `scripts/test-deploy.sh` (ver más abajo): imágenes, proxy
 > HTTPS/WSS, portal, API, servidor de juego y PostgreSQL en contenedor.
 > **No probado todavía:** un VPS real, un dominio con certificado de Let's Encrypt, Supabase como

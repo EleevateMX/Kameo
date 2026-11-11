@@ -3,15 +3,18 @@
 Estado tras la build de playtest del Claro de los Aluxes. Nada de lo que aparece aquí como pendiente
 debe darse por hecho.
 
-## Lo primero que falta para un playtest con personas
+## Lo primero que falta para la beta con personas
 
+- **Crear los servicios en Render.** Todo está preparado y probado en local con la misma imagen
+  ([beta.md](beta.md)), pero el despliegue necesita tu cuenta y tu aprobación del costo. Hasta
+  entonces no hay URL pública.
 - **Nadie ha escuchado el audio.** Está generado por código y sólo se ha medido (niveles, espectro,
   bucles sin corte). Hay que oírlo en el juego y ajustar la mezcla o sustituir lo que suene mal.
-- **Nadie ha jugado la build con GPU.** Todo se ha probado con render por software (2–8 FPS) y con
-  bots. El ritmo real del combate, la cámara y las animaciones en movimiento están sin ver.
+- **Nadie ha jugado la build con GPU ni por Internet.** Todo se ha probado con render por software
+  (2–8 FPS), con bots y en una sola máquina. Las métricas de cada sesión real quedarán registradas.
 - **Equilibrio sin probar con personas**: daño, vida, energía, duración de la emboscada y dificultad
   para uno o dos jugadores.
-- Falta el despliegue en un servidor accesible (ver abajo) para que alguien externo pueda entrar.
+- **Edge sin probar**: las pruebas automáticas usan Chromium.
 
 ## Integraciones que dependen de credenciales o infraestructura
 
@@ -20,6 +23,7 @@ debe darse por hecho.
 | **Discord OAuth2 real** | **Pendiente** | No hay aplicación de Discord. El flujo está implementado y probado con credenciales ficticias (redirección, `state`, cancelación, respuesta manipulada), pero el canje del código con Discord y la lectura del perfil no se han ejecutado nunca contra Discord. Hace falta `DISCORD_CLIENT_ID` y `DISCORD_CLIENT_SECRET` y repetir la prueba con cuatro cuentas reales. |
 | **Supabase alojado** | **Pendiente** | El proyecto ALUX **no llegó a crearse**: Supabase pidió una confirmación de costo que no se respondió a tiempo. No se tocó ningún otro proyecto. Además, el entorno de desarrollo no tiene salida TCP hacia PostgreSQL, así que la conexión API ↔ Supabase habrá que probarla desde el servidor real. |
 | Esquema y RLS | Validado sólo en local | La migración se aplica limpia en PostgreSQL 16 (local y en contenedor) y las pruebas de la API pasan contra él. RLS está activado sin políticas en las 10 tablas. Falta aplicarla en Supabase, pasar sus *advisors* de seguridad y comprobar con la clave pública (`anon`) que no se puede leer ni escribir nada. |
+| **Beta en Render** | Preparada, **sin desplegar** | Imagen única, Blueprint, acceso por invitación, migraciones automáticas, métricas, comprobación, rollback y respaldo: hechos y probados en local con `scripts/test-beta-image.sh` (HTTPS/WSS a través de dos proxies, 512 MB, reinicio con persistencia, cuatro navegadores). Falta crear los servicios (cuenta y costo), comprobar la conexión por la red privada de Render y medir con testers reales. |
 | **Docker + HTTPS/WSS** | Probado en local | `scripts/test-deploy.sh` construye las tres imágenes y verifica portal por HTTPS, rutas internas cerradas, sesión con cookie `Secure`, guardado en PostgreSQL, ticket y entrada al juego por `wss://` a través de Caddy. Falta: un VPS real, un dominio con certificado de Let's Encrypt (aquí se usó el certificado interno de Caddy para `localhost`) y Supabase como base de datos. |
 | **Rendimiento con GPU** | **Pendiente** | No había GPU. Todo lo medido en navegador es render por software (1.5–8 FPS), no representativo; ahí la escena nueva cuesta un 40 % más que la anterior. Las herramientas están listas (F3 en el juego, `E2E_GPU=1 npm run test:e2e`, `docs/rendimiento.md`). |
 | Latencia por Internet | **Pendiente** | Sólo se ha jugado con cliente y servidor en la misma máquina. |
@@ -81,7 +85,7 @@ debe darse por hecho.
 
 ## Orden sugerido
 
-1. Confirmar la creación del proyecto de Supabase y dar las credenciales de Discord.
-2. Desplegar en un VPS con dominio y repetir `tests/deploy-check.ts` y la prueba de 4 navegadores con GPU.
+1. Crear la beta en Render ([beta.md](beta.md)), pasar `npm run beta:check` e invitar a cuatro testers.
+2. Con los resultados (métricas, audio, equilibrio), ajustar y dar las credenciales de Discord.
 3. Modelar los enemigos con el mismo método que los personajes; revisar animaciones con GPU; sonido.
 4. Jefe del capítulo 1 y la siguiente transformación (Guardián del Cenote).
