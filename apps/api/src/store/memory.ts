@@ -1,0 +1,177 @@
+import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { DEFAULT_UNLOCKS, cleanName, type Character, type FormId, type PlayerProfile } from '@alux/shared-contracts';
+import type { MemberRow, RoomRow, Store } from './types.ts';
+
+interface PlayerRec {
+  id: string;
+  provider: 'discord' | 'dev';
+  providerId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  character: Character;
+  unlocks: FormId[];
+  quests: Record<string, string>;
+}
+interface RoomRec extends Omit<RoomRow, 'createdAt' | 'lastSeenAt'> {
+  createdAt: string;
+  lastSeenAt: string;
+  members: { id: string; joinedAt: string }[];
+}
+interface Data {
+  players: Record<string, PlayerRec>;
+  rooms: Record<string, RoomRec>;
+  ledger: { playerId: string; reward: string; source: string; idempotencyKey: string; grantedAt: string }[];
+}
+
+/** Almacén en memoria con guardado opcional a un archivo JSON (sólo desarrollo). */
+export class MemoryStore implements Store {
+  private data: Data = { players: {}, rooms: {}, ledger: [] };
+  private timer: NodeJS.Timeout | null = null;
+
+  constructor(private file: string | null = null) {
+    if (file && fs.existsSync(file)) {
+      try {
+        this.data = { ...this.data, ...JSON.parse(fs.readFileSync(file, 'utf8')) };
+      } catch {
+        console.warn(`[store] No se pudo leer ${file}; se empieza de cero.`);
+      }
+    }
+  }
+
+  private save() {
+    if (!this.file || this.timer) return;
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      this.flush();
+    }, 500);
+  }
+
+  private flush() {
+    if (!this.file) return;
+    fs.mkdirSync(path.dirname(this.file), { recursive: true });
+    const tmp = `${this.file}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(this.data));
+    fs.renameSync(tmp, this.file);
+  }
+
+  async upsertPlayer(p: { provider: 'discord' | 'dev'; providerId: string; displayName: string; avatarUrl: string | null }) {
+    let rec = Object.values(this.data.players).find((x) => x.provider === p.provider && x.providerId === p.providerId);
+    if (!rec) {
+      rec = {
+        id: randomUUID(), provider: p.provider, providerId: p.providerId,
+        displayName: p.displayName, avatarUrl: p.avatarUrl,
+        character: { name: cleanName(p.displayName), color: '#2ec4a6', hat: 0 },
+        unlocks: [...DEFAULT_UNLOCKS], quests: {},
+      };
+      this.data.players[rec.id] = rec;
+    } else {
+      rec.displayName = p.displayName;
+      rec.avatarUrl = p.avatarUrl;
+    }
+    this.save();
+    return rec.id;
+  }
+
+  async getProfile(id: string): Promise<PlayerProfile | null> {
+    const r = this.data.players[id];
+    if (!r) return null;
+    return {
+      id: r.id, displayName: r.displayName, avatarUrl: r.avatarUrl, provider: r.provider,
+      character: { ...r.character }, unlocks: [...r.unlocks],
+      rewards: this.data.ledger.filter((l) => l.playerId === id).map((l) => l.reward),
+      quests: { ...r.quests },
+    };
+  }
+
+  async updateCharacter(id: string, c: Character) {
+    const r = this.data.players[id];
+    if (r) r.character = { ...c };
+    this.save();
+  }
+
+  async createRoom(r: { code: string; visibility: 'private' | 'public'; ownerId: string; serverId: string }) {
+    if (this.data.rooms[r.code]) return false;
+    const now = new Date().toISOString();
+    this.data.rooms[r.code] = { ...r, status: 'open', gateOpen: false, createdAt: now, lastSeenAt: now, members: [] };
+    this.save();
+    return true;
+  }
+
+  private row(r: RoomRec): RoomRow {
+    return {
+      code: r.code, visibility: r.visibility, ownerId: r.ownerId, serverId: r.serverId, status: r.status,
+      gateOpen: r.gateOpen, createdAt: new Date(r.createdAt), lastSeenAt: new Date(r.lastSeenAt),
+    };
+  }
+
+  async getRoom(code: string) {
+    const r = this.data.rooms[code];
+    return r ? this.row(r) : null;
+  }
+
+  async listOpenRooms() {
+    return Object.values(this.data.rooms).filter((r) => r.status === 'open').map((r) => this.row(r));
+  }
+
+  async listOpenPublicRooms() {
+    return (await this.listOpenRooms()).filter((r) => r.visibility === 'public');
+  }
+
+  async updateRoom(code: string, patch: { gateOpen?: boolean; status?: 'open' | 'closed'; touch?: boolean }) {
+    const r = this.data.rooms[code];
+    if (!r) return;
+    if (patch.gateOpen !== undefined) r.gateOpen = patch.gateOpen;
+    if (patch.status) r.status = patch.status;
+    if (patch.touch) r.lastSeenAt = new Date().toISOString();
+    this.save();
+  }
+
+  async addMember(code: string, playerId: string) {
+    const r = this.data.rooms[code];
+    if (!r || r.members.some((m) => m.id === playerId)) return;
+    r.members.push({ id: playerId, joinedAt: new Date().toISOString() });
+    this.save();
+  }
+
+  async removeMember(code: string, playerId: string) {
+    const r = this.data.rooms[code];
+    if (!r) return;
+    r.members = r.members.filter((m) => m.id !== playerId);
+    this.save();
+  }
+
+  async listMembers(code: string): Promise<MemberRow[]> {
+    const r = this.data.rooms[code];
+    if (!r) return [];
+    return r.members.flatMap((m) => {
+      const p = this.data.players[m.id];
+      return p ? [{ id: m.id, name: p.character.name, color: p.character.color, joinedAt: new Date(m.joinedAt) }] : [];
+    });
+  }
+
+  async recordSession() {
+    // En memoria no hace falta auditar los tickets emitidos.
+  }
+
+  async grantReward(g: { playerId: string; reward: string; source: string; idempotencyKey: string; effect: { quest?: string; unlock?: FormId } }) {
+    const p = this.data.players[g.playerId];
+    if (!p) return false;
+    if (this.data.ledger.some((l) => l.idempotencyKey === g.idempotencyKey)) return false;
+    this.data.ledger.push({
+      playerId: g.playerId, reward: g.reward, source: g.source,
+      idempotencyKey: g.idempotencyKey, grantedAt: new Date().toISOString(),
+    });
+    if (g.effect.quest) p.quests[g.effect.quest] = 'completed';
+    if (g.effect.unlock && !p.unlocks.includes(g.effect.unlock)) p.unlocks.push(g.effect.unlock);
+    this.save();
+    return true;
+  }
+
+  async close() {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.flush();
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@alux/tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:protocol": "tsx --test protocol.test.ts",
+    "test:e2e": "tsx e2e/four-players.ts"
+  },
+  "dependencies": {
+    "@alux/shared-contracts": "*",
+    "tsx": "^4.19.2"
+  }
+}
