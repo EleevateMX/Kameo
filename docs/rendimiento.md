@@ -31,6 +31,7 @@ final imprime los FPS de cada uno. `npm run shots -w @alux/tests` hace lo mismo 
 | --- | --- |
 | Servidor de juego (Godot sin ventana) durante la prueba de red (varias salas, hasta 4 jugadores y 12 enemigos cada una) | 30 ticks/s; ~100 MB de memoria; ~5 % de un núcleo en una muestra puntual. Falta una prueba de carga con muchas salas. |
 | Navegador **sin GPU** (render por software, entorno de pruebas), un jugador a 640×360 | 1.5 FPS en calidad alta, 5.3 en baja y 8.4 en mínima (ver la comparación de abajo). No es representativo de un jugador real. |
+| Imagen única de la beta (portal + API + servidor de juego + proxy), contenedor limitado a 512 MB | 200–260 MB recién arrancada; ~300 MB con cuatro navegadores en una sala. Descarga del cliente: 7.8 MB comprimidos (el `.wasm` de 36 MB va en Brotli). Medido en local, no en Render. |
 | Navegador **con GPU** | **Pendiente.** No había GPU disponible en el entorno donde se desarrolló. |
 | Latencia real por Internet | **Pendiente.** Sólo se ha probado en la misma máquina (ping < 5 ms). |
 

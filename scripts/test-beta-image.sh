@@ -78,6 +78,8 @@ if [ -n "${AFTER_UP:-}" ]; then
   E2E_BASE_URL="https://localhost:${PORT_PUBLIC}" E2E_WS_URL="wss://localhost:${PORT_PUBLIC}/ws" E2E_INSECURE_TLS=1 \
     GAME_TICKET_SECRET="$TICKET_SECRET" E2E_INVITES="$(IFS=,; echo "${CODES[*]}")" \
     NODE_EXTRA_CA_CERTS=/tmp/alux-beta-root.crt NO_PROXY=localhost no_proxy=localhost bash -c "$AFTER_UP"
+  # Las pruebas adicionales pueden haber renombrado al alux: se vuelve a dejar la marca
+  check --code "${CODES[0]}" --mark "Persiste" >/dev/null
 fi
 
 echo "== Reinicio de los contenedores (aplicación y base de datos) =="

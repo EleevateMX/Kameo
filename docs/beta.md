@@ -5,8 +5,10 @@ operarla: comprobar que está sana, ver registros y métricas, publicar versione
 respaldar los datos.
 
 > **Estado.** Todo lo de esta guía está implementado y probado en local con la misma imagen y la
-> misma disposición que usa Render (`scripts/test-beta-image.sh`). **El despliegue en Render no
-> está hecho**: crear los servicios requiere tu cuenta y tu aprobación del costo (paso 3).
+> misma disposición que usa Render (`scripts/test-beta-image.sh`): migraciones, acceso sólo con
+> invitación, HTTPS/WSS a través de dos proxies, las dos pruebas con navegadores reales, métricas
+> y persistencia tras reiniciar. **El despliegue en Render no está hecho**: crear los servicios
+> requiere tu cuenta y tu aprobación del costo (paso 3). Tampoco se ha probado en Edge.
 
 ![Portada de la beta: sólo se entra con un código de invitación personal](img/beta-portada.jpg)
 
@@ -52,7 +54,7 @@ El Blueprint crea **dos** recursos y ninguno más. No toca otros proyectos de la
   pudo leer de forma automática. **Render muestra el precio exacto antes de confirmar el
   Blueprint**: compáralo ahí.
 - El ancho de banda de salida incluido es limitado. Una partida de cuatro jugadores gasta alrededor
-  de 0.4 GB por hora (estados del juego) más unos 12 MB por cada primera carga del cliente.
+  de 0.4 GB por hora (estados del juego) más unos 8 MB por cada primera carga del cliente.
 - Ohio es la región de Render más cercana a Yucatán junto con Virginia.
 
 **Alternativa sin costo (sólo para una prueba de humo):** cambia en `render.yaml` los dos `plan` a
@@ -283,8 +285,9 @@ puedes borrar `BETA_INVITES` y poner `BETA_ACCESS=off`.
 ## Límites de esta beta
 
 - Una sola instancia: portal, API y servidor de juego comparten 0.5 CPU y 512 MB. En la prueba
-  local el contenedor completo usa unos 330 MB en reposo (ver [rendimiento.md](rendimiento.md)).
-  Si se queda corto, sube el servicio a `1c-2g`.
+  local, con el contenedor limitado a 512 MB, usa unos 200–260 MB recién arrancado y unos 300 MB
+  con cuatro jugadores en una sala. El margen es justo: si Render lo reinicia por memoria, sube
+  el servicio a `1c-2g`. El uso de CPU con jugadores reales no está medido.
 - Las salas viven en memoria: un despliegue o un reinicio las vacía (el progreso no).
 - Las invitaciones se administran editando una variable; no hay panel de administración.
 - El límite de intentos de código es por proceso (8 por IP cada 10 minutos); los códigos tienen
