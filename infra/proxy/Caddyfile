@@ -1,0 +1,21 @@
+# Proxy público de ALUX: HTTPS automático (Let's Encrypt) y WebSocket seguro.
+# Sólo se expone /api/v1/*; las rutas /internal/* de la API no son accesibles desde fuera.
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Servidor de juego (wss://DOMINIO/ws)
+	handle /ws* {
+		reverse_proxy game:9080
+	}
+
+	# API pública
+	handle_path /api/v1/* {
+		rewrite * /v1{uri}
+		reverse_proxy api:4000
+	}
+
+	# Portal y archivos del juego
+	handle {
+		reverse_proxy portal:3000
+	}
+}

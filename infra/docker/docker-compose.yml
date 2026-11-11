@@ -1,0 +1,54 @@
+# ALUX completo detrás de un proxy HTTPS/WSS.
+# Uso (desde la raíz del repositorio, con .env relleno):
+#   docker compose -f infra/docker/docker-compose.yml --env-file .env up -d --build
+# La base de datos es externa (Supabase): DATABASE_URL en .env.
+name: alux
+
+services:
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN:?Define DOMAIN (p. ej. alux.midominio.com)}
+    volumes:
+      - ../proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [portal, api, game]
+
+  portal:
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile.portal }
+    restart: unless-stopped
+    environment:
+      BASE_URL: https://${DOMAIN}
+      API_URL: http://api:4000
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:?}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:?}
+      SESSION_SECRET: ${SESSION_SECRET:?}
+      SERVICE_KEY: ${SERVICE_KEY:?}
+      GAME_TICKET_SECRET: ${GAME_TICKET_SECRET:?}
+      ALLOW_DEV_LOGIN: "false"
+
+  api:
+    build: { context: ../.., dockerfile: infra/docker/Dockerfile.api }
+    restart: unless-stopped
+    environment:
+      API_PORT: "4000"
+      DATABASE_URL: ${DATABASE_URL:?Define DATABASE_URL (cadena de conexión de Supabase)}
+      SESSION_SECRET: ${SESSION_SECRET:?}
+      SERVICE_KEY: ${SERVICE_KEY:?}
+      GAME_TICKET_SECRET: ${GAME_TICKET_SECRET:?}
+      GAME_SERVERS: gs-1=wss://${DOMAIN}/ws
+
+  game:
+    build: { context: ../.., dockerfile: services/game-server/Dockerfile }
+    restart: unless-stopped
+    environment:
+      ALUX_PORT: "9080"
+      ALUX_SERVER_ID: gs-1
+      ALUX_API_URL: http://api:4000
+      ALUX_TICKET_SECRET: ${GAME_TICKET_SECRET:?}
+      ALUX_SERVICE_KEY: ${SERVICE_KEY:?}
+
+volumes:
+  caddy_data:

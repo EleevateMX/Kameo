@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "test:protocol": "tsx --test protocol.test.ts",
-    "test:e2e": "tsx e2e/four-players.ts"
+    "test:e2e": "tsx e2e/four-players.ts",
+    "shots": "tsx e2e/screenshot.ts"
   },
   "dependencies": {
     "@alux/shared-contracts": "*",

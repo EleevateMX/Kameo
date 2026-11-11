@@ -7,3 +7,4 @@ dist/
 apps/portal/public/game/
 apps/api/data/
 *.log
+tests/e2e/screenshots/

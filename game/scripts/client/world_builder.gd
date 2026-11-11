@@ -56,7 +56,7 @@ func _environment(root: Node3D) -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.55
+	env.ambient_light_energy = 0.8
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.86, 0.8, 0.62)
@@ -77,10 +77,11 @@ func _environment(root: Node3D) -> void:
 	sun.light_color = Color(1.0, 0.9, 0.72)
 	sun.light_energy = 1.05
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 60.0
+	sun.directional_shadow_max_distance = 48.0
 	sun.shadow_blur = 1.6
 	sun.shadow_bias = 0.06
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.shadow_opacity = 0.72
 	root.add_child(sun)
 
 
@@ -202,10 +203,36 @@ func _plaza(root: Node3D) -> void:
 	bowl.bottom_radius = 0.55
 	bowl.height = 0.7
 	root.add_child(Avatar.part(bowl, Avatar.mat(STONE_DARK), Vector3(0, 0.35, 0)))
-	var flame := SphereMesh.new()
-	flame.radius = 0.45
+	# llama: dos conos encendidos y chispas que suben
+	var flame := CylinderMesh.new()
+	flame.top_radius = 0.0
+	flame.bottom_radius = 0.5
 	flame.height = 1.1
-	root.add_child(Avatar.part(flame, Avatar.mat(AMBER, 1.8), Vector3(0, 0.95, 0)))
+	flame.radial_segments = 10
+	root.add_child(Avatar.part(flame, Avatar.mat(Color(1.0, 0.45, 0.1), 2.2), Vector3(0, 1.2, 0)))
+	root.add_child(Avatar.part(flame, Avatar.mat(Color(1.0, 0.85, 0.35), 2.6), Vector3(0, 1.0, 0), Vector3.ZERO, Vector3(0.55, 0.7, 0.55)))
+	var sparks := CPUParticles3D.new()
+	sparks.amount = 14
+	sparks.lifetime = 1.6
+	sparks.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	sparks.emission_sphere_radius = 0.3
+	sparks.direction = Vector3.UP
+	sparks.spread = 18.0
+	sparks.initial_velocity_min = 0.8
+	sparks.initial_velocity_max = 1.8
+	sparks.gravity = Vector3(0, 0.6, 0)
+	var spark_mesh := SphereMesh.new()
+	spark_mesh.radius = 0.04
+	spark_mesh.height = 0.08
+	spark_mesh.radial_segments = 6
+	spark_mesh.rings = 3
+	var spark_mat := StandardMaterial3D.new()
+	spark_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	spark_mat.albedo_color = Color(1.0, 0.75, 0.3)
+	spark_mesh.material = spark_mat
+	sparks.mesh = spark_mesh
+	sparks.position = Vector3(0, 1.3, 0)
+	root.add_child(sparks)
 	var fire := OmniLight3D.new()
 	fire.light_color = AMBER
 	fire.light_energy = 0.9

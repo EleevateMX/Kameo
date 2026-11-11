@@ -16,10 +16,10 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
+html { background: var(--selva); }
 html, body {
   margin: 0;
   min-height: 100%;
-  background: var(--selva);
   color: var(--texto);
   font-family: Rubik, system-ui, 'Segoe UI', sans-serif;
   line-height: 1.5;
