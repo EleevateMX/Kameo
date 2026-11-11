@@ -10,8 +10,10 @@ Versión actual: **2** (la 2 añade el combate).
 | `hello` | `v` versión, `ticket` JWT | Primer mensaje, antes de 20 s. |
 | `in` | `s` secuencia · `mx`, `mz` dirección (−1…1) · `j` salto 0/1 · `f` forma deseada o `""` · `a` botones (1 primaria, 2 secundaria, 4 especial) · `r` giro de puntería en radianes | Uno por tick (30 por segundo). |
 | `ping` | `c` marca de tiempo del cliente | Cada 2 s, para medir la latencia. |
+| `again` | `v` 1 (por defecto) vota, 0 retira el voto | Sólo con la emboscada superada: pide otra ronda. La sala se reinicia cuando votan todos los conectados. |
 
 No existe ningún mensaje para fijar posición, hacer daño, curarse, abrir puertas o pedir recompensas.
+`again` es sólo un voto: quien decide reiniciar es el servidor, y fuera de la victoria se ignora.
 
 ## Servidor → cliente
 
@@ -20,7 +22,7 @@ No existe ningún mensaje para fijar posición, hacer daño, curarse, abrir puer
 | `welcome` | Tu id, lugar (0–3), sala, formas, tu estado y vida, lista de jugadores, estado del mundo, enemigos, `rejoin`. |
 | `roster` | Lista de jugadores (nombre, color, accesorio, conectado). |
 | `snap` | 15 por segundo: `p` jugadores, `e` enemigos, `w` mundo, `ev` eventos de combate desde el estado anterior. |
-| `event` | `gate_open` (quiénes lo abrieron) o `reward` (recompensa, si se guardó y si era nueva). |
+| `event` | `gate_open` (quiénes lo abrieron), `reward` (recompensa, si se guardó y si era nueva), `defeat` (todo el grupo cayó) o `restart` (empieza otra ronda). |
 | `pong` | Eco de `c`. |
 | `error` | `code` y mensaje. Tras un error el servidor cierra la conexión. |
 
@@ -39,8 +41,9 @@ Tipos: 0 guardián de piedra · 1 criatura corrompida. Estados: `idle, chase, wi
 
 ### `snap.w` — mundo
 
-`[santuarioAbierto, máscaraDeAltares, altaresNecesarios, emboscada, enemigosRestantes, puntoDeReaparición, braseroListo]`
-Emboscada: 0 pendiente · 1 en curso · 2 superada.
+`[santuarioAbierto, máscaraDeAltares, altaresNecesarios, emboscada, enemigosRestantes, puntoDeReaparición, braseroListo, votosOtraRonda, conectados, esperaDeAltares]`
+Emboscada: 0 pendiente · 1 en curso · 2 superada · 3 fallida (vuelve sola a 0 tras la espera).
+`esperaDeAltares` son los segundos que faltan para que los altares respondan de nuevo (tras una derrota o al empezar otra ronda).
 
 ### `snap.ev` — eventos de combate
 
@@ -51,7 +54,7 @@ Emboscada: 0 pendiente · 1 en curso · 2 superada.
 | `["hit", "e"｜"p", idOLugar, daño, vidaRestante, lugarAtacante]` | Daño a un enemigo o a un jugador. |
 | `["die", "e"｜"p", idOLugar, purificado, lugarAutor]` | Muerte o caída. |
 | `["respawn", lugar]` · `["heal", lugar, cantidad, vida]` · `["evade", lugar]` | Reaparición, curación, golpe esquivado. |
-| `["eatk", idEnemigo]` · `["brazier", lugar]` · `["enc", "start"｜"clear", n]` | Golpe de guardián, brasero usado, emboscada. |
+| `["eatk", idEnemigo]` · `["brazier", lugar]` · `["enc", "start"｜"clear"｜"fail", n]` | Golpe de guardián, brasero usado, emboscada (empieza, superada, perdida). |
 
 Como WebSocket entrega en orden y sin pérdidas, cada evento llega exactamente una vez.
 

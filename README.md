@@ -22,6 +22,13 @@ Y esta es una captura del juego real en el navegador, en una sesión viva contra
 
 ![Juego real en el navegador](docs/img/juego-real-navegador.jpg)
 
+## Build de playtest
+
+El Claro de los Aluxes se puede jugar de principio a fin en una sesión de 10–15 minutos, de 1 a 4
+jugadores: portal → sala → bienvenida con los controles → altares → emboscada → victoria o derrota →
+otra ronda o salir. La guía para quien organiza o juega la prueba está en
+[docs/playtest.md](docs/playtest.md).
+
 ## Qué funciona hoy (Fases 1–3 y parte de la 4)
 
 - **Portal** (Next.js): portada, inicio de sesión con Discord (OAuth2 con `state` y cookies seguras),
@@ -41,6 +48,12 @@ Y esta es una captura del juego real en el navegador, en una sesión viva contra
   - Vida, energía, enfriamientos, caída y reaparición en punto de control.
 - **Encuentro cooperativo**: pisar a la vez tantos altares como jugadores haya (1–4) abre el santuario
   y desata una emboscada que escala con el grupo. Al vencerla todos reciben el *Sello del Claro*.
+  Si cae todo el grupo se pierde y hay que volver a abrirlo; tras ganar se puede votar otra ronda.
+- **Partida legible**: bienvenida con objetivo y controles, objetivo siempre visible con el paso
+  siguiente, avisos de ataque, aturdimiento y purificación sobre los enemigos, paneles de victoria y
+  derrota, menú con volumen, sensibilidad y calidad, y aviso de reconexión sin sacar al jugador.
+- **Audio provisional** generado por código ([art/audio/README.md](art/audio/README.md)): ambiente
+  de selva, brasero, música de exploración y de combate, y efectos de cada acción.
 - **Personajes modelados en Blender** con animaciones (alux y Balam), generados por scripts
   reproducibles ([art/README.md](art/README.md)). Los enemigos siguen siendo provisionales.
 - **Progreso persistente**: PostgreSQL/Supabase, o un archivo local si no configuras base de datos.
@@ -57,6 +70,8 @@ Lo que falta y lo que aún no se ha podido validar está en [docs/pendientes.md]
 | Habilidad secundaria | Clic derecho | K |
 | Habilidad especial | | F |
 | Transformarse | | 1 Alux · 2 Balam |
+| Recentrar la cámara | | R |
+| Menú (volumen, sensibilidad, otra ronda, salir) | | Esc · P |
 | Ayuda de controles | | H |
 | Calidad gráfica (alta, baja, mínima) | | F4 |
 | Rendimiento | | F3 |
@@ -115,7 +130,8 @@ Ejecuta tres baterías:
 - **Simulación** (`scripts/test-sim.sh`): más de 400 000 comprobaciones de que nadie atraviesa muros,
   supera la velocidad permitida ni se salta un enfriamiento ([docs/simulacion.md](docs/simulacion.md)).
 - **Red** contra el servidor real de Godot con bots: 4 jugadores, tickets falsos, trampas, reconexión,
-  daño y enfriamientos, caída y reaparición, y la emboscada cooperativa completa.
+  daño y enfriamientos, caída y reaparición, la emboscada cooperativa completa, una partida de un solo
+  jugador (derrota, reintento y victoria) y el voto para otra ronda.
 
 ```bash
 npm run test:e2e
@@ -124,6 +140,14 @@ npm run test:e2e
 Con ALUX corriendo (`npm run dev`), abre **cuatro navegadores con cuatro cuentas**, los mete en la misma
 sala desde el portal y comprueba movimiento, transformación, que todos ven la misma vida de enemigos y
 compañeros en combate, un corte de red con reconexión automática y el rechazo del quinto jugador.
+
+```bash
+npm run test:flow
+```
+
+También con ALUX corriendo: recorre en un navegador real una sesión de playtest completa (bienvenida,
+menú, altares, emboscada, victoria, otra ronda, derrota, reintentar y salir al portal) y guarda una
+captura de cada paso en `tests/e2e/screenshots/playtest/`.
 
 ```bash
 scripts/test-deploy.sh
@@ -149,13 +173,14 @@ packages/shared-contracts Protocolo, JWT y tipos compartidos
 supabase/migrations/      Esquema de base de datos
 infra/                    Docker Compose y proxy HTTPS/WSS (Caddy)
 tests/                    Prueba de protocolo con bots y prueba de 4 navegadores
-art/                      Scripts de Blender que generan los personajes (.glb) y sus vistas previas
+art/                      Scripts que generan los personajes (.glb, Blender) y el audio provisional (.wav)
 docs/                     Arquitectura, protocolo, combate, simulación, rendimiento, despliegue
 ```
 
 ## Documentación
 
 - [Arquitectura y plan por fases](docs/arquitectura.md)
+- [Build de playtest: cómo se juega una sesión y qué observar](docs/playtest.md)
 - [Dirección artística: HUD, personajes, escenario y niveles de calidad](docs/direccion-artistica.md)
 - [Combate: formas, habilidades, enemigos y emboscada](docs/combate.md)
 - [Protocolo de red y reglas anti-trampas](docs/protocolo.md)

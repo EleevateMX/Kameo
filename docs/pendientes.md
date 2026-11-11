@@ -1,7 +1,17 @@
 # Pendientes y validaciones que faltan
 
-Estado tras la Fase 3 y la mejora de dirección artística. Nada de lo que aparece aquí como pendiente
+Estado tras la build de playtest del Claro de los Aluxes. Nada de lo que aparece aquí como pendiente
 debe darse por hecho.
+
+## Lo primero que falta para un playtest con personas
+
+- **Nadie ha escuchado el audio.** Está generado por código y sólo se ha medido (niveles, espectro,
+  bucles sin corte). Hay que oírlo en el juego y ajustar la mezcla o sustituir lo que suene mal.
+- **Nadie ha jugado la build con GPU.** Todo se ha probado con render por software (2–8 FPS) y con
+  bots. El ritmo real del combate, la cámara y las animaciones en movimiento están sin ver.
+- **Equilibrio sin probar con personas**: daño, vida, energía, duración de la emboscada y dificultad
+  para uno o dos jugadores.
+- Falta el despliegue en un servidor accesible (ver abajo) para que alguien externo pueda entrar.
 
 ## Integraciones que dependen de credenciales o infraestructura
 
@@ -38,8 +48,17 @@ debe darse por hecho.
   - En el render por software de las pruebas, las sombras se ven tenues; falta confirmarlas con GPU.
   - HUD: sin minimapa (hay brújula), sin opciones dentro del juego para cambiar la calidad (hoy va por
     dirección `?q=` o automática) y sin adaptación a pantallas pequeñas o táctiles.
-  - Sin sonido y sin música.
+  - Audio provisional sintetizado (38 archivos): suficiente para probar, no definitivo. Sin voces,
+    sin sonido posicional real (sólo se atenúa por distancia) y sin música adaptativa.
   - Cinemática de introducción: aplazada hasta tener modelos definitivos (decisión del proyecto).
+- **Partida**
+  - Hecho: ciclo completo (bienvenida, altares, emboscada, victoria o derrota, otra ronda, salir),
+    menú con ajustes y avisos de conexión. Detalle en [playtest.md](playtest.md).
+  - La derrota exige que todo el grupo conectado esté caído a la vez; con cuatro jugadores será rara.
+    Falta decidir con pruebas si hace falta otra condición (tiempo límite, vidas del grupo).
+  - Otra ronda necesita el voto de todos: si alguien se queda ausente sin desconectarse, bloquea.
+  - Sin pausa real (es multijugador): el menú deja al personaje quieto pero la partida sigue.
+  - Los ajustes se guardan en el navegador, no en el perfil.
 - **Combate**
   - Sin jefe final ni más tipos de enemigo.
   - Los enemigos no tienen búsqueda de caminos: rodean obstáculos con una maniobra simple.
@@ -47,6 +66,8 @@ debe darse por hecho.
   - El equilibrio (daños, vida, energía) no se ha probado con personas.
   - "Interactuar" se limita al brasero y a purificar criaturas; no hay más objetos.
 - **Controles**: sólo teclado y ratón. Sin mando ni controles táctiles (no se puede jugar en móvil).
+  Las teclas no se pueden reasignar. Tras salir del modo ratón con Esc, Chrome tarda cerca de un
+  segundo en dejar capturarlo otra vez.
 - **Contenido**: un solo escenario. Faltan misiones, el resto del capítulo 1 y las demás transformaciones.
 
 ## Técnica

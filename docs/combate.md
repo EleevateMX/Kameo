@@ -53,24 +53,40 @@ Los enemigos del claro vuelven a su sitio si se alejan 24 m y reaparecen a los 3
 
 - La vida se regenera (3/s) tras 6 s sin recibir daño.
 - El **brasero de la plaza** cura 60 a quienes estén cerca cuando un alux lo toca (cada 12 s).
-- Al llegar a 0 el jugador cae y reaparece a los 4 s en el **punto de control** con vida completa y
-  2.5 s de invulnerabilidad. El punto inicial es la plaza; al superar la emboscada pasa a la entrada
-  del santuario.
+- Al llegar a 0 el jugador cae y reaparece en el **punto de control** con vida completa y 2.5 s de
+  invulnerabilidad: a los 4 s explorando y a los 8 s durante la emboscada (caer ahí tiene más peso).
+  El punto inicial es la plaza; al superar la emboscada pasa a la entrada del santuario.
+- Un jugador caído no cuenta para los altares.
 
 ## La emboscada del santuario
 
 Al abrirse la puerta (acertijo de los altares) despiertan los guardianes corrompidos frente al
 santuario. La oleada escala con los jugadores conectados:
 
-| Jugadores | Criaturas | Guardianes | Vida de cada enemigo |
-| --- | --- | --- | --- |
-| 1 | 2 | 1 | ×1.00 |
-| 2 | 3 | 2 | ×1.25 |
-| 3 | 4 | 2 | ×1.50 |
-| 4 | 5 | 3 | ×1.75 |
+| Jugadores | Criaturas | Guardianes | Vida de cada enemigo | Daño de cada golpe |
+| --- | --- | --- | --- | --- |
+| 1 | 2 | 1 | ×1.00 | ×0.6 |
+| 2 | 3 | 2 | ×1.25 | ×0.8 |
+| 3 | 4 | 2 | ×1.50 | ×1.0 |
+| 4 | 5 | 3 | ×1.75 | ×1.0 |
+
+Al aparecer, los enemigos tardan unos 3 s en reaccionar (despiertan escalonados; si alguien los
+golpea antes, reaccionan ya): da tiempo a ver qué pasa y a colocarse. Con uno o dos jugadores pegan
+menos porque todos los golpes van a los mismos. Estos valores no se han probado con personas.
 
 El **Sello del Claro** ya no se entrega al abrir la puerta sino al vencer la emboscada, una sola
 vez por jugador (libro de recompensas idempotente en la API).
+
+### Victoria, derrota y otra ronda
+
+| Resultado | Cuándo | Qué hace el servidor |
+| --- | --- | --- |
+| **Victoria** | No queda ningún enemigo de la emboscada. | Entrega el sello, mueve el punto de control al santuario y deja la sala abierta para explorar. |
+| **Derrota** | Todos los jugadores **conectados** están caídos a la vez. | Retira la emboscada, vuelve a sellar el santuario, hace reaparecer al grupo junto al brasero (3 s) y bloquea los altares 6 s. Después se puede volver a intentar pisándolos. |
+| **Otra ronda** | Tras la victoria, todos los conectados la piden (mensaje `again`). | Sella el santuario, lleva a todos al brasero con la vida completa y bloquea los altares 3 s. |
+
+Un jugador desconectado no cuenta ni para la derrota ni para la votación. Con un solo jugador,
+caer durante la emboscada es derrota inmediata.
 
 ## Qué valida el servidor
 

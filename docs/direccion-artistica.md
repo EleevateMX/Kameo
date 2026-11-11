@@ -95,4 +95,4 @@ panorámica, retratos, combate) en unos 30 s. Las imágenes de esta documentaci�
 - **Balam**: la cabeza es su parte más floja (nariz pesada, perfil algo de oso).
 - **Articulaciones**: volúmenes que se solapan; de cerca se notan las uniones.
 - **Animaciones**: revisadas en cuadros fijos, no en movimiento con una GPU real.
-- Sin sonido ni música.
+- Audio provisional generado por código (ver `art/audio/README.md`); nadie lo ha escuchado aún.
