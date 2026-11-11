@@ -1,19 +1,33 @@
 extends Node3D
-## Personaje visible: un alux y su forma de Balam, modelados con primitivas.
+## Personaje visible: un alux y su forma de Balam.
 ## No contiene reglas de juego: sólo muestra el estado que decide el servidor.
+##
+## Usa los modelos de `res://assets/characters/*.glb` (arte hecho en Blender, ver art/README.md)
+## cuando existen; si faltan, recurre a modelos de respaldo hechos con primitivas.
+
+const Fx := preload("res://scripts/client/fx.gd")
 
 const SKIN := Color(0.66, 0.44, 0.29)
 const STRAW := Color(0.74, 0.56, 0.30)
 const EYE := Color(0.35, 1.0, 0.88)
+const HAT_NODES := ["Hat_Palma", "Hat_Penacho", "Hat_Flor", "Hair"]
+
+## Acción del juego -> animación del .glb, por forma. [nombre, mantener hasta nueva orden]
+const GLB_ACTIONS := {
+	"alux": {"bolt": "Cast", "dodge": "Dodge", "interact": "Interact", "hit": "Hit"},
+	"balam": {"claw": "Claw", "charge_start": "Charge", "charged": "ChargeRelease", "pounce": "Pounce", "hit": "Hit"},
+}
 
 var player_name := "Alux"
 var color := Color("#2ec4a6")
 var hat := 0
 var form := "alux"
 var online := true
+var dead := false
+var uses_glb := false
 
-var _alux: Node3D
-var _balam: Node3D
+var _models := {}            # forma -> Node3D
+var _players := {}           # forma -> AnimationPlayer (sólo .glb)
 var _label: Label3D
 var _phase := 0.0
 var _alux_limbs: Array[Node3D] = []
@@ -21,6 +35,12 @@ var _balam_legs: Array[Node3D] = []
 var _balam_tail: Node3D
 var _last_pos := Vector3.ZERO
 var _has_last := false
+var _act := ""
+var _act_t := 0.0
+var _act_dur := 0.0
+var _hold := ""              # animación que se mantiene (carga, salto ofensivo)
+var _morph := 1.0
+var _loco := ""
 
 
 func setup(p_name: String, color_hex: String, p_hat: int) -> void:
@@ -31,10 +51,16 @@ func setup(p_name: String, color_hex: String, p_hat: int) -> void:
 		c.queue_free()
 	_alux_limbs.clear()
 	_balam_legs.clear()
-	_alux = _build_alux()
-	_balam = _build_balam()
-	add_child(_alux)
-	add_child(_balam)
+	_models.clear()
+	_players.clear()
+	uses_glb = true
+	for f in ["alux", "balam"]:
+		var m := _load_glb(f)
+		if m == null:
+			uses_glb = false
+			m = _build_alux() if f == "alux" else _build_balam()
+		_models[f] = m
+		add_child(m)
 	_label = Label3D.new()
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_label.no_depth_test = true
@@ -43,18 +69,80 @@ func setup(p_name: String, color_hex: String, p_hat: int) -> void:
 	_label.font_size = 44
 	_label.outline_size = 14
 	_label.outline_modulate = Color(0.05, 0.08, 0.07, 0.9)
-	_label.position = Vector3(0, 2.05, 0)
 	add_child(_label)
 	_apply()
 
+
+# ───────────────────────── Modelos .glb ─────────────────────────
+
+func _load_glb(f: String) -> Node3D:
+	var path := "res://assets/characters/%s.glb" % f
+	if not ResourceLoader.exists(path):
+		return null
+	var scene := load(path) as PackedScene
+	if scene == null:
+		return null
+	var inst := scene.instantiate() as Node3D
+	if inst == null:
+		return null
+	var players := inst.find_children("*", "AnimationPlayer", true, false)
+	if players.is_empty():
+		inst.free()
+		return null
+	var ap := players[0] as AnimationPlayer
+	for n in ["Idle", "Run", "Fall", "Swim", "Charge"]:
+		if ap.has_animation(n):
+			ap.get_animation(n).loop_mode = Animation.LOOP_LINEAR
+	_players[f] = ap
+	# Color del jugador en la túnica (alux) y en el collar (Balam)
+	var target := "Tunic" if f == "alux" else "Collar"
+	for mi in inst.find_children("*", "MeshInstance3D", true, false):
+		var mesh := (mi as MeshInstance3D).mesh
+		if mesh == null:
+			continue
+		for i in mesh.get_surface_count():
+			var mat := mesh.surface_get_material(i)
+			if not (mat is StandardMaterial3D):
+				continue
+			var mat_name := str(mat.resource_name)
+			if mat_name.begins_with(target):
+				var own := mat.duplicate() as StandardMaterial3D
+				own.albedo_color = color
+				(mi as MeshInstance3D).set_surface_override_material(i, own)
+			elif mat_name == "Skin" or mat_name == "Blush" or mat_name == "Fur" or mat_name == "FurLight":
+				# Un poco de luz propia para que la cara se lea a la sombra del sombrero y de los árboles
+				var lit := mat.duplicate() as StandardMaterial3D
+				lit.emission_enabled = true
+				lit.emission = lit.albedo_color
+				lit.emission_energy_multiplier = 0.22
+				(mi as MeshInstance3D).set_surface_override_material(i, lit)
+	if f == "alux":
+		# (el cabello va también bajo el sombrero y el penacho: sin él la nuca queda calva)
+		var by_hat := {0: ["Hat_Palma", "Hair"], 1: ["Hat_Penacho", "Hair"], 2: ["Hat_Flor", "Hair"], 3: ["Hair"]}
+		var keep: Array = by_hat.get(hat, ["Hair"])
+		for n in HAT_NODES:
+			for node in inst.find_children(n + "*", "Node3D", true, false):
+				(node as Node3D).visible = keep.has(n)
+	ap.play("Idle")
+	return inst
+
+
+# ───────────────────────── Estado ─────────────────────────
 
 func set_form(f: String, with_effect := true) -> void:
 	if f == form:
 		return
 	form = f
+	_act = ""
+	_hold = ""
+	_loco = ""
 	_apply()
 	if with_effect:
-		_puff()
+		# Animación de transformación: el modelo nuevo brota girando entre chispas
+		_morph = 0.0
+		var gold := Color(1.0, 0.82, 0.3)
+		Fx.burst(get_parent(), global_position + Vector3(0, 0.8, 0), gold if form == "balam" else color.lightened(0.3), 28, 4.5, 0.08, 0.7)
+		Fx.ring(get_parent(), global_position, 2.2, gold if form == "balam" else EYE, 0.45)
 
 
 func set_online(on: bool) -> void:
@@ -64,17 +152,66 @@ func set_online(on: bool) -> void:
 	_apply()
 
 
-func _apply() -> void:
-	if _alux == null:
+func set_dead(d: bool) -> void:
+	if d == dead:
 		return
-	_alux.visible = online and form == "alux"
-	_balam.visible = online and form == "balam"
-	_label.text = player_name if online else player_name + " (desconectado)"
-	_label.modulate = Color(1, 1, 1, 1) if online else Color(1, 1, 1, 0.45)
-	_label.position.y = 2.05 if form == "alux" else 1.75
+	dead = d
+	_act = ""
+	_hold = ""
+	_loco = ""
+	if dead and _players.has(form):
+		var ap: AnimationPlayer = _players[form]
+		if ap.has_animation("Death"):
+			ap.play("Death", 0.1)
+	_apply()
 
 
-## Animación procedimental según lo que se movió desde el cuadro anterior.
+func _apply() -> void:
+	if _label == null:
+		return
+	for f in _models:
+		var on: bool = online and f == form
+		(_models[f] as Node3D).visible = on
+		if _players.has(f):
+			(_players[f] as AnimationPlayer).active = on  # la forma oculta no gasta animación
+	var suffix := ""
+	if not online:
+		suffix = " (desconectado)"
+	elif dead:
+		suffix = " (caído)"
+	_label.text = player_name + suffix
+	_label.modulate = Color(1, 1, 1, 1) if online and not dead else Color(1, 1, 1, 0.5)
+	_label.position.y = 2.1 if form == "alux" else 1.8
+
+
+## Reproduce una acción de combate (la decide el servidor o la predicción local).
+func play_action(kind: String) -> void:
+	if dead:
+		return
+	match kind:
+		"charge_start":
+			_hold = "charge"
+		"charged", "charge_cancel":
+			_hold = ""
+		"pounce":
+			_hold = "pounce"
+		"pounce_land":
+			_hold = ""
+	var durations := {"bolt": 0.3, "dodge": 0.22, "interact": 0.5, "hit": 0.25, "claw": 0.3, "charged": 0.42, "pounce": 0.5}
+	if durations.has(kind):
+		_act = kind
+		_act_t = 0.0
+		_act_dur = durations[kind]
+	if _players.has(form):
+		var ap: AnimationPlayer = _players[form]
+		var anim: String = GLB_ACTIONS[form].get(kind, "")
+		if anim != "" and ap.has_animation(anim):
+			ap.play(anim, 0.06)
+			ap.seek(0.0, true)
+			_loco = ""
+
+
+## Animación según lo que se movió desde el cuadro anterior.
 func animate(delta: float, grounded: bool, swim: bool) -> void:
 	var speed := 0.0
 	if _has_last and delta > 0.0:
@@ -83,59 +220,116 @@ func animate(delta: float, grounded: bool, swim: bool) -> void:
 	_last_pos = global_position
 	_has_last = true
 	var moving := speed > 0.4
+	if _act != "":
+		_act_t += delta
+		if _act_t >= _act_dur:
+			_act = ""
+	var model: Node3D = _models.get(form)
+	if model == null:
+		return
+
+	# Transformación: el modelo crece girando
+	if _morph < 1.0:
+		_morph = minf(1.0, _morph + delta / 0.32)
+		var k := 1.0 - pow(1.0 - _morph, 3.0)
+		model.scale = Vector3.ONE * (0.25 + 0.75 * k + sin(_morph * PI) * 0.18)
+		model.rotation.y = (1.0 - k) * TAU
+	else:
+		model.scale = Vector3.ONE
+		model.rotation.y = 0.0
+
+	if _players.has(form):
+		_animate_glb(_players[form], moving, grounded, swim)
+		return
+
+	# ── Modelos de respaldo (primitivas) ──
 	_phase += delta * (4.0 + speed * 1.6) if moving else 0.0
 	var swing := sin(_phase) * (0.75 if moving else 0.0)
 	var bob := absf(sin(_phase)) * 0.05 if moving and grounded else 0.0
+	var k_act := sin(clampf(_act_t / maxf(_act_dur, 0.01), 0.0, 1.0) * PI) if _act != "" else 0.0
 	if form == "alux":
-		_alux.position.y = bob - (0.35 if swim else 0.0)
-		_alux.rotation.x = lerp_angle(_alux.rotation.x, 0.5 if swim else (0.12 if moving else 0.0), minf(1.0, delta * 10.0))
+		var tilt := 0.5 if swim else (0.12 if moving else 0.0)
+		var y := bob - (0.35 if swim else 0.0)
+		if dead:
+			tilt = -1.45
+			y = 0.2
+		elif _act == "dodge":
+			tilt = TAU * clampf(_act_t / _act_dur, 0.0, 1.0)
+			y += 0.25 * k_act
+		elif _act == "hit":
+			tilt = -0.35 * k_act
+		model.position.y = y
+		model.rotation.x = tilt if _act == "dodge" else lerp_angle(model.rotation.x, tilt, minf(1.0, delta * 12.0))
 		if _alux_limbs.size() == 4:
 			var air := 0.0 if grounded or swim else 0.9
 			_alux_limbs[0].rotation.x = swing + air
 			_alux_limbs[1].rotation.x = -swing + air
 			_alux_limbs[2].rotation.x = -swing - air * 1.4
 			_alux_limbs[3].rotation.x = swing - air * 1.4
+			if _act == "bolt":
+				_alux_limbs[3].rotation.x = -1.7 * k_act
+			elif _act == "interact":
+				_alux_limbs[2].rotation.x = -1.3 * k_act
+				_alux_limbs[3].rotation.x = -1.3 * k_act
 	else:
-		_balam.position.y = bob * 1.4 - (0.3 if swim else 0.0)
+		var tilt := 0.0
+		var y := bob * 1.4 - (0.3 if swim else 0.0)
+		var roll := 0.0
+		var squash := 1.0
+		if dead:
+			roll = 1.45
+			y = 0.1
+		elif _hold == "charge":
+			squash = 0.82
+			tilt = 0.18
+			model.position.x = sin(Time.get_ticks_msec() * 0.06) * 0.02
+		elif _hold == "pounce":
+			tilt = -0.45
+		elif _act == "claw":
+			tilt = -0.3 * k_act
+		elif _act == "charged":
+			tilt = -0.6 * k_act
+			y += 0.2 * k_act
+		elif _act == "hit":
+			tilt = 0.3 * k_act
+		if _hold != "charge":
+			model.position.x = 0.0
+		model.position.y = y
+		model.rotation.x = lerp_angle(model.rotation.x, tilt, minf(1.0, delta * 14.0))
+		model.rotation.z = lerp_angle(model.rotation.z, roll, minf(1.0, delta * 8.0))
+		model.scale.y *= squash
 		for i in _balam_legs.size():
 			var s := swing if (i == 0 or i == 3) else -swing
-			_balam_legs[i].rotation.x = s * 0.9 if grounded or swim else (0.9 if i < 2 else -0.9)
+			var r := s * 0.9 if grounded or swim else (0.9 if i < 2 else -0.9)
+			if i < 2 and (_act == "claw" or _act == "charged"):
+				r = -1.5 * k_act
+			if _hold == "pounce":
+				r = -1.2 if i < 2 else 1.0
+			_balam_legs[i].rotation.x = r
 		if _balam_tail:
 			_balam_tail.rotation.y = sin(Time.get_ticks_msec() * 0.004) * 0.4
 
 
-func _puff() -> void:
-	var p := CPUParticles3D.new()
-	p.one_shot = true
-	p.explosiveness = 0.95
-	p.amount = 28
-	p.lifetime = 0.7
-	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	p.emission_sphere_radius = 0.4
-	p.direction = Vector3.UP
-	p.spread = 180.0
-	p.initial_velocity_min = 2.0
-	p.initial_velocity_max = 4.5
-	p.gravity = Vector3(0, -3, 0)
-	p.scale_amount_min = 0.5
-	p.scale_amount_max = 1.2
-	var m := SphereMesh.new()
-	m.radius = 0.08
-	m.height = 0.16
-	m.radial_segments = 6
-	m.rings = 3
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color(1.0, 0.82, 0.3) if form == "balam" else color.lightened(0.3)
-	m.material = mat
-	p.mesh = m
-	p.position = Vector3(0, 0.8, 0)
-	add_child(p)
-	p.emitting = true
-	get_tree().create_timer(1.2).timeout.connect(p.queue_free)
+func _animate_glb(ap: AnimationPlayer, moving: bool, grounded: bool, swim: bool) -> void:
+	if dead:
+		return
+	if _hold == "charge" or _hold == "pounce":
+		return  # la animación mantenida ya está sonando
+	if _act != "" and ap.is_playing() and not ["Idle", "Run", "Fall", "Swim", "Jump"].has(str(ap.current_animation)):
+		return  # dejar terminar la acción
+	var want := "Idle"
+	if swim:
+		want = "Swim"
+	elif not grounded:
+		want = "Fall"
+	elif moving:
+		want = "Run"
+	if want != _loco and ap.has_animation(want):
+		_loco = want
+		ap.play(want, 0.14)
 
 
-# ───────────────────────── Construcción de modelos ─────────────────────────
+# ───────────────────────── Modelos de respaldo (primitivas) ─────────────────────────
 
 static func mat(c: Color, emission := 0.0, rough := 0.85) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -202,7 +396,6 @@ func _build_alux() -> Node3D:
 	var gold := mat(Color(0.95, 0.75, 0.25), 0.15, 0.4)
 	var eye := mat(EYE, 1.5, 0.2)
 
-	# piernas y brazos (con pivote para animar)
 	var leg_l := _limb(0.09, 0.36, skin, Vector3(0.12, 0.36, 0))
 	var leg_r := _limb(0.09, 0.36, skin, Vector3(-0.12, 0.36, 0))
 	var arm_l := _limb(0.07, 0.36, skin, Vector3(0.3, 0.78, 0))
@@ -211,23 +404,22 @@ func _build_alux() -> Node3D:
 		root.add_child(l)
 		_alux_limbs.append(l)
 
-	# túnica en dos capas, como plumas
 	root.add_child(part(_cone(0.2, 0.34, 0.5), tunic, Vector3(0, 0.55, 0)))
 	root.add_child(part(_cone(0.24, 0.33, 0.2, 12), tunic_light, Vector3(0, 0.72, 0)))
 	root.add_child(part(_cone(0.26, 0.27, 0.06), gold, Vector3(0, 0.52, 0)))
 
-	# cabeza grande y ojos que brillan
 	root.add_child(part(_sphere(0.3), skin, Vector3(0, 1.03, 0)))
 	root.add_child(part(_sphere(0.085), eye, Vector3(0.115, 1.06, 0.245)))
 	root.add_child(part(_sphere(0.085), eye, Vector3(-0.115, 1.06, 0.245)))
-	root.add_child(part(_sphere(0.09), skin, Vector3(0.3, 1.02, 0), Vector3.ZERO, Vector3(0.5, 1, 0.8)))
-	root.add_child(part(_sphere(0.09), skin, Vector3(-0.3, 1.02, 0), Vector3.ZERO, Vector3(0.5, 1, 0.8)))
+	# orejas puntiagudas
+	for side in [1.0, -1.0]:
+		root.add_child(part(_cone(0.0, 0.09, 0.3, 8), skin, Vector3(0.36 * side, 1.08, -0.02), Vector3(0, 0, -1.25 * side)))
 
 	match hat:
-		0:  # sombrero de palma
+		0:
 			root.add_child(part(_cone(0.03, 0.52, 0.4, 16), mat(STRAW), Vector3(0, 1.42, 0)))
 			root.add_child(part(_cone(0.5, 0.53, 0.04, 16), mat(STRAW.darkened(0.2)), Vector3(0, 1.22, 0)))
-		1:  # penacho
+		1:
 			root.add_child(part(_cone(0.3, 0.31, 0.08), gold, Vector3(0, 1.25, 0)))
 			var box := BoxMesh.new()
 			box.size = Vector3(0.1, 0.5, 0.03)
@@ -235,13 +427,13 @@ func _build_alux() -> Node3D:
 				var a := (float(i) - 3.0) * 0.28
 				var fc := color if i % 2 == 0 else Color(0.95, 0.85, 0.3)
 				root.add_child(part(box, mat(fc), Vector3(sin(a) * 0.3, 1.45 + cos(a) * 0.14, -0.1), Vector3(-0.25, 0, -a)))
-		2:  # flor de mayo
+		2:
 			root.add_child(part(_sphere(0.31), mat(Color(0.12, 0.09, 0.08)), Vector3(0, 1.08, -0.03), Vector3.ZERO, Vector3(1, 0.85, 1)))
 			for i in 5:
 				var a := float(i) / 5.0 * TAU
 				root.add_child(part(_sphere(0.07), mat(Color(1, 0.95, 0.9)), Vector3(0.2 + cos(a) * 0.07, 1.3 + sin(a) * 0.07, 0.12)))
 			root.add_child(part(_sphere(0.05), mat(Color(1, 0.8, 0.2), 0.6), Vector3(0.2, 1.3, 0.15)))
-		_:  # sin sombrero: cabello
+		_:
 			root.add_child(part(_sphere(0.31), mat(Color(0.12, 0.09, 0.08)), Vector3(0, 1.08, -0.03), Vector3.ZERO, Vector3(1, 0.85, 1)))
 	return root
 
@@ -264,7 +456,6 @@ func _build_balam() -> Node3D:
 	root.add_child(part(_cone(0.0, 0.1, 0.16, 8), fur, Vector3(0.19, 1.2, 0.6)))
 	root.add_child(part(_cone(0.0, 0.1, 0.16, 8), fur, Vector3(-0.19, 1.2, 0.6)))
 
-	# collar con el color del jugador, para reconocerlo transformado
 	var torus := TorusMesh.new()
 	torus.inner_radius = 0.25
 	torus.outer_radius = 0.34
@@ -283,7 +474,6 @@ func _build_balam() -> Node3D:
 	_balam_tail.add_child(part(_sphere(0.08), dark, Vector3(0, 0.42, -0.62)))
 	root.add_child(_balam_tail)
 
-	# manchas
 	var spots := [
 		Vector3(0.24, 0.85, 0.2), Vector3(-0.25, 0.8, 0.05), Vector3(0.2, 0.9, -0.2), Vector3(-0.2, 0.9, -0.3),
 		Vector3(0.0, 0.96, 0.1), Vector3(0.0, 0.96, -0.25), Vector3(0.27, 0.7, -0.05), Vector3(-0.27, 0.68, 0.3),

@@ -13,6 +13,8 @@ const MAGENTA := Color(0.95, 0.1, 0.55)
 
 var gate_bars: Node3D
 var gate_light: OmniLight3D
+var seal_veil: MeshInstance3D
+var seal_mat: StandardMaterial3D
 var plate_rings: Array[MeshInstance3D] = []
 var plate_beams: Array[MeshInstance3D] = []
 var glyph: Node3D
@@ -56,7 +58,7 @@ func _environment(root: Node3D) -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.8
+	env.ambient_light_energy = 1.0
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.86, 0.8, 0.62)
@@ -81,7 +83,7 @@ func _environment(root: Node3D) -> void:
 	sun.shadow_blur = 1.6
 	sun.shadow_bias = 0.06
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	sun.shadow_opacity = 0.72
+	sun.shadow_opacity = 0.6
 	root.add_child(sun)
 
 
@@ -260,6 +262,8 @@ func _boxes(root: Node3D) -> void:
 				root.add_child(Avatar.part(trim, Avatar.mat(JADE, 1.2, 0.4), Vector3(World.PYRAMID.x, b.top - 0.4, b.z1 + 0.03)))
 			"gate":
 				_gate(root, b)
+			"seal":
+				_seal(root)
 			"altar":
 				root.add_child(_box_mesh(b, Avatar.mat(STONE.lightened(0.1))))
 				_glyph(root, Vector3((b.x0 + b.x1) * 0.5, b.top + 1.1, (b.z0 + b.z1) * 0.5))
@@ -342,6 +346,24 @@ func _gate(root: Node3D, b: Dictionary) -> void:
 	gate_light.omni_range = 8.0
 	gate_light.position = Vector3(cx - 1.0, base + 2.0, cz)
 	root.add_child(gate_light)
+
+
+## Velo de energía que cubre el santuario mientras está sellado (el sólido real es la caja "seal").
+func _seal(root: Node3D) -> void:
+	var dome := SphereMesh.new()
+	dome.radius = 8.6
+	dome.height = 11.0
+	dome.radial_segments = 28
+	dome.rings = 12
+	dome.is_hemisphere = true
+	seal_mat = StandardMaterial3D.new()
+	seal_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	seal_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	seal_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	seal_mat.albedo_color = Color(MAGENTA.r, MAGENTA.g, MAGENTA.b, 0.16)
+	seal_veil = Avatar.part(dome, seal_mat, Vector3(World.SANCTUARY.x, 0.0, World.SANCTUARY.y))
+	seal_veil.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(seal_veil)
 
 
 func _glyph(root: Node3D, pos: Vector3) -> void:

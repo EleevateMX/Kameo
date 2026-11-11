@@ -317,13 +317,14 @@ static func is_free(p: Vector2, y: float, r: float, gate_open: bool) -> bool:
 	const TOL := 0.0005
 	if p.length() > World.RADIUS + TOL:
 		return false
-	for c in World.cylinders():
+	var near: Array = World.near(p.x, p.y)
+	for c in near[0]:
 		var dx: float = p.x - c.x
 		var dz: float = p.y - c.z
 		var min_d: float = c.r + r - TOL
 		if dx * dx + dz * dz < min_d * min_d:
 			return false
-	for b in World.boxes():
+	for b in near[1]:
 		if gate_open and b.sealed:
 			continue
 		if y >= b.top - STEP or y + BODY_H <= b.y0:
@@ -338,7 +339,8 @@ static func is_free(p: Vector2, y: float, r: float, gate_open: bool) -> bool:
 static func _resolve_once(p: Vector2, y: float, r: float, gate_open: bool) -> Vector2:
 	var x := p.x
 	var z := p.y
-	for c in World.cylinders():
+	var near: Array = World.near(x, z)
+	for c in near[0]:
 		var dx: float = x - c.x
 		var dz: float = z - c.z
 		var min_d: float = c.r + r
@@ -352,7 +354,7 @@ static func _resolve_once(p: Vector2, y: float, r: float, gate_open: bool) -> Ve
 			x = c.x + dx / d * min_d
 			z = c.z + dz / d * min_d
 
-	for b in World.boxes():
+	for b in near[1]:
 		if gate_open and b.sealed:
 			continue
 		if y >= b.top - STEP or y + BODY_H <= b.y0:
@@ -393,7 +395,7 @@ static func _resolve_once(p: Vector2, y: float, r: float, gate_open: bool) -> Ve
 
 static func floor_at(x: float, z: float, feet: float, gate_open: bool) -> float:
 	var f := World.terrain_h(x, z)
-	for b in World.boxes():
+	for b in World.near(x, z)[1]:
 		if gate_open and b.sealed:
 			continue
 		if x > b.x0 - 0.15 and x < b.x1 + 0.15 and z > b.z0 - 0.15 and z < b.z1 + 0.15:
@@ -408,12 +410,13 @@ static func point_blocked(x: float, y: float, z: float, gate_open: bool) -> bool
 		return true
 	if x * x + z * z > World.RADIUS * World.RADIUS:
 		return true
-	for c in World.cylinders():
+	var near: Array = World.near(x, z)
+	for c in near[0]:
 		var dx: float = x - c.x
 		var dz: float = z - c.z
 		if dx * dx + dz * dz < c.r * c.r:
 			return true
-	for b in World.boxes():
+	for b in near[1]:
 		if gate_open and b.sealed:
 			continue
 		if x > b.x0 and x < b.x1 and z > b.z0 and z < b.z1 and y < b.top and y > b.y0:

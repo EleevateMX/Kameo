@@ -119,6 +119,7 @@ static func _ensure() -> void:
 		if _tree_blocked(tx, tz):
 			continue
 		_cyls.append({"x": tx, "z": tz, "r": 0.45 * scale, "h": 5.0 * scale, "kind": "tree", "s": scale})
+	_build_grid()
 
 
 static func _tree_blocked(x: float, z: float) -> bool:
@@ -156,6 +157,45 @@ static func _add_box(id: String, cx: float, cz: float, sx: float, sz: float, hei
 static func boxes() -> Array:
 	_ensure()
 	return _boxes
+
+
+# ── Rejilla espacial ──
+# Las colisiones sólo miran los obstáculos de la celda donde está el cuerpo. Cada celda
+# guarda (en el orden original) los cilindros y cajas que quedan a menos de GRID_MARGIN.
+const GRID_CELL := 4.0
+const GRID_HALF := 52.0
+const GRID_N := 26
+const GRID_MARGIN := 1.8   # > radio del mayor cuerpo móvil + un sub-paso
+
+static var _grid: Array = []
+
+
+static func _build_grid() -> void:
+	_grid.resize(GRID_N * GRID_N)
+	for i in _grid.size():
+		_grid[i] = [[], []]
+	for c in _cyls:
+		_grid_add(0, c, c.x - c.r, c.x + c.r, c.z - c.r, c.z + c.r)
+	for b in _boxes:
+		_grid_add(1, b, b.x0, b.x1, b.z0, b.z1)
+
+
+static func _grid_add(which: int, item: Dictionary, x0: float, x1: float, z0: float, z1: float) -> void:
+	var ix0 := clampi(int(floor((x0 - GRID_MARGIN + GRID_HALF) / GRID_CELL)), 0, GRID_N - 1)
+	var ix1 := clampi(int(floor((x1 + GRID_MARGIN + GRID_HALF) / GRID_CELL)), 0, GRID_N - 1)
+	var iz0 := clampi(int(floor((z0 - GRID_MARGIN + GRID_HALF) / GRID_CELL)), 0, GRID_N - 1)
+	var iz1 := clampi(int(floor((z1 + GRID_MARGIN + GRID_HALF) / GRID_CELL)), 0, GRID_N - 1)
+	for iz in range(iz0, iz1 + 1):
+		for ix in range(ix0, ix1 + 1):
+			_grid[iz * GRID_N + ix][which].append(item)
+
+
+## Obstáculos cercanos a (x, z): [cilindros, cajas].
+static func near(x: float, z: float) -> Array:
+	_ensure()
+	var ix := clampi(int(floor((x + GRID_HALF) / GRID_CELL)), 0, GRID_N - 1)
+	var iz := clampi(int(floor((z + GRID_HALF) / GRID_CELL)), 0, GRID_N - 1)
+	return _grid[iz * GRID_N + ix]
 
 
 static func cylinders() -> Array:
