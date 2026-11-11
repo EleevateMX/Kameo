@@ -2,7 +2,7 @@ import { randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import {
   GAME_TICKET_AUDIENCE, GAME_TICKET_TTL_SECONDS, MAX_PLAYERS_PER_ROOM, REWARDS, SESSION_AUDIENCE,
-  cleanName, isValidColor, signJwt, verifyJwt,
+  cleanName, inviteActive, isValidColor, signJwt, verifyJwt,
   type HeartbeatBody, type RewardBody, type RewardResult, type RoomInfo,
 } from '@alux/shared-contracts';
 import type { Config } from './config.ts';
@@ -109,6 +109,11 @@ export function createApp(store: Store, config: Config) {
   const requireSession = (req: Request, res: Response, next: NextFunction) => {
     const claims = verifyJwt(readCookie(req, 'alux_session'), config.sessionSecret, SESSION_AUDIENCE);
     if (!claims) return res.status(401).json({ error: 'no_session' });
+    // Sesión de tester: vale mientras su invitación exista, no haya vencido y el acceso
+    // por invitación siga activo (se apaga solo al configurar Discord).
+    if (claims.inv !== undefined && !(config.betaEnabled && inviteActive(config.betaInvites, claims.inv))) {
+      return res.status(401).json({ error: 'no_session' });
+    }
     // Las peticiones que cambian algo deben venir de nuestro propio portal
     if (req.method !== 'GET' && req.headers['x-alux-csrf'] !== '1') {
       return res.status(403).json({ error: 'csrf' });
@@ -125,7 +130,50 @@ export function createApp(store: Store, config: Config) {
     next();
   };
 
-  app.get('/health', (_req, res) => res.json({ ok: true }));
+  // Disponibilidad: siempre 200 si la API está en pie; `db` dice si la base de datos responde.
+  app.get('/health', async (_req, res) => res.json({ ok: true, db: await store.ping() }));
+
+  // ───────────── Métricas de sesión (beta) ─────────────
+  // El navegador informa de su rendimiento cada minuto y al terminar. Una fila por sesión.
+  const metricsLimit = limiter(20, 60_000);
+  const num = (v: unknown, min: number, max: number): number | null =>
+    typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : null;
+  const text = (v: unknown, max: number) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, ' ').slice(0, max) : '');
+
+  app.post('/v1/telemetry', requireSession, async (req, res) => {
+    const playerId = (req as AuthedRequest).playerId;
+    if (!metricsLimit(playerId)) return res.status(429).json({ error: 'rate_limited' });
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    if (typeof b.sid !== 'string' || !UUID_RE.test(b.sid)) return res.status(400).json({ error: 'invalid_session' });
+    const quality = ['high', 'low', 'min'].includes(b.quality as string) ? (b.quality as string) : '';
+    const audio = (b.audio ?? {}) as Record<string, unknown>;
+    const metrics = {
+      sessionId: b.sid.toLowerCase(), playerId,
+      room: text(b.room, 12).toUpperCase().replace(/[^A-Z0-9]/g, ''),
+      quality,
+      fpsAvg: num(b.fpsAvg, 0, 1000), fpsMin: num(b.fpsMin, 0, 1000),
+      pingAvg: num(b.pingAvg, 0, 60_000), pingMax: num(b.pingMax, 0, 60_000),
+      loadMs: num(b.loadMs, 0, 3_600_000) === null ? null : Math.round(num(b.loadMs, 0, 3_600_000)!),
+      seconds: Math.round(num(b.seconds, 0, 86_400) ?? 0),
+      data: {
+        qualityAuto: b.qualityAuto === true, qualityChanges: num(b.qualityChanges, 0, 1000),
+        heapMb: num(b.heapMb, 0, 65_536), memMb: num(b.memMb, 0, 65_536),
+        rejoins: num(b.rejoins, 0, 10_000), wins: num(b.wins, 0, 10_000), losses: num(b.losses, 0, 10_000),
+        falls: num(b.falls, 0, 100_000), players: num(b.players, 0, 8),
+        viewport: text(b.viewport, 16), dpr: num(b.dpr, 0, 16), renderer: text(b.renderer, 160),
+        audio: { master: num(audio.master, 0, 1), music: num(audio.music, 0, 1), sfx: num(audio.sfx, 0, 1), amb: num(audio.amb, 0, 1),
+          context: text(audio.context, 16) },
+        build: text(b.build, 40), final: b.final === true,
+        ua: text(req.headers['user-agent'], 200),
+      },
+    };
+    await store.saveMetrics(metrics);
+    // Una línea por informe en el registro del servicio: se puede seguir sin abrir la base de datos.
+    console.log(`[metrics] ${JSON.stringify({ player: playerId.slice(0, 8), sid: metrics.sessionId.slice(0, 8), room: metrics.room,
+      q: quality, auto: metrics.data.qualityAuto, fps: metrics.fpsAvg, fpsMin: metrics.fpsMin, ping: metrics.pingAvg, pingMax: metrics.pingMax,
+      loadMs: metrics.loadMs, s: metrics.seconds, heapMb: metrics.data.heapMb, rejoins: metrics.data.rejoins, final: metrics.data.final })}`);
+    res.json({ ok: true });
+  });
 
   app.get('/v1/me', requireSession, async (req, res) => {
     const profile = await store.getProfile((req as AuthedRequest).playerId);
@@ -215,7 +263,7 @@ export function createApp(store: Store, config: Config) {
 
   app.post('/internal/players/upsert', requireService, async (req, res) => {
     const { provider, providerId, displayName, avatarUrl } = req.body ?? {};
-    if ((provider !== 'discord' && provider !== 'dev') || typeof providerId !== 'string' || !providerId || providerId.length > 64) {
+    if ((provider !== 'discord' && provider !== 'dev' && provider !== 'beta') || typeof providerId !== 'string' || !providerId || providerId.length > 64) {
       return res.status(400).json({ error: 'invalid_player' });
     }
     const id = await store.upsertPlayer({

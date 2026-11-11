@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
-import fs from 'node:fs';
-import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import pg from 'pg';
-import { GAME_TICKET_AUDIENCE, SESSION_AUDIENCE, signJwt, verifyJwt, type GameTicketClaims } from '@alux/shared-contracts';
+import {
+  GAME_TICKET_AUDIENCE, SESSION_AUDIENCE, betaAccessEnabled, findInvite, generateInviteCode, hashInviteCode, parseBetaInvites,
+  signJwt, verifyJwt, type GameTicketClaims,
+} from '@alux/shared-contracts';
 import { createApp } from '../src/app.ts';
+import { migrate } from '../src/migrate.ts';
 import type { Config } from '../src/config.ts';
 import { MemoryStore } from '../src/store/memory.ts';
 import { PgStore } from '../src/store/pg.ts';
@@ -15,6 +18,13 @@ const config: Config = {
   port: 0, sessionSecret: 'test-session-secret-123456', ticketSecret: 'test-ticket-secret-123456',
   serviceKey: 'test-service-key-123456', databaseUrl: null, dataFile: null,
   gameServers: [{ id: 'gs-1', wsUrl: 'ws://localhost:9080' }], production: false,
+  host: '127.0.0.1',
+  // Acceso de testers: una invitación vigente y otra vencida
+  betaEnabled: true,
+  betaInvites: [
+    { id: 'ana', hash: hashInviteCode('ALUX-AAAAA-BBBBB-CCCCC-DDDDD'), expiresAt: Date.now() + 86_400_000, name: 'Ana' },
+    { id: 'viejo', hash: hashInviteCode('ALUX-ZZZZZ-ZZZZZ-ZZZZZ-ZZZZZ'), expiresAt: Date.now() - 1000, name: 'Viejo' },
+  ],
 };
 
 function suite(label: string, makeStore: () => Promise<Store>) {
@@ -59,6 +69,69 @@ function suite(label: string, makeStore: () => Promise<Store>) {
       const wrongAud = signJwt({ aud: GAME_TICKET_AUDIENCE, sub: a.id }, config.sessionSecret, 3600);
       assert.equal((await fetch(`${base}/v1/me`, { headers: { cookie: `alux_session=${wrongAud}` } })).status, 401);
       assert.equal((await a.call('POST', '/v1/rooms', {}, false)).status, 403);
+    });
+
+    test('acceso de testers: la sesión vale mientras la invitación esté vigente y el acceso activo', async () => {
+      const r = await svc('/internal/players/upsert', { provider: 'beta', providerId: `ana-${label}`, displayName: 'Ana' });
+      assert.equal(r.status, 200);
+      const { id } = await r.json();
+      const session = (inv: string) => `alux_session=${signJwt({ aud: SESSION_AUDIENCE, sub: id, inv }, config.sessionSecret, 3600)}`;
+      const me = await fetch(`${base}/v1/me`, { headers: { cookie: session('ana') } });
+      assert.equal(me.status, 200);
+      assert.equal((await me.json()).provider, 'beta');
+      assert.equal((await fetch(`${base}/v1/me`, { headers: { cookie: session('viejo') } })).status, 401, 'invitación vencida');
+      assert.equal((await fetch(`${base}/v1/me`, { headers: { cookie: session('nadie') } })).status, 401, 'invitación retirada');
+      // Con el acceso por invitación apagado (p. ej. al activar Discord), esas sesiones dejan de valer
+      const off = createApp(store, { ...config, betaEnabled: false }).listen(0);
+      try {
+        const offBase = `http://127.0.0.1:${(off.address() as AddressInfo).port}`;
+        assert.equal((await fetch(`${offBase}/v1/me`, { headers: { cookie: session('ana') } })).status, 401);
+      } finally {
+        await new Promise((done) => off.close(() => done(null)));
+      }
+    });
+
+    test('invitaciones: formato, vencimiento, comparación y activación', () => {
+      const code = generateInviteCode();
+      assert.match(code, /^ALUX(-[A-HJ-NP-Z2-9]{5}){4}$/);
+      const { invites, rejected } = parseBetaInvites(
+        `ana:${hashInviteCode(code)}:2999-12-31:Ana María, mal:xyz:2999-01-01, viejo:${hashInviteCode('ALUX-ZZZZZ-ZZZZZ-ZZZZZ-ZZZZZ')}:2001-01-01`);
+      assert.equal(invites.length, 2);
+      assert.equal(rejected, 1);
+      assert.equal(findInvite(invites, code.toLowerCase().replace(/-/g, ' '))?.id, 'ana', 'se acepta en minúsculas y con espacios');
+      assert.equal(findInvite(invites, 'ALUX-ZZZZZ-ZZZZZ-ZZZZZ-ZZZZZ'), null, 'una invitación vencida no entra');
+      assert.equal(findInvite(invites, 'ALUX-AAAAA-AAAAA-AAAAA-AAAAA'), null);
+      assert.equal(findInvite(invites, ''), null);
+      const env = { BETA_ACCESS: 'invite', BETA_INVITES: `ana:${hashInviteCode(code)}:2999-12-31` };
+      assert.equal(betaAccessEnabled(env), true);
+      assert.equal(betaAccessEnabled({ ...env, BETA_ACCESS: 'off' }), false);
+      assert.equal(betaAccessEnabled({ ...env, BETA_INVITES: '' }), false, 'sin invitaciones no hay acceso');
+      assert.equal(betaAccessEnabled({ ...env, DISCORD_CLIENT_ID: 'x', DISCORD_CLIENT_SECRET: 'y' }), false, 'con Discord se apaga solo');
+    });
+
+    test('métricas de sesión: se guardan una vez por sesión, se acotan y exigen sesión', async () => {
+      const a = await login(40);
+      const b = await login(41);
+      const sid = randomUUID();
+      assert.equal((await fetch(`${base}/v1/telemetry`, { method: 'POST', body: '{}' })).status, 401);
+      assert.equal((await a.call('POST', '/v1/telemetry', { sid: 'no-es-uuid' })).status, 400);
+      const report = { sid, room: 'abc123', quality: 'low', qualityAuto: true, fpsAvg: 48.2, fpsMin: 31, pingAvg: 62, pingMax: 140,
+        loadMs: 8421.7, seconds: 60, heapMb: 210, viewport: '1920x1080', renderer: 'ANGLE (x)', audio: { master: 0.8, context: 'running' } };
+      assert.equal((await a.call('POST', '/v1/telemetry', report)).status, 200);
+      assert.equal((await a.call('POST', '/v1/telemetry', { ...report, seconds: 9e9, fpsAvg: 'mucho', quality: 'ultra', final: true })).status, 200);
+      // Otro jugador no puede pisar la sesión de alguien más
+      assert.equal((await b.call('POST', '/v1/telemetry', { ...report, seconds: 5 })).status, 200);
+      const mine = (await store.listMetrics(50)).filter((m) => m.sessionId === sid);
+      assert.equal(mine.length, 1, 'una fila por sesión');
+      assert.equal(mine[0].playerId, a.id);
+      assert.equal(mine[0].seconds, 86_400, 'los valores se acotan');
+      assert.equal(mine[0].fpsAvg, null, 'lo que no es número no se guarda');
+      assert.equal(mine[0].quality, '');
+      assert.equal(mine[0].room, 'ABC123');
+      assert.equal(mine[0].loadMs, 8422);
+      assert.equal((mine[0].data as any).final, true);
+      const health = await (await fetch(`${base}/health`)).json();
+      assert.deepEqual(health, { ok: true, db: true });
     });
 
     test('perfil inicial y personalización del alux con validación', async () => {
@@ -160,12 +233,17 @@ suite('memoria', async () => new MemoryStore(null));
 if (process.env.TEST_DATABASE_URL) {
   suite('postgres', async () => {
     const url = process.env.TEST_DATABASE_URL!;
-    const dir = path.resolve(import.meta.dirname, '../../../supabase/migrations');
     const client = new pg.Client({ connectionString: url });
     await client.connect();
     await client.query('drop schema public cascade; create schema public;');
-    for (const f of fs.readdirSync(dir).sort()) await client.query(fs.readFileSync(path.join(dir, f), 'utf8'));
     await client.end();
-    return new PgStore(url);
+    // Las migraciones entran con el mismo programa que se usa al desplegar, y repetirlo no cambia nada
+    const first = await migrate(url, { log: () => {} });
+    assert.ok(first.length >= 2 && first.every((m) => m.applied));
+    const again: string[] = [];
+    await migrate(url, { log: (l) => again.push(l) });
+    assert.deepEqual(again, [], 'la segunda pasada no aplica nada');
+    assert.ok((await migrate(url, { statusOnly: true })).every((m) => m.applied && !m.changed));
+    return PgStore.connect(url);
   });
 }

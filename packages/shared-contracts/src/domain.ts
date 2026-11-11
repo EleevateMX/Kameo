@@ -13,7 +13,7 @@ export interface PlayerProfile {
   id: string;
   displayName: string;
   avatarUrl: string | null;
-  provider: 'discord' | 'dev';
+  provider: 'discord' | 'dev' | 'beta';
   character: Character;
   unlocks: FormId[];
   rewards: string[];

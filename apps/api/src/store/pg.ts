@@ -1,21 +1,21 @@
 import pg from 'pg';
 import { DEFAULT_UNLOCKS, cleanName, type Character, type FormId, type PlayerProfile } from '@alux/shared-contracts';
-import type { MemberRow, RoomRow, Store } from './types.ts';
+import type { MemberRow, RoomRow, SessionMetrics, Store } from './types.ts';
 
 /** PostgreSQL / Supabase. El esquema está en supabase/migrations. */
 export class PgStore implements Store {
   private pool: pg.Pool;
 
-  constructor(databaseUrl: string) {
-    const local = /@(localhost|127\.0\.0\.1)[:/]/.test(databaseUrl) || databaseUrl.includes('host=/');
-    this.pool = new pg.Pool({
-      connectionString: databaseUrl,
-      max: 10,
-      ssl: local || process.env.PGSSLMODE === 'disable' ? undefined : { rejectUnauthorized: false },
-    });
+  constructor(databaseUrl: string, pool?: pg.Pool) {
+    this.pool = pool ?? makePool(databaseUrl, wantsSsl(databaseUrl));
   }
 
-  async upsertPlayer(p: { provider: 'discord' | 'dev'; providerId: string; displayName: string; avatarUrl: string | null }) {
+  /** Conecta y comprueba la conexión. Si el servidor no admite TLS, reintenta sin él. */
+  static async connect(databaseUrl: string): Promise<PgStore> {
+    return new PgStore(databaseUrl, await connectPool(databaseUrl));
+  }
+
+  async upsertPlayer(p: { provider: 'discord' | 'dev' | 'beta'; providerId: string; displayName: string; avatarUrl: string | null }) {
     const client = await this.pool.connect();
     try {
       await client.query('begin');
@@ -172,7 +172,76 @@ export class PgStore implements Store {
     }
   }
 
+  async saveMetrics(m: SessionMetrics) {
+    // Una fila por sesión; sólo su dueño puede actualizarla.
+    await this.pool.query(
+      `insert into session_metrics (session_id, player_id, room, quality, fps_avg, fps_min, ping_avg, ping_max, load_ms, seconds, data)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       on conflict (session_id) do update set
+         room = excluded.room, quality = excluded.quality, fps_avg = excluded.fps_avg, fps_min = excluded.fps_min,
+         ping_avg = excluded.ping_avg, ping_max = excluded.ping_max, load_ms = excluded.load_ms,
+         seconds = excluded.seconds, data = excluded.data, updated_at = now()
+       where session_metrics.player_id = excluded.player_id`,
+      [m.sessionId, m.playerId, m.room, m.quality, m.fpsAvg, m.fpsMin, m.pingAvg, m.pingMax, m.loadMs, m.seconds, JSON.stringify(m.data)],
+    );
+  }
+
+  async listMetrics(limit: number) {
+    const { rows } = await this.pool.query(
+      `select session_id, player_id, room, quality, fps_avg, fps_min, ping_avg, ping_max, load_ms, seconds, data, created_at, updated_at
+         from session_metrics order by created_at desc limit $1`,
+      [limit],
+    );
+    return rows.map((r) => ({
+      sessionId: r.session_id, playerId: r.player_id, room: r.room, quality: r.quality,
+      fpsAvg: r.fps_avg, fpsMin: r.fps_min, pingAvg: r.ping_avg, pingMax: r.ping_max, loadMs: r.load_ms,
+      seconds: r.seconds, data: r.data, createdAt: r.created_at, updatedAt: r.updated_at,
+    }));
+  }
+
+  async ping() {
+    try {
+      await this.pool.query('select 1');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async close() {
     await this.pool.end();
   }
+}
+
+/** ¿Conviene TLS? No en local ni con PGSSLMODE=disable; sí en cualquier otro caso. */
+export function wantsSsl(databaseUrl: string): boolean {
+  if (process.env.PGSSLMODE === 'disable') return false;
+  return !(/@(localhost|127\.0\.0\.1)[:/]/.test(databaseUrl) || databaseUrl.includes('host=/'));
+}
+
+export function makePool(databaseUrl: string, ssl: boolean, max = 10): pg.Pool {
+  const pool = new pg.Pool({ connectionString: databaseUrl, max, ssl: ssl ? { rejectUnauthorized: false } : undefined });
+  // Un corte de la base de datos no debe tumbar el proceso: el pool reconecta solo.
+  pool.on('error', (err) => console.error('[db] Conexión perdida:', err.message));
+  return pool;
+}
+
+/**
+ * Abre el pool y verifica que responde. Algunas redes privadas (p. ej. la interna de Render)
+ * no ofrecen TLS: si el servidor lo rechaza, se reintenta sin TLS dentro de esa red.
+ */
+export async function connectPool(databaseUrl: string, max = 10): Promise<pg.Pool> {
+  let pool = makePool(databaseUrl, wantsSsl(databaseUrl), max);
+  try {
+    await pool.query('select 1');
+  } catch (err) {
+    if (!/does not support SSL/i.test(String((err as Error).message))) {
+      await pool.end().catch(() => {});
+      throw err;
+    }
+    await pool.end().catch(() => {});
+    pool = makePool(databaseUrl, false, max);
+    await pool.query('select 1');
+  }
+  return pool;
 }

@@ -30,7 +30,7 @@ export interface RewardEffect {
  * Sólo la API escribe aquí; ni el navegador ni el cliente del juego tienen acceso.
  */
 export interface Store {
-  upsertPlayer(p: { provider: 'discord' | 'dev'; providerId: string; displayName: string; avatarUrl: string | null }): Promise<string>;
+  upsertPlayer(p: { provider: 'discord' | 'dev' | 'beta'; providerId: string; displayName: string; avatarUrl: string | null }): Promise<string>;
   getProfile(id: string): Promise<PlayerProfile | null>;
   updateCharacter(id: string, c: Character): Promise<void>;
 
@@ -51,5 +51,28 @@ export interface Store {
    */
   grantReward(g: { playerId: string; reward: string; source: string; idempotencyKey: string; effect: RewardEffect }): Promise<boolean>;
 
+  /** Guarda (o actualiza) las métricas de una sesión de juego. */
+  saveMetrics(m: SessionMetrics): Promise<void>;
+  /** Últimas sesiones registradas, de la más reciente a la más antigua. */
+  listMetrics(limit: number): Promise<(SessionMetrics & { createdAt: Date; updatedAt: Date })[]>;
+
+  /** ¿Responde el almacén? (para la comprobación de disponibilidad) */
+  ping(): Promise<boolean>;
   close(): Promise<void>;
+}
+
+/** Rendimiento de una sesión de juego, tal como lo mide el navegador del jugador. */
+export interface SessionMetrics {
+  sessionId: string;
+  playerId: string;
+  room: string;
+  quality: string;
+  fpsAvg: number | null;
+  fpsMin: number | null;
+  pingAvg: number | null;
+  pingMax: number | null;
+  loadMs: number | null;
+  seconds: number;
+  /** Resto de datos (memoria, navegador, resolución, volumen, resultados…). */
+  data: Record<string, unknown>;
 }

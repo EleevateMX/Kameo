@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
-import { readSecret } from '@alux/shared-contracts';
+import { betaAccessEnabled, parseBetaInvites, readSecret, type BetaInvite } from '@alux/shared-contracts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 dotenv.config({ path: path.join(root, '.env') });
@@ -20,6 +20,11 @@ export interface Config {
   dataFile: string | null;
   gameServers: GameServerRef[];
   production: boolean;
+  /** Interfaz en la que escucha la API (127.0.0.1 detrás del proxy interno). */
+  host: string;
+  /** Acceso temporal de testers por invitación (ver packages/shared-contracts/src/beta.ts). */
+  betaEnabled: boolean;
+  betaInvites: BetaInvite[];
 }
 
 export function parseGameServers(raw: string | undefined): GameServerRef[] {
@@ -47,5 +52,8 @@ export function loadConfig(): Config {
     dataFile: process.env.DATABASE_URL ? null : path.join(root, 'apps/api/data/dev-store.json'),
     gameServers: parseGameServers(process.env.GAME_SERVERS),
     production,
+    host: process.env.API_HOST || '0.0.0.0',
+    betaEnabled: betaAccessEnabled(process.env),
+    betaInvites: parseBetaInvites(process.env.BETA_INVITES).invites,
   };
 }

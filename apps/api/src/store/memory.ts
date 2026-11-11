@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULT_UNLOCKS, cleanName, type Character, type FormId, type PlayerProfile } from '@alux/shared-contracts';
-import type { MemberRow, RoomRow, Store } from './types.ts';
+import type { MemberRow, RoomRow, Store, SessionMetrics } from './types.ts';
 
 interface PlayerRec {
   id: string;
-  provider: 'discord' | 'dev';
+  provider: 'discord' | 'dev' | 'beta';
   providerId: string;
   displayName: string;
   avatarUrl: string | null;
@@ -56,7 +56,7 @@ export class MemoryStore implements Store {
     fs.renameSync(tmp, this.file);
   }
 
-  async upsertPlayer(p: { provider: 'discord' | 'dev'; providerId: string; displayName: string; avatarUrl: string | null }) {
+  async upsertPlayer(p: { provider: 'discord' | 'dev' | 'beta'; providerId: string; displayName: string; avatarUrl: string | null }) {
     let rec = Object.values(this.data.players).find((x) => x.provider === p.provider && x.providerId === p.providerId);
     if (!rec) {
       rec = {
@@ -166,6 +166,23 @@ export class MemoryStore implements Store {
     if (g.effect.quest) p.quests[g.effect.quest] = 'completed';
     if (g.effect.unlock && !p.unlocks.includes(g.effect.unlock)) p.unlocks.push(g.effect.unlock);
     this.save();
+    return true;
+  }
+
+  private metrics = new Map<string, SessionMetrics & { createdAt: Date; updatedAt: Date }>();
+
+  async saveMetrics(m: SessionMetrics) {
+    const prev = this.metrics.get(m.sessionId);
+    if (prev && prev.playerId !== m.playerId) return;
+    this.metrics.set(m.sessionId, { ...m, createdAt: prev?.createdAt ?? new Date(), updatedAt: new Date() });
+    if (this.metrics.size > 500) this.metrics.delete(this.metrics.keys().next().value!);
+  }
+
+  async listMetrics(limit: number) {
+    return [...this.metrics.values()].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, limit);
+  }
+
+  async ping() {
     return true;
   }
 
