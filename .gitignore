@@ -21,3 +21,6 @@ art/previews/*
 # Python
 __pycache__/
 *.pyc
+
+# Respaldos de la base de datos (scripts/beta-backup.sh)
+backups/

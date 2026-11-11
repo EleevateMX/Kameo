@@ -1,0 +1,55 @@
+# Proxy interno de la imagen única (infra/render/Dockerfile).
+# El HTTPS lo pone la plataforma por delante; aquí sólo se reparte el tráfico del puerto $PORT.
+# Sólo se expone /api/v1/*: las rutas /internal/* de la API no son accesibles desde fuera.
+{
+	auto_https off
+	admin off
+	servers {
+		# La plataforma añade X-Forwarded-For/Proto: se confía en su red privada
+		trusted_proxies static private_ranges
+	}
+}
+
+:{$PORT} {
+	header {
+		# Beta privada: que no aparezca en buscadores
+		X-Robots-Tag "noindex, nofollow"
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	# Disponibilidad (la usa la plataforma para saber si el servicio está sano)
+	handle /healthz {
+		rewrite * /health
+		reverse_proxy 127.0.0.1:4000
+	}
+
+	# Servidor de juego (wss://DOMINIO/ws)
+	handle /ws* {
+		reverse_proxy 127.0.0.1:9080
+	}
+
+	# API pública
+	handle_path /api/v1/* {
+		rewrite * /v1{uri}
+		reverse_proxy 127.0.0.1:4000
+	}
+
+	# Juego exportado: estáticos ya comprimidos (.br / .gz). Se revalidan en cada visita,
+	# así una versión nueva llega sin que nadie tenga que vaciar la caché.
+	handle /game/* {
+		root * /app/apps/portal/public
+		header Cache-Control "public, max-age=0, must-revalidate"
+		file_server {
+			precompressed br gzip
+		}
+	}
+
+	# Portal
+	handle {
+		encode zstd gzip
+		reverse_proxy 127.0.0.1:3000
+	}
+}

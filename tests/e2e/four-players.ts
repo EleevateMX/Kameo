@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Browser, Page } from 'playwright';
-import { BASE, driveTo, launch, lookAt, sleep, state, waitFor } from './lib.ts';
+import { BASE, driveTo, launch, login, lookAt, sleep, state, waitFor } from './lib.ts';
 
 const SHOTS = process.env.E2E_SHOTS || path.resolve(import.meta.dirname, 'screenshots');
 const NAMES = ['Ixchel', 'Balam Kin', 'Nicte', 'Chaac'];
@@ -37,9 +37,7 @@ async function main() {
       if (logs.length > 60) logs.shift();
     });
     pages.push(page);
-    await page.goto(BASE);
-    await page.fill('#dev-name', NAMES[i]);
-    await Promise.all([page.waitForURL('**/hub'), page.click('.dev-login button')]);
+    await login(page, NAMES[i]);
   }
   console.log('✓ 4 cuentas con sesión en el portal');
 
@@ -177,9 +175,7 @@ async function main() {
   // 8) Un quinto jugador no cabe
   const fifthCtx = await browser.newContext();
   const fifth = await fifthCtx.newPage();
-  await fifth.goto(BASE);
-  await fifth.fill('#dev-name', 'Quinto');
-  await Promise.all([fifth.waitForURL('**/hub'), fifth.click('.dev-login button')]);
+  await login(fifth, 'Quinto');
   const res = await fifth.evaluate(async (c) => {
     const r = await fetch(`/api/v1/rooms/${c}/ticket`, { method: 'POST', headers: { 'x-alux-csrf': '1' } });
     return { status: r.status, body: await r.json() };

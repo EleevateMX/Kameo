@@ -35,6 +35,8 @@ export function launch(): Promise<Browser> {
       // Render por software para máquinas sin tarjeta gráfica (CI). Con GPU real, quítalos.
       ...(process.env.E2E_GPU === '1' ? [] : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']),
       '--ignore-gpu-blocklist',
+      // Sólo para probar contra un proxy local con certificado propio (scripts/test-beta-image.sh)
+      ...(process.env.E2E_INSECURE_TLS === '1' ? ['--ignore-certificate-errors'] : []),
       // Sin esto Chromium pausa las pestañas que considera en segundo plano y el juego deja de avanzar
       '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--disable-background-timer-throttling',
     ],
@@ -42,8 +44,26 @@ export function launch(): Promise<Browser> {
   });
 }
 
+// Contra un despliegue de beta (sin entrada de prueba) se entra con invitaciones de tester:
+// E2E_INVITES="CODIGO1,CODIGO2,…" (una por cuenta que abra la prueba).
+const invites = (process.env.E2E_INVITES || '').split(',').map((c) => c.trim()).filter(Boolean);
+
 export async function login(page: Page, name: string) {
   await page.goto(BASE);
+  if (invites.length) {
+    await page.fill('#beta-code', invites.shift()!);
+    await Promise.all([page.waitForURL('**/hub'), page.click('.beta-login button')]);
+    // La invitación trae su propio nombre: se pone el que pide la prueba, como haría el tester
+    await page.evaluate(async (wanted) => {
+      const me = await (await fetch('/api/v1/me')).json();
+      await fetch('/api/v1/me/character', {
+        method: 'PUT', headers: { 'content-type': 'application/json', 'x-alux-csrf': '1' },
+        body: JSON.stringify({ ...me.character, name: wanted }),
+      });
+    }, name);
+    await page.reload();
+    return;
+  }
   await page.fill('#dev-name', name);
   await Promise.all([page.waitForURL('**/hub'), page.click('.dev-login button')]);
 }
