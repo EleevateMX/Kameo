@@ -11,6 +11,8 @@ const ENERGY_PER_TICK := 0.5     # = ENERGY_REGEN / 30; exacto en coma flotante 
 const HP_REGEN := 3.0            # por segundo, fuera de combate
 const HP_REGEN_DELAY := 6.0
 const RESPAWN_TIME := 4.0
+const RESPAWN_TIME_ENCOUNTER := 8.0   # en la emboscada se tarda más en volver: caer tiene peso
+const RESPAWN_TIME_DEFEAT := 3.0      # tras una derrota el grupo se reúne pronto
 const RESPAWN_INVULN := 2.5
 
 ## Tipos de habilidad disponibles:
@@ -63,6 +65,9 @@ const AMBIENT := [
 
 ## Emboscada del santuario: aparece al abrirse la puerta. Escala con los jugadores.
 const ENCOUNTER_CENTER := Vector2(15.0, 0.0)
+## Al aparecer, los enemigos de la emboscada tardan esto en reaccionar: da tiempo a ver
+## qué pasa y a prepararse (los que reciben un golpe despiertan antes).
+const ENCOUNTER_WAKE := 3.0
 
 static func encounter_wave(players: int) -> Array:
 	var n := clampi(players, 1, 4)
@@ -75,6 +80,11 @@ static func encounter_wave(players: int) -> Array:
 
 static func hp_scale(players: int) -> float:
 	return 1.0 + 0.25 * float(clampi(players, 1, 4) - 1)
+
+## Daño de los enemigos de la emboscada según el grupo: con uno o dos jugadores pegan
+## menos, porque todos los golpes van a los mismos (0.6 solo, 0.8 en pareja, 1.0 con 3–4).
+static func dmg_scale(players: int) -> float:
+	return [0.6, 0.8, 1.0, 1.0][clampi(players, 1, 4) - 1]
 
 ## Brasero de la plaza: cura al tocarlo y es el punto de reaparición inicial.
 const BRAZIER := Vector2(0.0, 0.0)

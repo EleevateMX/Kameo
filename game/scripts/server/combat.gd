@@ -32,6 +32,8 @@ class Enemy:
 	var stuck_t := 0.0
 	var side := 0.0
 	var side_t := 0.0
+	var wake := 0.0              # segundos que le quedan "despertando" (no persigue ni ataca)
+	var dmg_scale := 1.0         # los de la emboscada pegan menos a grupos pequeños
 
 
 var enemies: Array = []
@@ -87,6 +89,8 @@ func start_encounter(player_count: int) -> void:
 		var rad := 4.0 + float(i % 3) * 1.3
 		var e := _spawn(kinds[i], c.x + cos(ang) * rad, c.y + sin(ang) * rad, scale, true)
 		e.home = c
+		e.wake = Defs.ENCOUNTER_WAKE + 0.25 * float(i)   # despiertan escalonados
+		e.dmg_scale = Defs.dmg_scale(player_count)
 	events.append(["enc", "start", kinds.size()])
 
 
@@ -241,7 +245,7 @@ func damage_player(p: Variant, amount: float, from: Vector2, knock: float) -> vo
 		s.charge_t = 0
 		s.dash_t = 0
 		s.pounce = false
-		p.respawn_t = Defs.RESPAWN_TIME
+		p.respawn_t = Defs.RESPAWN_TIME_ENCOUNTER if encounter == 1 else Defs.RESPAWN_TIME
 		events.append(["die", "p", p.slot, 0, -1])
 
 
@@ -317,10 +321,13 @@ func _fail(players: Array) -> void:
 		events.append(["bolt_end", b.id, snappedf(b.x, 0.01), snappedf(b.y, 0.01), snappedf(b.z, 0.01), 0])
 	bolts.clear()
 	events.append(["enc", "fail", 0])
-	# Quien no esté conectado no reaparece por su cuenta: se le lleva ya al punto de control
+	# Quien no esté conectado no reaparece por su cuenta: se le lleva ya al punto de control.
+	# Los demás vuelven pronto y a la vez, para reagruparse.
 	for p in players:
 		if p.conn_id == 0:
 			_respawn(p, false)
+		elif p.state.dead:
+			p.respawn_t = minf(p.respawn_t, Defs.RESPAWN_TIME_DEFEAT)
 
 
 ## Nueva ronda (tras una victoria, a petición del grupo): todo vuelve al estado inicial.
@@ -464,6 +471,11 @@ func _tick_enemy(e: Enemy, players: Array) -> void:
 			if e.t <= 0.0:
 				e.state = "chase"
 		"idle":
+			if e.wake > 0.0:
+				e.wake -= DT
+				if e.threat.is_empty():
+					return   # aún despertando; si alguien lo golpea, reacciona ya
+				e.wake = 0.0
 			var tgt: Variant = _pick_target(e, players)
 			if tgt != null:
 				e.state = "chase"
@@ -505,7 +517,7 @@ func _tick_enemy(e: Enemy, players: Array) -> void:
 					for p in players:
 						if _targetable(p) and (Vector2(p.state.pos.x, p.state.pos.z) - center).length() < float(def.hit_radius) \
 								and absf(p.state.pos.y - e.y) < 2.0:
-							damage_player(p, def.dmg, here, 6.0)
+							damage_player(p, float(def.dmg) * e.dmg_scale, here, 6.0)
 					events.append(["eatk", e.id])
 					e.state = "recover"
 					e.t = def.recover
@@ -517,7 +529,7 @@ func _tick_enemy(e: Enemy, players: Array) -> void:
 						and (Vector2(p.state.pos.x, p.state.pos.z) - here).length() < float(def.hit_radius) + Sim.BODY_R \
 						and absf(p.state.pos.y - e.y) < 1.8:
 					e.struck[p.id] = true
-					damage_player(p, def.dmg, here, 4.0)
+					damage_player(p, float(def.dmg) * e.dmg_scale, here, 4.0)
 			if e.t <= 0.0:
 				e.state = "recover"
 				e.t = def.recover
