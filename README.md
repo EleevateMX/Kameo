@@ -18,6 +18,10 @@ acertijos que sólo se resuelven en equipo y, más adelante, el camino hasta Kuk
 Capturas hechas con la vista previa del juego (`scripts/preview.sh`): es el escenario, los personajes y la
 interfaz reales, con una escena preparada y sin servidor. En el entorno de desarrollo no hay GPU.
 
+Y esta es una captura del juego real en el navegador, en una sesión viva contra el servidor (calidad alta):
+
+![Juego real en el navegador](docs/img/juego-real-navegador.jpg)
+
 ## Qué funciona hoy (Fases 1–3 y parte de la 4)
 
 - **Portal** (Next.js): portada, inicio de sesión con Discord (OAuth2 con `state` y cookies seguras),
