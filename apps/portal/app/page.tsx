@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { AluxPreview } from '@/components/AluxPreview';
-import { devLoginEnabled, discordEnabled } from '@/lib/env';
+import { betaLoginEnabled, devLoginEnabled, discordEnabled } from '@/lib/env';
 import { getProfile, safeNext } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +11,9 @@ const ERRORS: Record<string, string> = {
   discord: 'Discord no respondió. Inténtalo de nuevo en un momento.',
   discord_no_configurado: 'El inicio de sesión con Discord aún no está configurado en este servidor.',
   dev_desactivado: 'La entrada de prueba está desactivada.',
+  beta_desactivada: 'El acceso de testers está cerrado.',
+  beta_codigo: 'Ese código de invitación no es válido o ya venció. Revísalo o pide uno nuevo a quien te invitó.',
+  beta_intentos: 'Demasiados intentos. Espera unos minutos y vuelve a probar.',
   api: 'El servidor del juego no está disponible. Inténtalo de nuevo en un momento.',
 };
 
@@ -40,7 +43,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
             {invited ? 'Te invitaron a una sala. Inicia sesión para entrar con tu alux.' : 'Tu leyenda comienza aquí. Explora los misterios de Yucatán junto a tus amigos.'}
           </p>
           <div className="cta">
-            {discordEnabled ? (
+            {betaLoginEnabled ? null : discordEnabled ? (
               <a className="btn discord" href={`/auth/discord?next=${encodeURIComponent(next)}`}>
                 <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.6 5.2A17 17 0 0 0 15.4 4l-.5 1a15.600 15.600 0 0 0-5.800 0L8.600 4a17 17 0 0 0-4.200 1.200C1.700 9.200 1 13 1.300 16.900a17 17 0 0 0 5.200 2.600l1.100-1.800c-.600-.200-1.200-.500-1.700-.800l.400-.300a12.200 12.200 0 0 0 11.400 0l.400.300c-.500.300-1.100.600-1.700.800l1.100 1.800a17 17 0 0 0 5.200-2.600c.400-4.500-.700-8.300-3.100-11.700ZM8.700 14.600c-1 0-1.900-1-1.900-2.100s.800-2.100 1.900-2.100 1.900 1 1.900 2.100-.800 2.100-1.900 2.100Zm6.600 0c-1 0-1.900-1-1.900-2.100s.800-2.100 1.900-2.100 1.900 1 1.900 2.100-.800 2.100-1.900 2.100Z" /></svg>
                 Iniciar sesión con Discord
@@ -49,6 +52,18 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
               <span className="btn discord disabled" title="Configura DISCORD_CLIENT_ID y DISCORD_CLIENT_SECRET">Discord aún no está configurado</span>
             )}
           </div>
+          {betaLoginEnabled && (
+            <form className="dev-login beta-login" method="post" action="/auth/beta">
+              <input type="hidden" name="next" value={next} />
+              <label htmlFor="beta-code">Beta privada · entra con tu código de invitación</label>
+              <div>
+                <input id="beta-code" name="code" maxLength={64} placeholder="ALUX-XXXXX-XXXXX-XXXXX-XXXXX" autoComplete="off"
+                  autoCapitalize="characters" spellCheck={false} required />
+                <button className="btn" type="submit">Entrar</button>
+              </div>
+              <small>El código es personal: no lo compartas. Si no tienes uno, pídelo a quien organiza la prueba.</small>
+            </form>
+          )}
           {devLoginEnabled && (
             <form className="dev-login" method="post" action="/auth/dev">
               <input type="hidden" name="next" value={next} />

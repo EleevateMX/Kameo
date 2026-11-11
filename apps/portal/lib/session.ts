@@ -1,27 +1,34 @@
 import 'server-only';
 import { cookies } from 'next/headers';
-import { SESSION_AUDIENCE, signJwt, verifyJwt, type PlayerProfile } from '@alux/shared-contracts';
-import { API_URL, secureCookies, serviceKey, sessionSecret } from './env';
+import { SESSION_AUDIENCE, inviteActive, signJwt, verifyJwt, type PlayerProfile } from '@alux/shared-contracts';
+import { API_URL, betaInvites, betaLoginEnabled, secureCookies, serviceKey, sessionSecret } from './env';
 
 export const SESSION_COOKIE = 'alux_session';
 const WEEK = 60 * 60 * 24 * 7;
 
-export function sessionCookie(playerId: string) {
+/**
+ * Cookie de sesión. Para un tester (`beta`), la sesión lleva el id de su invitación y
+ * dura como mucho hasta que ésta vence; la API la rechaza si la invitación se retira.
+ */
+export function sessionCookie(playerId: string, beta?: { invite: string; expiresAt: number }) {
+  const ttl = beta ? Math.max(60, Math.min(WEEK, Math.floor((beta.expiresAt - Date.now()) / 1000))) : WEEK;
   return {
     name: SESSION_COOKIE,
-    value: signJwt({ aud: SESSION_AUDIENCE, sub: playerId }, sessionSecret(), WEEK),
+    value: signJwt({ aud: SESSION_AUDIENCE, sub: playerId, ...(beta ? { inv: beta.invite } : {}) }, sessionSecret(), ttl),
     httpOnly: true,
     sameSite: 'lax' as const,
     secure: secureCookies,
     path: '/',
-    maxAge: WEEK,
+    maxAge: ttl,
   };
 }
 
 export async function getSessionPlayerId(): Promise<string | null> {
   const jar = await cookies();
   const claims = verifyJwt(jar.get(SESSION_COOKIE)?.value, sessionSecret(), SESSION_AUDIENCE);
-  return claims?.sub ?? null;
+  if (!claims) return null;
+  if (claims.inv !== undefined && !(betaLoginEnabled && inviteActive(betaInvites, claims.inv))) return null;
+  return claims.sub;
 }
 
 /** Perfil del jugador con sesión, o null. */
@@ -38,7 +45,7 @@ export async function getProfile(): Promise<PlayerProfile | null> {
 }
 
 /** Crea o actualiza al jugador en la API y devuelve su id. */
-export async function upsertPlayer(p: { provider: 'discord' | 'dev'; providerId: string; displayName: string; avatarUrl: string | null }): Promise<string> {
+export async function upsertPlayer(p: { provider: 'discord' | 'dev' | 'beta'; providerId: string; displayName: string; avatarUrl: string | null }): Promise<string> {
   const res = await fetch(`${API_URL}/internal/players/upsert`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-service-key': serviceKey() },

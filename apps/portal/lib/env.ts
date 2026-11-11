@@ -1,5 +1,5 @@
 import 'server-only';
-import { readSecret } from '@alux/shared-contracts';
+import { betaAccessEnabled, parseBetaInvites, readSecret } from '@alux/shared-contracts';
 
 export const BASE_URL = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
 export const API_URL = (process.env.API_URL || 'http://127.0.0.1:4000').replace(/\/$/, '');
@@ -13,6 +13,11 @@ export const discordEnabled = Boolean(DISCORD_CLIENT_ID && DISCORD_CLIENT_SECRET
 export const devLoginEnabled = process.env.ALLOW_DEV_LOGIN
   ? process.env.ALLOW_DEV_LOGIN === 'true'
   : !discordEnabled && process.env.NODE_ENV !== 'production';
+
+// Acceso temporal de testers por invitación: sólo con BETA_ACCESS=invite, con invitaciones
+// cargadas y sin Discord configurado (al activar Discord se apaga solo).
+export const betaLoginEnabled = betaAccessEnabled(process.env);
+export const betaInvites = parseBetaInvites(process.env.BETA_INVITES).invites;
 
 export const secureCookies = BASE_URL.startsWith('https://');
 export const sessionSecret = () => readSecret('SESSION_SECRET');

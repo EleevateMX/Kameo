@@ -266,3 +266,8 @@ kbd {
   .alux-fields { width: 100%; }
   .story-aluxes svg { width: 84px; height: auto; margin-right: -24px; }
 }
+
+/* Acceso de testers (beta privada) */
+.beta-login { max-width: 520px; }
+.beta-login input { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; letter-spacing: .04em; text-transform: uppercase; }
+.beta-login small { display: block; margin-top: 8px; font-size: 12px; color: var(--texto-suave); }
