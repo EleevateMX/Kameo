@@ -10,5 +10,8 @@
   "dependencies": {
     "@alux/shared-contracts": "*",
     "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
   }
 }

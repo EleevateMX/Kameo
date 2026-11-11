@@ -23,9 +23,10 @@ const MAX_PLAYERS := 4
 const MAX_ROOMS := 64
 const MAX_CONNS := 300
 const SNAP_EVERY := 2            # 30 Hz / 2 = 15 estados por segundo
-const HELLO_TIMEOUT := 6.0
+const HELLO_TIMEOUT := 20.0         # margen para clientes lentos (el juego aún está cargando)
 const RECONNECT_GRACE := 120.0   # segundos que se guarda el lugar de un jugador caído
 const EMPTY_ROOM_TTL := 30.0
+const IDLE_TIMEOUT := 15.0          # sin mensajes del cliente: conexión muerta
 const MAX_MSG_BYTES := 4096
 const MAX_MSGS_PER_SEC := 90
 const INPUT_QUEUE_MAX := 12
@@ -37,6 +38,7 @@ class Conn:
 	var id := 0
 	var ws: WebSocketPeer
 	var since := 0.0
+	var last_rx := 0.0
 	var room := ""
 	var pid := ""
 	var msgs := 0
@@ -101,6 +103,8 @@ func _ready() -> void:
 			return
 	_api_url = _env("ALUX_API_URL", "").trim_suffix("/")
 	_service_key = _env("ALUX_SERVICE_KEY", "")
+	if _service_key.is_empty() and _env("ALUX_DEV", "") == "1":
+		_service_key = "dev-service-key-no-usar-en-produccion"
 	_server_id = _env("ALUX_SERVER_ID", "local-1")
 
 	var err := _tcp.listen(port)
@@ -173,12 +177,19 @@ func _poll_conns(delta: float) -> void:
 		if c.pid.is_empty() and _time - c.since > HELLO_TIMEOUT:
 			_kick(c, "hello_timeout", "No se recibió el ticket a tiempo.")
 			continue
+		if not c.pid.is_empty() and _time - c.last_rx > IDLE_TIMEOUT:
+			# La red del jugador se cortó sin cerrar la conexión: se libera y podrá reconectarse
+			print("[alux] Conexión %d sin actividad" % c.id)
+			c.ws.close(4001, "idle")
+			_drop_conn(c)
+			continue
 		c.msgs_window += delta
 		if c.msgs_window >= 1.0:
 			c.msgs_window = 0.0
 			c.msgs = 0
 		while c.ws.get_available_packet_count() > 0 and not c.closing:
 			var pkt := c.ws.get_packet()
+			c.last_rx = _time
 			c.msgs += 1
 			if c.msgs > MAX_MSGS_PER_SEC:
 				_kick(c, "rate_limit", "Demasiados mensajes.")
@@ -201,6 +212,7 @@ func _send(c: Conn, msg: Dictionary) -> void:
 func _kick(c: Conn, code: String, text: String) -> void:
 	if c.closing:
 		return
+	print("[alux] Conexión %d rechazada: %s" % [c.id, code])
 	_send(c, {"t": "error", "code": code, "msg": text})
 	c.closing = true
 	c.ws.close(4000, code)
@@ -340,6 +352,7 @@ func _handle_hello(c: Conn, msg: Dictionary) -> void:
 	if not p.unlocked.has(p.state.form):
 		p.state.form = "alux"
 	p.conn_id = c.id
+	c.last_rx = _time
 	p.gone_at = -1.0
 	p.queue.clear()
 	p.queued_seq = 0

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>ALUX: El Despertar de Kukulkán</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b1512; overflow: hidden; font-family: system-ui, "Segoe UI", sans-serif; color: #fff8ea; }
+  #canvas { display: block; width: 100vw; height: 100vh; outline: none; }
+  #loading {
+    position: fixed; inset: 0; display: grid; place-items: center; text-align: center;
+    background: linear-gradient(rgba(6, 14, 12, .55), rgba(6, 14, 12, .88)), url('/art/keyart.jpg') center / cover no-repeat, #0b1512;
+    transition: opacity .6s;
+  }
+  #loading.done { opacity: 0; pointer-events: none; }
+  #loading h1 { font-size: clamp(48px, 12vw, 120px); margin: 0; letter-spacing: .08em; color: #ffd23f; text-shadow: 0 6px 0 rgba(0, 0, 0, .4); }
+  #loading p { margin: 6px 0 22px; color: #9ff0dc; letter-spacing: .2em; text-transform: uppercase; font-size: 14px; }
+  #bar { width: min(420px, 70vw); height: 10px; border-radius: 6px; background: rgba(255, 255, 255, .15); overflow: hidden; margin: 0 auto; }
+  #bar > div { height: 100%; width: 0; background: linear-gradient(90deg, #2ec4a6, #ffd23f); transition: width .2s; }
+  #status { margin-top: 14px; font-size: 14px; color: #d8cfe0; min-height: 1.4em; }
+  #back { position: fixed; top: 12px; right: 12px; z-index: 5; padding: 8px 14px; border-radius: 999px; background: rgba(10, 20, 17, .75);
+    color: #fff8ea; text-decoration: none; font-size: 13px; border: 1px solid rgba(255, 255, 255, .2); }
+  #back:hover { border-color: #2ec4a6; }
+</style>
+$GODOT_HEAD_INCLUDE
+</head>
+<body>
+<canvas id="canvas" tabindex="0">Tu navegador no soporta canvas.</canvas>
+<a id="back" href="/hub">← Portal</a>
+<div id="loading">
+  <div>
+    <h1>ALUX</h1>
+    <p>El Despertar de Kukulkán</p>
+    <div id="bar"><div></div></div>
+    <div id="status">Cargando el claro…</div>
+  </div>
+</div>
+<script src="$GODOT_URL"></script>
+<script>
+// Configuración que lee el juego (game/scripts/client/game_client.gd)
+const params = new URLSearchParams(location.search);
+const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+window.ALUX = { room, ticket: '', wsUrl: '', error: '', quality: params.get('q') === 'low' ? 'low' : 'high' };
+window.ALUX_DEBUG = params.get('debug') === '1';
+const statusEl = document.getElementById('status');
+
+// Pide a la API un ticket de un solo uso para esta sala (usa la cookie de sesión)
+window.aluxRefreshTicket = async () => {
+  ALUX.ticket = '';
+  ALUX.error = '';
+  if (!room) { ALUX.error = 'room_not_found'; return; }
+  try {
+    const res = await fetch(`/api/v1/rooms/${encodeURIComponent(room)}/ticket`, {
+      method: 'POST', headers: { 'x-alux-csrf': '1' }, credentials: 'same-origin',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      location.href = '/?next=' + encodeURIComponent(location.pathname + location.search);
+      return;
+    }
+    if (!res.ok) { ALUX.error = data.error || 'ticket_failed'; return; }
+    ALUX.wsUrl = data.wsUrl;
+    ALUX.ticket = data.ticket;
+  } catch (e) {
+    ALUX.error = 'network';
+  }
+};
+aluxRefreshTicket();
+
+const GODOT_CONFIG = $GODOT_CONFIG;
+const engine = new Engine(GODOT_CONFIG);
+const missing = Engine.getMissingFeatures({ threads: false });
+if (missing.length) {
+  statusEl.textContent = 'Tu navegador no puede ejecutar el juego (falta: ' + missing.join(', ') + '). Prueba con Chrome, Edge o Firefox actualizados.';
+} else {
+  engine.startGame({
+    onProgress: (current, total) => {
+      if (total > 0) document.querySelector('#bar > div').style.width = Math.round((current / total) * 100) + '%';
+    },
+  }).then(() => {
+    document.getElementById('loading').classList.add('done');
+    document.getElementById('canvas').focus();
+  }).catch((err) => {
+    statusEl.textContent = 'No se pudo iniciar el juego: ' + (err && err.message ? err.message : err);
+  });
+}
+</script>
+</body>
+</html>

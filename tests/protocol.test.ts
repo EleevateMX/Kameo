@@ -50,7 +50,12 @@ class Bot {
     this.seq = 0;
     return new Promise<void>((resolve) => {
       this.ws = new WebSocket(`ws://127.0.0.1:${PORT}`);
-      this.ws.onopen = () => this.ws.send(JSON.stringify({ t: 'hello', v: 1, ticket: token }));
+      this.ws.onopen = () => {
+        this.ws.send(JSON.stringify({ t: 'hello', v: 1, ticket: token }));
+        // Un cliente real manda su entrada 30 veces por segundo; el bot al menos da señales de vida
+        const ws = this.ws;
+        const alive = setInterval(() => (ws.readyState === WebSocket.OPEN ? ws.send('{"t":"ping","c":0}') : clearInterval(alive)), 2000);
+      };
       this.ws.onmessage = (ev) => {
         const m = JSON.parse(String(ev.data));
         if (m.t === 'welcome') { this.welcome = m; this.slot = m.slot; this.roster = m.players; resolve(); }
@@ -297,6 +302,27 @@ test('acertijo cooperativo: hacen falta los 4 altares a la vez y la recompensa s
   assert.ok(await bots[3].walkTo(19, 0, 8));
   assert.ok(await bots[3].walkTo(25, 0, 8), 'debería cruzar la puerta abierta');
   bots.forEach((b) => b.close());
+});
+
+test('una conexión que deja de enviar se libera sola y el jugador puede volver', async () => {
+  const room = 'MUDA01';
+  const id = randomUUID();
+  const witness = new Bot(randomUUID(), 'Testigo');
+  await witness.connect(ticket({ id: witness.id, room }));
+  // Conexión "muda": se autentica y luego no manda nada (como una red cortada sin cerrar)
+  const silent = new WebSocket(`ws://127.0.0.1:${PORT}`);
+  await new Promise((r) => (silent.onopen = r));
+  silent.send(JSON.stringify({ t: 'hello', v: 1, ticket: ticket({ id, room, name: 'Muda' }) }));
+  await sleep(1000);
+  assert.equal(witness.roster.find((r) => r.id === id)?.on, true);
+  await sleep(16_000);
+  assert.equal(witness.roster.find((r) => r.id === id)?.on, false, 'el servidor la marca desconectada');
+  const again = new Bot(id, 'Muda');
+  await again.connect(ticket({ id, room, name: 'Muda' }));
+  assert.equal(again.welcome?.rejoin, true);
+  again.close();
+  witness.close();
+  silent.close();
 });
 
 test('la puerta cerrada no se puede atravesar', async () => {
