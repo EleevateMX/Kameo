@@ -41,6 +41,7 @@ var _plate_on: Array[bool] = [false, false, false, false]
 var _plate_mats: Array[ShaderMaterial] = []
 var _flame_light: OmniLight3D
 var _extras: Array[Node3D] = []     # se ocultan en calidad baja
+var _extras_min: Array[Node3D] = [] # se ocultan además en calidad mínima
 var _seed := 77123
 
 
@@ -223,6 +224,7 @@ func _backdrop(root: Node3D) -> void:
 	var cmi := Avatar.part(clouds.commit(), cm, Vector3.ZERO)
 	cmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(cmi)
+	_extras_min.append(cmi)
 
 
 # ───────────────────────── Terreno ─────────────────────────
@@ -1048,7 +1050,7 @@ func _flora(root: Node3D) -> void:
 		xf[v].append(Transform3D(Basis(Vector3.UP, _rand() * TAU).scaled(Vector3(s * 4.6, h, s * 4.6)), Vector3(p.x, _ground(p.x, p.y) - 0.3, p.y)))
 		cols[v].append(Color(0.62, 0.82, 0.66).darkened(_rand() * 0.22))
 	for v in 3:
-		_multimesh(root, meshes[v], xf[v], cols[v], false)
+		_extras_min.append(_multimesh(root, meshes[v], xf[v], cols[v], false))
 
 	# ── Gran ceiba: tronco monumental con contrafuertes, ramas y copa enorme ──
 	var cb := MB.new()
@@ -1136,8 +1138,8 @@ func _flora(root: Node3D) -> void:
 				var fs := 0.7 + _rand() * 0.7
 				lx.append(Transform3D(Basis(Vector3.UP, _rand() * TAU).scaled(Vector3(fs, fs, fs)), Vector3(o.x, World.terrain_h(o.x, o.y), o.y)))
 				lc.append(petal)
-	_multimesh(root, fern.commit(), fx, fc, false)
-	_multimesh(root, bush.commit(), bx, bc, false)
+	_extras_min.append(_multimesh(root, fern.commit(), fx, fc, false))
+	_extras_min.append(_multimesh(root, bush.commit(), bx, bc, false))
 	_extras.append(_multimesh(root, flower.commit(), lx, lc, false))
 
 	# ── Hierba alta en penachos (sólo en calidad alta) ──
@@ -1225,11 +1227,14 @@ func update(time: float, delta: float, gate_anim: float) -> void:
 		_flame_light.light_energy = 1.3 + sin(time * 11.0) * 0.15 + sin(time * 17.0) * 0.1
 
 
-## Calidad baja: sin sombras, sin resplandor y sin los adornos más caros.
-func set_quality(low: bool) -> void:
-	sun.shadow_enabled = not low
-	env.glow_enabled = not low
-	fireflies.emitting = not low
-	fireflies.visible = not low
+## Calidad: 0 alta · 1 baja (sin sombras, resplandor ni adornos caros) ·
+## 2 mínima (además sin selva de fondo, matas, helechos ni nubes).
+func set_quality(level: int) -> void:
+	sun.shadow_enabled = level == 0
+	env.glow_enabled = level == 0
+	fireflies.emitting = level == 0
+	fireflies.visible = level == 0
 	for n in _extras:
-		n.visible = not low
+		n.visible = level == 0
+	for n in _extras_min:
+		n.visible = level < 2

@@ -13,6 +13,6 @@ await sleep(8000);
 const a = (await state(page))!; const t0 = Date.now();
 await sleep(15000);
 const b = (await state(page))!; const secs = (Date.now() - t0) / 1000;
-console.log(`${w}x${h}${extra} · ${((b.frames - a.frames) / secs).toFixed(2)} FPS reales · glb=${b.glb} · dibujados=${b.perf.draws} · ping=${b.perf.ping} ms · JS ${b.perf.heap} MB`);
+console.log(`${w}x${h}${extra} · ${((b.frames - a.frames) / secs).toFixed(2)} FPS reales · glb=${b.glb} · dibujados=${b.perf.draws} · triángulos=${(b.perf as any).tris} · objetos=${(b.perf as any).objects} · ping=${b.perf.ping} ms · JS ${b.perf.heap} MB`);
 await browser.close();
 process.exit(0);

@@ -40,7 +40,7 @@ $GODOT_HEAD_INCLUDE
 // Configuración que lee el juego (game/scripts/client/game_client.gd)
 const params = new URLSearchParams(location.search);
 const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-window.ALUX = { room, ticket: '', wsUrl: '', error: '', quality: ['low', 'high'].includes(params.get('q')) ? params.get('q') : 'auto' };
+window.ALUX = { room, ticket: '', wsUrl: '', error: '', quality: ['min', 'low', 'high'].includes(params.get('q')) ? params.get('q') : 'auto' };
 window.ALUX_DEBUG = params.get('debug') === '1';
 const statusEl = document.getElementById('status');
 

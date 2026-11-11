@@ -13,7 +13,7 @@ const beauty = async (page: any, name: string) => {
   const f0 = (await state(page))!.frames;
   await waitFor('cuadros en calidad alta', async () => (await state(page))!.frames >= f0 + 3, 60_000);
   await shot(page, name);
-  await page.evaluate(() => { (window as any).ALUX_SET_QUALITY = 'low'; });
+  await page.evaluate(() => { (window as any).ALUX_SET_QUALITY = 'min'; });
 };
 
 const browser = await launch();
@@ -33,7 +33,7 @@ await shot(page, 'centro-de-jugadores.png');
 // El juego se renderiza a tamaño normal (sin duplicar píxeles) para que el render por software alcance
 const game = await (await browser.newContext({ viewport: { width: 1280, height: 720 }, storageState: await ctx.storageState() })).newPage();
 game.on('console', (m) => { if (m.type() === 'error') console.log('[consola]', m.text().slice(0, 300)); });
-await game.goto(`${BASE}/game/index.html?room=${code}&debug=1&q=low`);
+await game.goto(`${BASE}/game/index.html?room=${code}&debug=1&q=min`);
 await waitFor('el juego arranca', async () => (await state(game))?.net === 'PLAYING', 240_000);
 console.log('modelos .glb:', (await state(game))!.glb);
 
@@ -51,7 +51,7 @@ await sleep(6000);
 await beauty(game, 'juego-cuatro-aluxes.png');
 
 // 1b) Primeros planos: se acerca la cámara y el personaje camina un paso hacia ella para verle la cara
-await game.click('#canvas');
+await game.click('#canvas', { timeout: 180_000, noWaitAfter: true });
 for (let i = 0; i < 8; i++) await game.mouse.wheel(0, -200);
 await game.keyboard.down('KeyS');
 await sleep(700);
@@ -74,7 +74,7 @@ timers.forEach(clearInterval);
 const plates = [[0, -15.5], [-11, 7], [8, 16]];
 await Promise.all(cast.map((a, i) => a.walkTo(plates[i][0], plates[i][1])));
 timers = cast.map((a) => a.idle(0, 1));
-await game.click('#canvas');
+await game.click('#canvas', { timeout: 180_000, noWaitAfter: true });
 const arrived = await driveTo(game, 17.5, -5, { timeoutMs: 120_000, stop: 0.9 });
 console.log('jugadora en el altar:', arrived);
 await waitFor('emboscada en curso', async () => (await state(game))?.encounter === 1, 30_000);

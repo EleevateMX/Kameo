@@ -90,7 +90,7 @@ var _snaps := 0
 var _snap_rate := 0.0
 var _perf_in := 0.0
 var _perf_on := false
-var _quality_low := false
+var _quality := 0
 var _seen_enemy_dmg := {}   # id de enemigo -> daño total visto (para pruebas)
 var _seen_player_dmg := {}  # lugar -> daño total visto
 var _quality_locked := false
@@ -126,8 +126,9 @@ func _ready() -> void:
 		# (los booleanos de JavaScript llegan como número, por eso se piden como 1/0)
 		_debug_on = int(_js("window.ALUX_DEBUG === true ? 1 : 0")) == 1
 		var q := str(_js("(window.ALUX && window.ALUX.quality) || 'auto'"))
-		if q == "low":
-			_low_quality()
+		if q == "low" or q == "min":
+			_set_quality(1 if q == "low" else 2)
+			_quality_locked = q == "min"
 		elif q == "high":
 			_quality_locked = true
 
@@ -164,18 +165,14 @@ func _prewarm() -> void:
 			n.queue_free())
 
 
-## Calidad baja (?q=low, o automática si el equipo no da para más):
-## sin sombras ni resplandor y a menor resolución interna.
-func _low_quality() -> void:
-	_set_quality(true)
-
-
-func _set_quality(low: bool) -> void:
-	_quality_low = low
+## Calidad gráfica: 0 alta · 1 baja · 2 mínima. Se elige con ?q=high|low|min en la dirección
+## o baja sola si el equipo no llega a 20 FPS (ver _auto_quality).
+func _set_quality(level: int) -> void:
+	_quality = clampi(level, 0, 2)
 	var vp := get_viewport()
-	vp.msaa_3d = Viewport.MSAA_DISABLED if low else Viewport.MSAA_2X
-	vp.scaling_3d_scale = 0.6 if low else 1.0
-	_builder.set_quality(low)
+	vp.msaa_3d = Viewport.MSAA_2X if _quality == 0 else Viewport.MSAA_DISABLED
+	vp.scaling_3d_scale = [1.0, 0.6, 0.5][_quality]
+	_builder.set_quality(_quality)
 
 
 func _setup_input() -> void:
@@ -737,10 +734,10 @@ func _process(delta: float) -> void:
 		if forced.is_valid_float():
 			_cam_yaw = forced.to_float()
 		var q := str(_js("window.ALUX_SET_QUALITY || ''"))
-		if q == "low" or q == "high":
+		if q == "low" or q == "high" or q == "min":
 			_js("window.ALUX_SET_QUALITY = ''")
 			_quality_locked = true
-			_set_quality(q == "low")
+			_set_quality({"high": 0, "low": 1, "min": 2}[q])
 	if Input.is_action_pressed("cam_l"):
 		_cam_yaw += 1.9 * delta
 	if Input.is_action_pressed("cam_r"):
@@ -872,7 +869,7 @@ func _perf_stats() -> Dictionary:
 ## Calidad automática: si durante dos ventanas seguidas de 4 s no se llega a 20 FPS,
 ## se pasa a calidad baja. (?q=high lo desactiva.)
 func _auto_quality(delta: float) -> void:
-	if _quality_low or _quality_locked or _net != Net.PLAYING:
+	if _quality >= 2 or _quality_locked or _net != Net.PLAYING:
 		return
 	_fps_frames += 1
 	_fps_time += delta
@@ -883,8 +880,9 @@ func _auto_quality(delta: float) -> void:
 	_fps_time = 0.0
 	_slow_windows = _slow_windows + 1 if fps < 20.0 else 0
 	if _slow_windows >= 2:
-		_low_quality()
-		_hud.banner("Calidad reducida para ir más fluido", Color(0.8, 0.9, 1.0), 3.0)
+		_slow_windows = 0
+		_set_quality(_quality + 1)
+		_hud.hint("Calidad gráfica reducida para ir más fluido", 5.0)
 
 
 func _update_perf(delta: float) -> void:
@@ -931,6 +929,6 @@ func _debug_export(delta: float) -> void:
 		"hp": _hp, "energy": _pred.energy, "encounter": _encounter, "wave": _wave_left, "enemies": foes,
 		"frames": Engine.get_process_frames(), "rejoins": _rejoins, "glb": (_avatars.get(_my_slot) as Avatar).uses_glb if _avatars.has(_my_slot) else false,
 		"dmg_enemies": _seen_enemy_dmg, "dmg_players": _seen_player_dmg,
-		"perf": _perf_stats(), "quality": "low" if _quality_low else "high",
+		"perf": _perf_stats(), "quality": ["high", "low", "min"][_quality],
 	}
 	_js("window.__aluxState = %s" % JSON.stringify(state))

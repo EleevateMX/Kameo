@@ -9,7 +9,7 @@ import { BASE, driveTo, launch, lookAt, sleep, state, waitFor } from './lib.ts';
 
 const SHOTS = process.env.E2E_SHOTS || path.resolve(import.meta.dirname, 'screenshots');
 const NAMES = ['Ixchel', 'Balam Kin', 'Nicte', 'Chaac'];
-const QUALITY = process.env.E2E_GPU === '1' ? '' : '&q=low';
+const QUALITY = process.env.E2E_GPU === '1' ? '' : '&q=min';
 const logs: string[] = [];
 let diagnose: () => Promise<void> = async () => {};
 
@@ -81,7 +81,7 @@ async function main() {
   // 5) Cada uno ve los movimientos de los demás
   const hostSlot = states[0].slot;
   const before = states[1].players.find((p) => p.slot === hostSlot)!;
-  await host.click('#canvas');
+  await host.click('#canvas', { timeout: 180_000, noWaitAfter: true });
   await host.keyboard.down('KeyW');
   const own = await waitFor('la anfitriona camina 3 m', async () => {
     const me = (await state(host))!.players.find((p) => p.slot === hostSlot)!;
@@ -100,7 +100,7 @@ async function main() {
   console.log(`✓ Todos ven el movimiento (${movedOwn.toFixed(1)} m)`);
 
   // 6) Transformación sincronizada
-  await pages[1].click('#canvas');
+  await pages[1].click('#canvas', { timeout: 180_000, noWaitAfter: true });
   await pages[1].keyboard.press('Digit2');
   const slot1 = states[1].slot;
   await waitFor('los demás ven a Balam', async () => {
@@ -113,7 +113,7 @@ async function main() {
 
   // 6b) Combate sincronizado: la anfitriona busca al guardián de piedra del noreste y pelea con él.
   //     Cada navegador acumula el daño que le comunica el servidor; los cuatro totales deben coincidir.
-  await host.click('#canvas');
+  await host.click('#canvas', { timeout: 180_000, noWaitAfter: true });
   await host.keyboard.press('Digit2');  // como Balam: garras en arco y salto con daño en área
   await waitFor('la anfitriona se transforma', async () => (await state(host))!.form === 'balam', 30_000);
   assert.ok(await driveTo(host, 14.5, -14.5, { timeoutMs: 150_000, stop: 1.5 }), 'la anfitriona llega cerca del guardián');
