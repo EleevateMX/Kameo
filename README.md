@@ -5,22 +5,45 @@ Entras con tu cuenta de **Discord**, creas tu alux, formas un grupo y juegan jun
 acertijos que sólo se resuelven en equipo y, más adelante, el camino hasta Kukulkán.
 
 ![Portada](docs/img/portada.jpg)
-![Cuatro aluxes en el claro](docs/img/juego-cuatro-aluxes.jpg)
+![Combate cooperativo en la emboscada del santuario](docs/img/juego-combate.jpg)
 
-## Qué funciona hoy (Fases 1 y 2, con un adelanto de la 3)
+| El alux | Balam, el jaguar |
+| --- | --- |
+| ![Alux](docs/img/juego-alux-de-cerca.jpg) | ![Balam](docs/img/juego-balam-de-cerca.jpg) |
+
+## Qué funciona hoy (Fases 1–3 y parte de la 4)
 
 - **Portal** (Next.js): portada, inicio de sesión con Discord (OAuth2 con `state` y cookies seguras),
   creación del alux (nombre, color, accesorio), salas privadas por código, partida pública e invitaciones.
 - **Juego 3D** (Godot 4, exportado a WebAssembly/WebGL 2): el Claro de los Aluxes, con plaza, pirámide,
   cenote para nadar, mirador y santuario sellado.
-- **Multijugador con servidor autoritativo** (Godot sin ventana, WebSocket): hasta 4 aluxes por sala,
+- **Multijugador con servidor autoritativo** (Godot sin ventana, WebSocket): hasta 4 jugadores por sala,
   predicción local e interpolación, reconexión automática conservando lugar y posición.
-- **Transformación en Balam**, el jaguar: corre y salta más (llega al mirador que un alux no alcanza).
-- **Acertijo cooperativo**: pisar a la vez tantos altares como jugadores haya (1–4) abre el santuario
-  y da a todos el *Sello del Claro*, guardado en su perfil.
+- **Combate cooperativo** decidido por el servidor ([docs/combate.md](docs/combate.md)):
+  - **Alux**: chispa de jade (proyectil), esquiva con invulnerabilidad y "tocar" (purifica criaturas
+    debilitadas y activa el brasero que cura).
+  - **Balam**, el jaguar: garras, zarpazo cargado y salto ofensivo; corre y salta más.
+  - **Enemigos** con IA y amenaza por jugador: guardián de piedra y criatura corrompida.
+  - Vida, energía, enfriamientos, caída y reaparición en punto de control.
+- **Encuentro cooperativo**: pisar a la vez tantos altares como jugadores haya (1–4) abre el santuario
+  y desata una emboscada que escala con el grupo. Al vencerla todos reciben el *Sello del Claro*.
+- **Personajes modelados en Blender** con animaciones (alux y Balam), generados por scripts
+  reproducibles ([art/README.md](art/README.md)). Enemigos y escenario siguen siendo provisionales.
 - **Progreso persistente**: PostgreSQL/Supabase, o un archivo local si no configuras base de datos.
 
-Todavía no hay combate, enemigos ni jefe (Fase 3 y 4). El plan completo está en [docs/arquitectura.md](docs/arquitectura.md).
+Lo que falta y lo que aún no se ha podido validar está en [docs/pendientes.md](docs/pendientes.md).
+
+### Controles
+
+| | Ratón | Teclado |
+| --- | --- | --- |
+| Moverse / saltar | | W A S D · Espacio |
+| Cámara | Mover el ratón (clic para capturarlo) | Q / E |
+| Habilidad primaria | Clic izquierdo | J |
+| Habilidad secundaria | Clic derecho | K |
+| Habilidad especial | | F |
+| Transformarse | | 1 Alux · 2 Balam |
+| Rendimiento | | F3 |
 
 ## Probarlo en tu computadora
 
@@ -69,17 +92,28 @@ Las tablas tienen RLS activado sin políticas: sólo la API puede leerlas y escr
 npm test
 ```
 
-Ejecuta las pruebas de la API (sesiones, salas, tickets, recompensas sin duplicados) y la prueba de red
-contra el servidor real de Godot con bots: 4 jugadores, tickets falsos, trampas de velocidad y
-teletransporte, reconexión y el acertijo cooperativo.
+Ejecuta tres baterías:
+
+- **API**: sesiones, salas, tickets y recompensas sin duplicados.
+- **Simulación** (`scripts/test-sim.sh`): más de 400 000 comprobaciones de que nadie atraviesa muros,
+  supera la velocidad permitida ni se salta un enfriamiento ([docs/simulacion.md](docs/simulacion.md)).
+- **Red** contra el servidor real de Godot con bots: 4 jugadores, tickets falsos, trampas, reconexión,
+  daño y enfriamientos, caída y reaparición, y la emboscada cooperativa completa.
 
 ```bash
 npm run test:e2e
 ```
 
 Con ALUX corriendo (`npm run dev`), abre **cuatro navegadores con cuatro cuentas**, los mete en la misma
-sala desde el portal y comprueba que se ven moverse, la transformación, un corte de red con reconexión
-automática y el rechazo del quinto jugador.
+sala desde el portal y comprueba movimiento, transformación, que todos ven la misma vida de enemigos y
+compañeros en combate, un corte de red con reconexión automática y el rechazo del quinto jugador.
+
+```bash
+scripts/test-deploy.sh
+```
+
+Construye las imágenes Docker y levanta el despliegue completo en tu máquina (proxy HTTPS/WSS, portal,
+API, servidor de juego y PostgreSQL) para comprobar sesión, guardado y entrada al juego por `wss://`.
 
 Para repetir las pruebas de la API contra PostgreSQL real: `TEST_DATABASE_URL=postgres://… npm test`.
 
@@ -97,15 +131,20 @@ packages/shared-contracts Protocolo, JWT y tipos compartidos
 supabase/migrations/      Esquema de base de datos
 infra/                    Docker Compose y proxy HTTPS/WSS (Caddy)
 tests/                    Prueba de protocolo con bots y prueba de 4 navegadores
-docs/                     Arquitectura, protocolo, historia y despliegue
+art/                      Scripts de Blender que generan los personajes (.glb) y sus vistas previas
+docs/                     Arquitectura, protocolo, combate, simulación, rendimiento, despliegue
 ```
 
 ## Documentación
 
 - [Arquitectura y plan por fases](docs/arquitectura.md)
+- [Combate: formas, habilidades, enemigos y emboscada](docs/combate.md)
 - [Protocolo de red y reglas anti-trampas](docs/protocolo.md)
-- [Historia y origen de la idea](docs/historia.md)
+- [Simulación de movimiento: garantías y pruebas](docs/simulacion.md)
+- [Rendimiento: cómo medirlo](docs/rendimiento.md)
 - [Despliegue de una beta](docs/despliegue.md)
+- [Pendientes y validaciones que faltan](docs/pendientes.md)
+- [Historia y origen de la idea](docs/historia.md)
 
 ALUX es un proyecto original. Su punto de partida fue el recuerdo de los juegos de transformaciones
 elementales de los 2000, pero el mundo, los personajes y la historia son propios.

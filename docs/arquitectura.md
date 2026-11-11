@@ -56,16 +56,11 @@ Detalle de mensajes y defensas: [protocolo.md](protocolo.md).
 
 | Fase | Contenido | Estado |
 | --- | --- | --- |
-| 1. Infraestructura y acceso | Monorepo, portal, Discord, esquema de datos, Docker, sesiones | Hecho (Docker sin probar en un servidor real) |
+| 1. Infraestructura y acceso | Monorepo, portal, Discord, esquema de datos, Docker, sesiones | Hecho. Pendiente de credenciales reales: Discord y Supabase alojado (ver [pendientes.md](pendientes.md)) |
 | 2. Primera sala multijugador | Escenario 3D, 4 aluxes, movimiento sincronizado, nombres, reconexión | Hecho y verificado con 4 navegadores |
-| 3. Transformaciones y combate | Balam, enfriamientos, ataques, salud, enemigos, reaparición | Empezada: Balam y enfriamiento de transformación |
-| 4. Primer capítulo | Selva, cenote, acertijos, misiones, jefe, guardado de grupo | Empezada: un acertijo cooperativo y su recompensa |
-| 5. Calidad | Modelos, animaciones, sonido, accesibilidad, rendimiento | Pendiente |
-| 6. Beta privada | Despliegue, telemetría, respaldos | Pendiente |
+| 3. Transformaciones y combate | Habilidades de alux y Balam, energía, enfriamientos, enemigos con IA, vida, caída y reaparición | Hecho y verificado con bots y navegadores ([combate.md](combate.md)) |
+| 4. Primer capítulo | Selva, cenote, acertijos, misiones, jefe, guardado de grupo | Empezada: acertijo de los altares + emboscada cooperativa con recompensa. Falta jefe, misiones y más zonas |
+| 5. Calidad | Modelos, animaciones, sonido, accesibilidad, rendimiento | Empezada: alux y Balam modelados en Blender con animaciones ([../art/README.md](../art/README.md)). Enemigos y escenario siguen siendo provisionales. Sin sonido |
+| 6. Beta privada | Despliegue, telemetría, respaldos | Despliegue con Docker probado en local; falta un servidor real con dominio |
 
-## Lo siguiente que conviene hacer
-
-1. Configurar Discord y Supabase reales y repetir la prueba con cuatro cuentas de Discord.
-2. Fase 3: salud, ataque de Balam y un primer enemigo controlado por el servidor.
-3. Modelos y animaciones de Blender para los aluxes y Balam, siguiendo el arte clave.
-4. Cinemática de introducción (imagen a video) a partir de `apps/portal/public/art/keyart.jpg`.
+El detalle de lo que queda por validar está en [pendientes.md](pendientes.md).

@@ -1,70 +1,41 @@
 // Capturas a calidad alta: un navegador real + tres bots colocados en escena.
 // Requiere ALUX corriendo en modo desarrollo (usa el secreto de tickets de desarrollo).
-import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { chromium } from 'playwright';
-import { DEV_SECRETS, GAME_TICKET_AUDIENCE, signJwt } from '@alux/shared-contracts';
+import { Actor, BASE, driveTo, launch, login, lookAt, sleep, state, waitFor } from './lib.ts';
 
-const BASE = process.env.E2E_BASE_URL || 'http://localhost:3000';
-const WS = process.env.E2E_WS_URL || 'ws://localhost:9080';
 const OUT = process.env.E2E_SHOTS || path.resolve(import.meta.dirname, 'screenshots');
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 fs.mkdirSync(OUT, { recursive: true });
+const shot = (page: any, name: string) => page.screenshot({ path: path.join(OUT, name), timeout: 180_000 });
+// El juego corre en calidad baja para ir fluido sin GPU; sólo durante la captura se sube a alta.
+const beauty = async (page: any, name: string) => {
+  await page.evaluate(() => { (window as any).ALUX_SET_QUALITY = 'high'; });
+  const f0 = (await state(page))!.frames;
+  await waitFor('cuadros en calidad alta', async () => (await state(page))!.frames >= f0 + 3, 60_000);
+  await shot(page, name);
+  await page.evaluate(() => { (window as any).ALUX_SET_QUALITY = 'low'; });
+};
 
-class Actor {
-  ws: WebSocket;
-  seq = 0;
-  slot = -1;
-  pos = { x: 0, z: 0 };
-  constructor(room: string, name: string, color: string, hat: number) {
-    const ticket = signJwt({ aud: GAME_TICKET_AUDIENCE, sub: randomUUID(), jti: randomUUID(), room, name, color, hat, forms: ['alux', 'balam'] }, DEV_SECRETS.GAME_TICKET_SECRET, 60);
-    this.ws = new WebSocket(WS);
-    this.ws.onopen = () => this.ws.send(JSON.stringify({ t: 'hello', v: 1, ticket }));
-    this.ws.onmessage = (ev) => {
-      const m = JSON.parse(String(ev.data));
-      if (m.t === 'welcome') this.slot = m.slot;
-      if (m.t === 'snap') {
-        const me = m.p.find((p: number[]) => p[0] === this.slot);
-        if (me) this.pos = { x: me[3], z: me[5] };
-      }
-    };
-  }
-  send(mx: number, mz: number, f = '', j = 0) { this.ws.send(JSON.stringify({ t: 'in', s: ++this.seq, mx, mz, j, f })); }
-  async walkTo(x: number, z: number, f = '') {
-    for (let i = 0; i < 400; i++) {
-      const dx = x - this.pos.x, dz = z - this.pos.z, d = Math.hypot(dx, dz);
-      if (d < 0.3) break;
-      this.send(dx / d, dz / d, i === 0 ? f : '');
-      await sleep(33);
-    }
-  }
-  /** Se queda quieto mirando hacia (dx, dz) y mantiene viva la conexión. */
-  idle(dx: number, dz: number) {
-    this.send(dx * 0.06, dz * 0.06);
-    return setInterval(() => this.send(0, 0), 500);
-  }
-}
-
-const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch();
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 });
 const page = await ctx.newPage();
 await page.goto(BASE);
-await page.screenshot({ path: path.join(OUT, 'portada.png') });
-await page.fill('#dev-name', 'Ixchel');
-await Promise.all([page.waitForURL('**/hub'), page.click('.dev-login button')]);
+await shot(page, 'portada.png');
+await login(page, 'Ixchel');
 await page.click('.swatch[aria-label="#19b4d6"]');
 await page.click('text=Guardar alux');
 await page.waitForSelector('.saved:has-text("Guardado")');
 await page.click('text=Crear sala privada');
 const code = (await page.textContent('.room-code'))!.trim();
 await page.waitForTimeout(500);
-await page.screenshot({ path: path.join(OUT, 'centro-de-jugadores.png') });
+await shot(page, 'centro-de-jugadores.png');
 
 // El juego se renderiza a tamaño normal (sin duplicar píxeles) para que el render por software alcance
 const game = await (await browser.newContext({ viewport: { width: 1280, height: 720 }, storageState: await ctx.storageState() })).newPage();
-await game.goto(`${BASE}/game/index.html?room=${code}&debug=1`);
-await game.waitForFunction(() => (window as any).__aluxState?.net === 'PLAYING', null, { timeout: 180_000 });
+game.on('console', (m) => { if (m.type() === 'error') console.log('[consola]', m.text().slice(0, 300)); });
+await game.goto(`${BASE}/game/index.html?room=${code}&debug=1&q=low`);
+await waitFor('el juego arranca', async () => (await state(game))?.net === 'PLAYING', 240_000);
+console.log('modelos .glb:', (await state(game))!.glb);
 
 const cast = [
   new Actor(code, 'Nicte', '#e4007c', 1),
@@ -72,23 +43,76 @@ const cast = [
   new Actor(code, 'Chaac', '#ff7a1a', 0),
 ];
 await sleep(1500);
-await Promise.all([cast[0].walkTo(0.4, -3.4), cast[1].walkTo(-3.4, -1.6, 'balam'), cast[2].walkTo(5.2, -2.2)]);
-const timers = [cast[0].idle(0.2, 1), cast[1].idle(0.8, 0.6), cast[2].idle(-0.5, 1)];
-await sleep(6000);
-await game.screenshot({ path: path.join(OUT, 'juego-cuatro-aluxes.png') });
 
-// Segunda toma: los cuatro altares activos y el santuario abriéndose
+// 1) Los cuatro en la plaza, uno transformado en Balam
+await Promise.all([cast[0].walkTo(0.4, -3.4), cast[1].walkTo(-3.4, -1.6, 'balam'), cast[2].walkTo(5.2, -2.2)]);
+let timers = [cast[0].idle(0.2, 1), cast[1].idle(0.8, 0.6), cast[2].idle(-0.5, 1)];
+await sleep(6000);
+await beauty(game, 'juego-cuatro-aluxes.png');
+
+// 1b) Primeros planos: se acerca la cámara y el personaje camina un paso hacia ella para verle la cara
+await game.click('#canvas');
+for (let i = 0; i < 8; i++) await game.mouse.wheel(0, -200);
+await game.keyboard.down('KeyS');
+await sleep(700);
+await game.keyboard.up('KeyS');
+await sleep(1500);
+await beauty(game, 'juego-alux-de-cerca.png');
+await game.keyboard.press('Digit2');
+await waitFor('transformación', async () => (await state(game))!.form === 'balam', 30_000);
+await game.keyboard.down('KeyS');
+await sleep(500);
+await game.keyboard.up('KeyS');
+await sleep(2500);
+await beauty(game, 'juego-balam-de-cerca.png');
+await game.keyboard.press('Digit1');
+for (let i = 0; i < 8; i++) await game.mouse.wheel(0, 200);
+await sleep(1500);
+timers.forEach(clearInterval);
+
+// 2) Acertijo: tres bots a sus altares y la jugadora del navegador al cuarto → se abre y hay emboscada
 const plates = [[0, -15.5], [-11, 7], [8, 16]];
 await Promise.all(cast.map((a, i) => a.walkTo(plates[i][0], plates[i][1])));
-timers.forEach(clearInterval);
-const keep = cast.map((a) => a.idle(0, 1));
+timers = cast.map((a) => a.idle(0, 1));
 await game.click('#canvas');
-await game.keyboard.down('KeyE');
-await sleep(2300);
-await game.keyboard.up('KeyE');
-await sleep(6000);
-await game.screenshot({ path: path.join(OUT, 'juego-altares.png') });
-keep.forEach(clearInterval);
+const arrived = await driveTo(game, 17.5, -5, { timeoutMs: 120_000, stop: 0.9 });
+console.log('jugadora en el altar:', arrived);
+await waitFor('emboscada en curso', async () => (await state(game))?.encounter === 1, 30_000);
+timers.forEach(clearInterval);
+
+// 3) Combate cooperativo: dos Balam cuerpo a cuerpo, un alux a distancia, y la jugadora dispara
+const center = { x: 15, z: 0, r: 26 };
+const cleared = () => cast[0].world()[3] === 2;
+// (los bots atacan a ratos mientras se toman las capturas; después pelean en serio)
+let lazy = true;
+const fights = [
+  cast[0].fight(() => cleared() || !lazy, 240, { reach: 8, near: center, lazy: true }),
+  cast[1].fight(() => cleared() || !lazy, 240, { form: 'balam', near: center, lazy: true }),
+  cast[2].fight(() => cleared() || !lazy, 240, { form: 'balam', near: center, lazy: true }),
+];
+const me = () => state(game).then((s) => s!.players.find((p) => p.id === s!.me)!);
+await lookAt(game, await me(), { x: 15, z: 0 });
+await game.keyboard.down('KeyJ');
+for (let i = 1; i <= 4; i++) {
+  await sleep(1500);
+  await lookAt(game, await me(), { x: 15, z: 0 });
+  await beauty(game, `juego-combate-${i}.png`);
+  const st = await state(game);
+  console.log(`combate ${i}: cuadros=${st!.frames} fps=${st!.perf.fps} quedan=${st!.wave} vida=${st!.hp}`);
+}
+lazy = false;
+await Promise.all(fights);
+await Promise.all([
+  cast[0].fight(cleared, 150, { reach: 8, near: center }),
+  cast[1].fight(cleared, 150, { form: 'balam', near: center }),
+  cast[2].fight(cleared, 150, { form: 'balam', near: center }),
+]);
+await game.keyboard.up('KeyJ');
+const end = await state(game);
+console.log('emboscada superada:', end!.encounter === 2, '· vida de la jugadora:', end!.hp);
+await sleep(1500);
+await beauty(game, 'juego-santuario-liberado.png');
+console.log('rendimiento (render por software):', JSON.stringify(end!.perf));
 await browser.close();
 console.log(`Capturas guardadas en ${OUT}`);
 process.exit(0);
