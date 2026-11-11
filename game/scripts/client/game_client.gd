@@ -11,6 +11,7 @@ const EnemyView := preload("res://scripts/client/enemy_view.gd")
 const WorldBuilder := preload("res://scripts/client/world_builder.gd")
 const Hud := preload("res://scripts/client/hud.gd")
 const Fx := preload("res://scripts/client/fx.gd")
+const Audio := preload("res://scripts/client/audio.gd")
 
 const PROTOCOL := 2
 const INTERP_DELAY := 0.13
@@ -26,6 +27,9 @@ const FATAL_CODES := {
 }
 const JADE := Color(0.35, 1.0, 0.85)
 const GOLD := Color(1.0, 0.82, 0.3)
+const QUALITY_NAMES := ["alta", "baja", "mínima"]
+## Errores con los que tiene sentido reintentar recargando (los demás sólo ofrecen volver al portal)
+const RELOADABLE := ["version", "server_full", "rate_limited"]
 
 enum Net { TICKET, CONNECTING, HELLO, PLAYING, WAIT, FATAL }
 
@@ -98,6 +102,28 @@ var _slow_windows := 0
 var _fps_frames := 0
 var _fps_time := 0.0
 
+# Partida: estado, resultado y ayudas
+var _audio: Audio
+var _settings := {"sens": 0.5, "vol_master": 0.8, "vol_music": 0.55, "vol_sfx": 0.9, "vol_amb": 0.7}
+var _welcomed := false        # ya se entró alguna vez a la sala (distingue cargar de reconectar)
+var _votes := 0               # votos para otra ronda
+var _connected := 1
+var _lock := 0                # segundos que faltan para que los altares respondan
+var _voted := false
+var _result_kind := ""        # "victory" o "defeat" pendiente de mostrar
+var _result_in := 0.0
+var _reward_text := ""
+var _stats := {"t0": 0.0, "secs": 0.0, "purified": 0, "kills": 0, "falls": 0, "left": 0}
+var _respawn_at := 0.0
+var _tips := {}               # ayudas de una sola vez ya mostradas
+var _tip_clock := 0.0
+var _free_mouse_t := 0.0
+var _was_captured := false
+var _captured_t := 0.0
+var _prev_buttons := 0
+var _net_note_t := 0.0
+var _travelled := 0.0
+
 
 func _ready() -> void:
 	_is_web = OS.has_feature("web")
@@ -112,7 +138,11 @@ func _ready() -> void:
 	_hud = Hud.new()
 	add_child(_hud)
 	_hud.form_requested.connect(func(f: String) -> void: _want_form = f)
+	_hud.action.connect(_on_action)
+	_hud.setting_changed.connect(_on_setting)
 	_hud.set_overlay("Preparando el Claro de los Aluxes…")
+	_audio = Audio.new()
+	add_child(_audio)
 	_cam_target = Vector3(0, 1.2, 0)
 	_update_camera()
 	_prewarm()
@@ -131,6 +161,8 @@ func _ready() -> void:
 			_quality_locked = q == "min"
 		elif q == "high":
 			_quality_locked = true
+		_load_settings()
+	_apply_settings()
 
 
 ## Dibuja una vez cada efecto y cada enemigo mientras aún está la pantalla de carga.
@@ -180,6 +212,7 @@ func _setup_input() -> void:
 		"fwd": [KEY_W, KEY_UP], "back": [KEY_S, KEY_DOWN], "left": [KEY_A, KEY_LEFT], "right": [KEY_D, KEY_RIGHT],
 		"jump": [KEY_SPACE], "form1": [KEY_1], "form2": [KEY_2], "cam_l": [KEY_Q], "cam_r": [KEY_E],
 		"atk1": [KEY_J], "atk2": [KEY_K], "atk3": [KEY_F, KEY_L], "perf": [KEY_F3], "help": [KEY_H], "quality": [KEY_F4],
+		"recenter": [KEY_R], "menu": [KEY_ESCAPE, KEY_P], "accept": [KEY_ENTER, KEY_KP_ENTER],
 	}
 	for action in keys:
 		if not InputMap.has_action(action):
@@ -191,10 +224,27 @@ func _setup_input() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Con la bienvenida abierta, cualquier tecla de juego o clic empieza la partida
+	if _hud.intro_open():
+		if event is InputEventMouseButton:
+			if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				_start_playing(true)
+			return
+		if not (event is InputEventKey and event.pressed and not event.echo):
+			return
+		_start_playing(false)
+		if event.is_action("menu") or event.is_action("accept"):
+			return
+		# cualquier otra tecla empieza la partida y además hace lo suyo (moverse, transformarse…)
 	if event is InputEventMouseButton:
 		var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed and not captured and _net == Net.PLAYING:
+				# clic fuera de un panel: lo cierra y vuelve al juego capturando el ratón
+				if _hud.menu_open():
+					_close_menu(false)
+				if _hud.result_open():
+					_hud.hide_result()
 				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED  # el primer clic sólo captura el ratón
 			else:
 				_mouse_l = event.pressed and captured
@@ -206,12 +256,23 @@ func _unhandled_input(event: InputEvent) -> void:
 			_cam_dist = minf(13.0, _cam_dist + 0.6)
 	elif event is InputEventMouseMotion:
 		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-			_cam_yaw -= event.relative.x * 0.0042
-			_cam_pitch = clampf(_cam_pitch + event.relative.y * 0.0035, -0.15, 1.25)
-	elif event.is_action_pressed("ui_cancel"):
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		_mouse_l = false
-		_mouse_r = false
+			var sens := _sensitivity()
+			_cam_yaw -= event.relative.x * 0.0042 * sens
+			_cam_pitch = clampf(_cam_pitch + event.relative.y * 0.0035 * sens, -0.15, 1.25)
+	elif event.is_action_pressed("menu"):
+		if _hud.help_open():
+			_hud.toggle_help()
+		elif _hud.menu_open():
+			_close_menu(false)
+		elif _net == Net.PLAYING:
+			_open_menu()
+	elif event.is_action_pressed("accept"):
+		if _hud.result_open():
+			_on_action("again" if _encounter == 2 else "retry")
+		elif _hud.menu_open():
+			_close_menu(false)
+	elif event.is_action_pressed("recenter"):
+		_recenter()
 	elif event.is_action_pressed("form1"):
 		_want_form = "alux"
 	elif event.is_action_pressed("form2"):
@@ -221,10 +282,154 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("help"):
 		_hud.toggle_help()
 	elif event.is_action_pressed("quality"):
-		# El jugador elige: se respeta su nivel y se apaga la bajada automática
-		_quality_locked = true
-		_set_quality((_quality + 1) % 3)
-		_hud.hint("Calidad gráfica: " + ["alta", "baja", "mínima"][_quality], 3.0)
+		_cycle_quality()
+
+
+func _cycle_quality() -> void:
+	# El jugador elige: se respeta su nivel y se apaga la bajada automática
+	_quality_locked = true
+	_set_quality((_quality + 1) % 3)
+	_hud.hint("Calidad gráfica: " + QUALITY_NAMES[_quality], 3.0)
+	_hud.update_menu(QUALITY_NAMES[_quality], _again_text())
+
+
+# ───────────────────────── Menú, ajustes y paneles ─────────────────────────
+
+## Multiplicador de la sensibilidad del ratón: 0.4× … 2.3×, con 1× en el centro del control.
+func _sensitivity() -> float:
+	return 0.42 * pow(5.6, float(_settings.sens))
+
+
+func _load_settings() -> void:
+	if not _is_web:
+		return
+	var raw: Variant = _js("(function(){try{return localStorage.getItem('alux_settings')||''}catch(e){return ''}})()")
+	if typeof(raw) != TYPE_STRING or raw.is_empty():
+		return
+	var json := JSON.new()
+	if json.parse(raw) == OK and typeof(json.data) == TYPE_DICTIONARY:
+		for key in _settings.keys():
+			var v: Variant = json.data.get(key)
+			if typeof(v) == TYPE_FLOAT or typeof(v) == TYPE_INT:
+				_settings[key] = clampf(float(v), 0.0, 1.0)
+
+
+func _save_settings() -> void:
+	if _is_web:
+		_js("(function(){try{localStorage.setItem('alux_settings', %s)}catch(e){}})()" % JSON.stringify(JSON.stringify(_settings)))
+
+
+func _apply_settings() -> void:
+	_audio.set_volume("Master", float(_settings.vol_master))
+	_audio.set_volume("Music", float(_settings.vol_music))
+	_audio.set_volume("SFX", float(_settings.vol_sfx))
+	_audio.set_volume("Ambience", float(_settings.vol_amb))
+
+
+func _on_setting(key: String, value: float) -> void:
+	_settings[key] = clampf(value, 0.0, 1.0)
+	_apply_settings()
+	_save_settings()
+	if key == "vol_sfx" or key == "vol_master":
+		Audio.play("ui_click")
+
+
+func _again_text() -> String:
+	if _encounter != 2:
+		return ""
+	if _voted:
+		return "Quitar mi voto de otra ronda  (%d/%d)" % [_votes, _connected]
+	return "Jugar otra ronda" if _connected <= 1 else "Jugar otra ronda  (%d/%d listos)" % [_votes, _connected]
+
+
+func _open_menu() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_was_captured = false
+	_mouse_l = false
+	_mouse_r = false
+	_hud.hide_result()
+	_hud.show_menu(_settings, QUALITY_NAMES[_quality], _again_text())
+	Audio.play("ui_abrir")
+
+
+## `capture`: volver a capturar el ratón (sólo funciona dentro de un clic o una tecla).
+func _close_menu(capture: bool) -> void:
+	_hud.hide_menu()
+	if capture and _net == Net.PLAYING:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _recenter() -> void:
+	_cam_yaw = _pred.yaw
+	_cam_pitch = 0.42
+	_cam_dist = 7.0
+
+
+func _exit_to_portal() -> void:
+	if _ws:
+		_ws.close()
+	if _is_web:
+		_js("location.href = '/hub'")
+	else:
+		get_tree().quit()
+
+
+func _start_playing(capture: bool) -> void:
+	_hud.hide_intro()
+	if capture and _net == Net.PLAYING:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	Audio.play("ui_click")
+	_hud.hint("Ratón para mirar  ·  H muestra los controles  ·  Esc abre el menú", 6.0)
+	_tip_clock = 0.0
+
+
+## Botones de la interfaz (menú, resultado, bienvenida y pantallas de error).
+func _on_action(id: String) -> void:
+	Audio.play("ui_click")
+	match id:
+		"start":
+			_start_playing(true)
+		"menu":
+			if _hud.menu_open():
+				_close_menu(false)
+			elif _net == Net.PLAYING:
+				_open_menu()
+		"resume":
+			_close_menu(true)
+		"help":
+			_hud.toggle_help()
+		"recenter":
+			_recenter()
+			_close_menu(true)
+		"quality":
+			_cycle_quality()
+		"again":
+			# Voto para otra ronda: el servidor reinicia cuando votan todos los conectados
+			if _encounter == 2 and _ws != null and _net == Net.PLAYING:
+				_voted = not _voted
+				_ws.send_text(JSON.stringify({"t": "again", "v": 1 if _voted else 0}))
+				_hud.update_menu(QUALITY_NAMES[_quality], _again_text())
+				if _voted and _connected > 1:
+					_hud.set_result_note("Voto enviado  ·  esperando al resto del grupo")
+				elif not _voted:
+					_hud.set_result_note("")
+		"retry", "close":
+			_hud.hide_result()
+			if _net == Net.PLAYING:
+				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		"reload":
+			if _is_web:
+				_js("location.reload()")
+		"exit":
+			_exit_to_portal()
+
+
+## Ayuda que se muestra una sola vez por sesión.
+func _tip(key: String, text: String, seconds := 7.0) -> void:
+	if _tips.has(key):
+		return
+	_tips[key] = true
+	_hud.hint(text, seconds)
 
 
 # ───────────────────────── Red ─────────────────────────
@@ -233,24 +438,38 @@ func _js(code: String) -> Variant:
 	return JavaScriptBridge.eval(code, true)
 
 
-func _fatal(text: String) -> void:
+func _fatal(text: String, can_reload := false) -> void:
 	_net = Net.FATAL
 	if _ws:
 		_ws.close()
 	_ws = null
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	_hud.set_overlay(text + "\n\nVuelve al portal para intentarlo de nuevo.")
+	_hud.hide_intro()
+	_hud.hide_menu()
+	_hud.hide_result()
+	_hud.set_net("")
+	_audio.set_music("")
+	var actions := [["exit", "Volver al portal", true]]
+	if can_reload and _is_web:
+		actions.append(["reload", "Reintentar", false])
+	_hud.set_overlay(text, actions)
 
 
 func _retry(reason: String) -> void:
 	_ws = null
 	_retries += 1
 	if _retries > 40 or (not _is_web and _cli_ticket.is_empty()):
-		_fatal("No se pudo conectar con el servidor de juego.")
+		_fatal("No se pudo conectar con el servidor de juego.", true)
 		return
 	_retry_in = minf(8.0, 0.8 * pow(1.6, _retries - 1))
 	_net = Net.WAIT
-	_hud.set_overlay("%s\nReconectando…" % reason)
+	if _welcomed:
+		# Ya estaba jugando: el claro sigue a la vista y sólo se avisa de la reconexión
+		_hud.set_net("bad" if _retries > 3 else "warn", "Reconectando…  intento %d" % _retries)
+		if _retries == 1:
+			_hud.banner("Se perdió la conexión  ·  reconectando", Color(1.0, 0.75, 0.4), 3.5)
+	else:
+		_hud.set_overlay("%s\nReintentando…  (intento %d)" % [reason, _retries])
 
 
 func _poll_net(delta: float) -> void:
@@ -261,7 +480,7 @@ func _poll_net(delta: float) -> void:
 				var err: Variant = _js("window.ALUX ? (window.ALUX.error || '') : 'no_config'")
 				if typeof(err) == TYPE_STRING and not err.is_empty():
 					if FATAL_CODES.has(err):
-						_fatal(FATAL_CODES[err])
+						_fatal(FATAL_CODES[err], RELOADABLE.has(err))
 						return
 					if err == "no_session":
 						_fatal("Tu sesión terminó. Inicia sesión de nuevo en el portal.")
@@ -296,6 +515,8 @@ func _poll_net(delta: float) -> void:
 				return
 			_ws.set_meta("ticket", ticket)
 			_net = Net.CONNECTING
+			if not _welcomed:
+				_hud.set_overlay(("Conectando con la sala %s…" % _room) if not _room.is_empty() else "Conectando…")
 			_ticket_wait = 0.0
 			_silence = 0.0
 		Net.CONNECTING, Net.HELLO, Net.PLAYING:
@@ -305,6 +526,8 @@ func _poll_net(delta: float) -> void:
 				if _net == Net.CONNECTING:
 					_ws.send_text(JSON.stringify({"t": "hello", "v": PROTOCOL, "ticket": _ws.get_meta("ticket")}))
 					_net = Net.HELLO
+					if not _welcomed:
+						_hud.set_overlay("Entrando al Claro de los Aluxes…")
 				_silence += minf(delta, 0.5)
 				if _ws.get_available_packet_count() > 0:
 					_silence = 0.0
@@ -363,12 +586,21 @@ func _on_message(m: Dictionary) -> void:
 			_apply_enemies(m.get("e", []))
 			_hud.set_room(_room)
 			_hud.set_overlay("")
+			_prev_buttons = 0
+			_voted = false
 			if m.rejoin:
 				_rejoins += 1
+			if _welcomed:
 				_hud.banner("Conexión recuperada", Color(0.6, 1.0, 0.85), 2.5)
+				_hud.set_net("ok", "Conexión recuperada")
+				_net_note_t = 3.0
 			else:
-				_hud.banner("El Claro de los Aluxes", Color(0.6, 1.0, 0.85))
-				_hud.hint("Clic para mirar con el ratón  ·  H muestra los controles", 12.0)
+				# Primera entrada de esta sesión: bienvenida con el objetivo y los controles
+				_welcomed = true
+				_hud.show_intro()
+				_audio.loop("amb_selva", "Ambience", -4.0)
+				_audio.loop("amb_brasero", "Ambience", -60.0)
+			_audio.set_music("mus_emboscada" if _encounter == 1 else "mus_claro")
 			_net = Net.PLAYING
 		"roster":
 			_set_roster(m.players)
@@ -383,7 +615,7 @@ func _on_message(m: Dictionary) -> void:
 		"error":
 			var code := str(m.get("code", ""))
 			if FATAL_CODES.has(code):
-				_fatal(FATAL_CODES[code])
+				_fatal(FATAL_CODES[code], RELOADABLE.has(code))
 			# bad_ticket / ticket_used: se pide un ticket nuevo al reconectar
 
 
@@ -410,6 +642,7 @@ func _set_roster(players: Array) -> void:
 			av = Avatar.new()
 			add_child(av)
 			_avatars[slot] = av
+			av.is_local = slot == _my_slot
 			av.setup(str(p.name), str(p.color), int(p.hat))
 			if slot != _my_slot:
 				_remote[slot] = {"buf": []}
@@ -427,12 +660,27 @@ func _set_roster(players: Array) -> void:
 
 func _apply_world(w: Array, instant := false) -> void:
 	var open := int(w[0]) != 0
+	var old_mask := _plates_mask
+	var old_phase := _encounter
+	if _encounter == 1 and _wave_left > 0:
+		_stats.left = _wave_left   # último recuento antes de que el servidor retire la emboscada
 	_plates_mask = int(w[1])
 	_need = int(w[2])
 	_encounter = int(w[3]) if w.size() > 3 else 0
 	_wave_left = int(w[4]) if w.size() > 4 else 0
+	_votes = int(w[7]) if w.size() > 7 else 0
+	_connected = int(w[8]) if w.size() > 8 else 1
+	_lock = int(w[9]) if w.size() > 9 else 0
 	for i in World.PLATES.size():
-		_builder.set_plate(i, (_plates_mask & (1 << i)) != 0)
+		var on := (_plates_mask & (1 << i)) != 0
+		_builder.set_plate(i, on)
+		if not instant and on != ((old_mask & (1 << i)) != 0):
+			var pp := World.plate_pos(i)
+			Audio.play("altar_on" if on else "altar_off", pp)
+			if on:
+				Fx.ring(self, pp + Vector3(0, 0.05, 0), World.PLATE_R + 0.4, JADE, 0.5)
+	if _encounter != old_phase:
+		_on_phase(old_phase, _encounter, instant)
 	if open and not _gate_open:
 		_gate_open = true
 		if instant:
@@ -445,13 +693,95 @@ func _apply_world(w: Array, instant := false) -> void:
 		if (_plates_mask & (1 << i)) != 0:
 			pressed += 1
 	_brazier_ready = w.size() <= 6 or int(w[6]) != 0
+	_hud.set_altars(_encounter == 0, _plates_mask)
 	if _encounter == 1:
-		_hud.set_objective("¡Emboscada!  Quedan %d guardianes corrompidos" % _wave_left, "alert")
+		_hud.set_objective("¡Emboscada!  Quedan %d enemigo%s" % [_wave_left, "" if _wave_left == 1 else "s"], "alert",
+			"Véncelos o purifícalos  ·  si cae todo el grupo, se pierde" if _connected > 1 else "Véncelos o purifícalos  ·  si caes, se pierde")
 	elif _encounter == 2:
-		_hud.set_objective("Santuario liberado  ·  Explora el claro", "success")
+		var detail := "Esc: jugar otra ronda o salir al portal"
+		if _votes > 0 and _connected > 1:
+			detail = "Otra ronda: %d de %d listos  ·  Esc para %s" % [_votes, _connected, "quitar tu voto" if _voted else "unirte"]
+		_hud.set_objective("Santuario liberado", "success", detail)
+		_hud.update_menu(QUALITY_NAMES[_quality], _again_text())
+		if _hud.result_open() and _votes > 0 and _connected > 1:
+			_hud.set_result_note("Otra ronda: %d de %d listos" % [_votes, _connected])
+	elif _encounter == 3:
+		_hud.set_objective("Derrota  ·  el santuario se selló de nuevo", "alert",
+			("Los altares despiertan en %d s" % _lock) if _lock > 0 else "Reúnanse en el brasero")
+	elif _lock > 0:
+		_hud.set_objective("Nueva ronda", "wait", "Los altares despiertan en %d s" % _lock)
 	else:
-		_hud.set_objective("Pisen %d altar%s al mismo tiempo para abrir el santuario  (%d/%d)" % [
-			_need, "" if _need == 1 else "es", pressed, _need])
+		var here := Vector2(_pred.pos.x, _pred.pos.z)
+		var on_plate := false
+		for i in World.PLATES.size():
+			var pp := World.plate_pos(i)
+			if Vector2(pp.x, pp.z).distance_to(here) < World.PLATE_R:
+				on_plate = true
+		if _need <= 1:
+			_hud.set_objective("Pisa un altar para abrir el santuario", "goal",
+				"Los altares están marcados en la brújula  ·  puedes invitar con el código de sala")
+		elif on_plate and pressed < _need:
+			_hud.set_objective("Quédate en el altar  (%d/%d)" % [pressed, _need], "wait", "Esperando a que el grupo pise los demás altares")
+		else:
+			_hud.set_objective("Pisen %d altares al mismo tiempo  (%d/%d)" % [_need, pressed, _need], "goal",
+				"Un alux en cada altar  ·  están marcados en la brújula")
+
+
+## Cambio de fase de la partida: 0 explorar · 1 emboscada · 2 victoria · 3 derrota.
+## `instant` = se entra a una sala que ya estaba así (no se repiten avisos ni paneles).
+func _on_phase(from: int, to: int, instant: bool) -> void:
+	_audio.set_music("mus_emboscada" if to == 1 else "mus_claro")
+	_voted = false
+	if to == 1:
+		_stats = {"t0": _time, "secs": 0.0, "purified": 0, "kills": 0, "falls": 0, "left": 0}
+		_reward_text = ""
+		_hud.hide_result()
+		return
+	if instant:
+		return
+	if to == 2 and from == 1:
+		_stats.secs = _time - float(_stats.t0)
+		_result_kind = "victory"
+		_result_in = 1.6
+	elif to == 3:
+		_stats.secs = _time - float(_stats.t0)
+		_result_kind = "defeat"
+		_result_in = 1.0
+	elif to == 0:
+		_result_kind = ""
+		if from == 2:
+			_hud.hide_result()
+			_hud.hide_menu()
+			_hud.banner("¡Nueva ronda!", Color(0.6, 1.0, 0.85), 3.0)
+			Audio.play("objetivo")
+		elif from == 3:
+			_hud.hint("Los altares vuelven a responder: a intentarlo de nuevo", 5.0)
+			Audio.play("objetivo")
+
+
+func _show_result() -> void:
+	var kind := _result_kind
+	_result_kind = ""
+	if (kind == "victory" and _encounter != 2) or (kind == "defeat" and _encounter != 3 and _lock <= 0):
+		return
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_was_captured = false
+	_mouse_l = false
+	_mouse_r = false
+	_hud.hide_menu()
+	var secs := int(float(_stats.secs))
+	var time_text := "%d:%02d" % [secs / 60, secs % 60]
+	if kind == "victory":
+		var stats := [["Tiempo", time_text], ["Criaturas purificadas", str(_stats.purified)],
+			["Enemigos vencidos", str(_stats.kills)], ["Caídas del grupo", str(_stats.falls)]]
+		if not _reward_text.is_empty():
+			stats.append(["Sello del Claro", _reward_text])
+		_hud.show_result("victory", "¡VICTORIA!", "El santuario está libre y el claro vuelve a respirar.", stats, [
+			["again", "Jugar otra ronda", true], ["close", "Seguir explorando", false], ["exit", "Salir al portal", false]])
+	else:
+		_hud.show_result("defeat", "DERROTA", "Todo el grupo cayó y el santuario se selló de nuevo. Reúnanse en el brasero, cúrense con F y vuelvan a pisar los altares.", [
+			["Tiempo", time_text], ["Enemigos que quedaban", str(_stats.left)], ["Caídas del grupo", str(_stats.falls)]], [
+			["retry", "Reintentar", true], ["exit", "Salir al portal", false]])
 
 
 func _apply_enemies(list: Array) -> void:
@@ -522,14 +852,19 @@ func _on_event(m: Dictionary) -> void:
 	match m.get("e"):
 		"gate_open":
 			_hud.banner("¡El santuario se abre!", Color(0.5, 1.0, 0.85), 3.0)
+			Audio.play("santuario_abre", Vector3(World.SANCTUARY.x - 7.0, 1.0, World.SANCTUARY.y), 3.0)
 		"reward":
 			if not bool(m.get("saved", false)):
-				_hud.banner("Sello del Claro (no se pudo guardar el progreso)", Color(1, 0.6, 0.5), 5.0)
+				_reward_text = "no se pudo guardar"
+				_hud.toast("Sello del Claro\nno se pudo guardar el progreso")
 			elif bool(m.get("new", false)):
-				_hud.banner("Obtuviste el Sello del Claro", GOLD, 6.0)
+				_reward_text = "guardado en tu perfil"
 				_hud.toast("Sello del Claro\nguardado en tu perfil")
 			else:
-				_hud.banner("Ya tenías el Sello del Claro", Color(1, 1, 1, 0.9), 4.0)
+				_reward_text = "ya lo tenías"
+			if _hud.result_open() and _encounter == 2:
+				_result_kind = "victory"   # se vuelve a pintar el panel con el dato del sello
+				_result_in = 0.01
 
 
 # ───────────────────────── Combate (presentación) ─────────────────────────
@@ -546,6 +881,10 @@ func _show_action(slot: int, kind: String, yaw: float, power: float) -> void:
 		return
 	av.play_action(kind)
 	var pos := av.global_position
+	var snd: String = {"bolt": "chispa", "claw": "garras", "charge_start": "zarpazo_carga", "charged": "zarpazo",
+		"pounce": "salto_jaguar", "pounce_land": "salto_impacto", "dodge": "esquiva"}.get(kind, "")
+	if not snd.is_empty():
+		Audio.play(snd, pos, 0.0 if slot == _my_slot else -5.0)
 	match kind:
 		"claw":
 			var ab: Dictionary = Defs.FORMS.balam.primary
@@ -602,6 +941,7 @@ func _on_combat_event(ev: Array) -> void:
 			Fx.burst(self, Vector3(ev[2], ev[3], ev[4]), JADE, 12 if int(ev[5]) != 0 else 5, 3.5, 0.06, 0.35)
 			if int(ev[5]) != 0:
 				Fx.ring(self, Vector3(ev[2], float(ev[3]) - 0.5, ev[4]), 1.1, JADE, 0.3)
+				Audio.play("chispa_impacto", Vector3(ev[2], ev[3], ev[4]), -3.0)
 		"hit":
 			var tally: Dictionary = _seen_enemy_dmg if str(ev[1]) == "e" else _seen_player_dmg
 			var key := str(int(ev[2]))
@@ -612,28 +952,51 @@ func _on_combat_event(ev: Array) -> void:
 					view.hit_flash()
 					var mine := int(ev[5]) == _my_slot
 					Fx.number(self, view.global_position + Vector3(0, 1.6, 0), str(int(ev[3])), GOLD if mine else Color(1, 1, 1, 0.9), mine)
-					Fx.burst(self, view.global_position + Vector3(0, 0.8, 0), Color(1.0, 0.9, 0.6), 6, 3.0, 0.05, 0.3)
+					Fx.burst(self, view.global_position + Vector3(0, 0.8, 0), Color(1.0, 0.9, 0.6), 10 if mine else 6, 3.0, 0.05, 0.3)
+					Audio.play("golpe", view.global_position, 0.0 if mine else -6.0, 0.12)
+					if mine:
+						# mi golpe entró: anillo de impacto y un pequeño temblor de cámara
+						Fx.ring(self, view.global_position + Vector3(0, 0.1, 0), 1.0, GOLD, 0.22)
+						_shake = maxf(_shake, 0.09 if int(ev[3]) < 25 else 0.18)
+						_tip("purify", "Deja a las criaturas con poca vida y purifícalas con F siendo alux", 6.0)
 			else:
 				var slot := int(ev[2])
 				var av: Avatar = _avatars.get(slot)
 				if av != null:
 					av.play_action("hit")
 					Fx.number(self, av.global_position + Vector3(0, 1.8, 0), "-%d" % int(ev[3]), Color(1.0, 0.35, 0.35), slot == _my_slot)
+					Fx.burst(self, av.global_position + Vector3(0, 0.9, 0), Color(1.0, 0.3, 0.3), 8, 3.0, 0.06, 0.35)
+					Audio.play("dano", av.global_position, 0.0 if slot == _my_slot else -8.0)
 				if slot == _my_slot:
 					_hud.hurt()
 					_shake = 0.3
+					if int(ev[4]) <= 40 and int(ev[4]) > 0:
+						_tip("brazier", "Con poca vida: toca el brasero de la plaza (F como alux) para curar al grupo", 7.0)
 		"die":
 			if str(ev[1]) == "e":
 				var view: EnemyView = _enemies.get(int(ev[2]))
 				if view != null:
 					view.die(int(ev[3]) != 0)
+					Audio.play("purificar" if int(ev[3]) != 0 else "enemigo_muere", view.global_position)
 					if int(ev[3]) != 0:
 						Fx.number(self, view.global_position + Vector3(0, 1.8, 0), "¡Purificada!", Color(0.6, 1.0, 0.8), true)
+				# (la última baja llega en el mismo estado que ya marca la victoria)
+				if _encounter == 1 or _result_kind == "victory":
+					if int(ev[3]) != 0:
+						_stats.purified = int(_stats.purified) + 1
+					else:
+						_stats.kills = int(_stats.kills) + 1
 			else:
 				var av: Avatar = _avatars.get(int(ev[2]))
+				_stats.falls = int(_stats.falls) + 1
 				if av != null:
 					av.set_dead(true)
 					Fx.burst(self, av.global_position + Vector3(0, 0.6, 0), av.color, 18, 4.0)
+					Audio.play("caida", av.global_position, -4.0 if int(ev[2]) == _my_slot else -10.0)
+				if int(ev[2]) == _my_slot:
+					_respawn_at = _time + (Defs.RESPAWN_TIME_ENCOUNTER if _encounter == 1 else Defs.RESPAWN_TIME)
+				elif av != null and _encounter == 1:
+					_hud.hint("%s ha caído  ·  volverá junto al brasero" % av.player_name, 3.5)
 		"respawn":
 			var av: Avatar = _avatars.get(int(ev[1]))
 			if av != null:
@@ -642,11 +1005,13 @@ func _on_combat_event(ev: Array) -> void:
 			var at := Vector3(c.x, World.terrain_h(c.x, c.y), c.y)
 			Fx.ring(self, at, 2.4, JADE, 0.6)
 			Fx.pillar(self, at, JADE, 8.0, 1.4, 0.8)
-			if int(ev[1]) == _my_slot:
-				_hud.banner("De vuelta en el punto de control", Color(0.6, 1.0, 0.85), 2.5)
+			Audio.play("reaparecer", at, 0.0 if int(ev[1]) == _my_slot else -6.0)
+			if int(ev[1]) == _my_slot and _encounter == 1:
+				_hud.banner("¡De vuelta! Regresa con tu grupo", Color(0.6, 1.0, 0.85), 2.5)
 		"heal":
 			Fx.number(self, _avatar_pos(int(ev[1])) + Vector3(0, 1.9, 0), "+%d" % int(ev[2]), Color(0.5, 1.0, 0.6))
 			Fx.heal(self, _avatar_pos(int(ev[1])))
+			Audio.play("curar", _avatar_pos(int(ev[1])), 0.0 if int(ev[1]) == _my_slot else -8.0)
 			if int(ev[1]) == _my_slot:
 				_hud.healed()
 		"evade":
@@ -655,14 +1020,25 @@ func _on_combat_event(ev: Array) -> void:
 			var view: EnemyView = _enemies.get(int(ev[1]))
 			if view != null:
 				view.slam()
+				Audio.play("enemigo_golpe", view.global_position)
 		"brazier":
 			Fx.ring(self, Vector3(0, 0.1, 0), Defs.BRAZIER_RANGE + 2.0, Color(1.0, 0.75, 0.3), 0.7)
 			Fx.burst(self, Vector3(0, 1.4, 0), Color(1.0, 0.8, 0.35), 26, 5.0, 0.08, 0.9)
+			if int(ev[1]) == _my_slot:
+				_hud.hint("El brasero cura al grupo  ·  tarda %d s en volver a encenderse" % int(Defs.BRAZIER_CD), 4.0)
 		"enc":
-			if str(ev[1]) == "start":
-				_hud.banner("¡Emboscada! Los guardianes corrompidos despiertan", Color(1.0, 0.45, 0.6), 4.5)
-			else:
-				_hud.banner("¡Emboscada superada!", GOLD, 4.0)
+			match str(ev[1]):
+				"start":
+					_hud.banner("¡Emboscada!", Color(1.0, 0.45, 0.6), 3.5)
+					Audio.play("emboscada", null, -3.0, 0.0)
+					_tip("balam", "Pulsa 2 para ser Balam y pelear cuerpo a cuerpo  ·  1 vuelve a alux", 7.0)
+				"clear":
+					_hud.banner("¡Emboscada superada!", GOLD, 3.0)
+					Audio.play("victoria", null, 0.0, 0.0)
+				"fail":
+					_respawn_at = minf(_respawn_at, _time + Defs.RESPAWN_TIME_DEFEAT)
+					_hud.banner("El grupo ha caído", Color(1.0, 0.5, 0.5), 3.0)
+					Audio.play("derrota", null, 0.0, 0.0)
 
 
 ## Ayuda de puntería: si hay un enemigo cerca de donde mira la cámara, se apunta a él.
@@ -706,11 +1082,21 @@ func _physics_process(_delta: float) -> void:
 		buttons |= Sim.A_SECONDARY
 	if Input.is_action_pressed("atk3"):
 		buttons |= Sim.A_SPECIAL
+	var jump := Input.is_action_pressed("jump")
+	# Con la bienvenida, el menú o un resultado abiertos el personaje se queda quieto
+	# (se sigue enviando la entrada vacía: mantiene viva la conexión)
+	if _hud.panel_open():
+		move = Vector2.ZERO
+		buttons = 0
+		jump = false
+		_want_form = ""
+	_explain_denied(buttons)
+	_prev_buttons = buttons
 	_seq += 1
 	var inp := {
 		"t": "in", "s": _seq,
 		"mx": snappedf(move.x, 0.001), "mz": snappedf(move.y, 0.001),
-		"j": 1 if Input.is_action_pressed("jump") else 0,
+		"j": 1 if jump else 0,
 		"f": _want_form,
 		"a": buttons,
 		"r": snappedf(_aim_yaw(), 0.001),
@@ -727,11 +1113,84 @@ func _physics_process(_delta: float) -> void:
 	_ws.send_text(JSON.stringify(inp))
 
 
+## Si el jugador pulsa una habilidad que ahora no puede usar, se le dice por qué.
+func _explain_denied(buttons: int) -> void:
+	var rising := buttons & ~_prev_buttons
+	if _pred.dead:
+		return
+	var form: Dictionary = Defs.FORMS[_pred.form]
+	if rising != 0:
+		for def in [[1, Sim.A_SECONDARY, "secondary", _pred.cd2], [2, Sim.A_SPECIAL, "special", _pred.cd3]]:
+			if (rising & int(def[1])) == 0:
+				continue
+			var ab: Dictionary = form[def[2]]
+			if _pred.energy < float(ab.get("cost", 0.0)):
+				_hud.deny(def[0], "Falta energía para %s" % ab.name)
+				Audio.play("sin_energia")
+			elif int(def[3]) > Sim.ticks(0.3):
+				_hud.deny(def[0], "")
+				Audio.play("sin_energia", null, -6.0)
+			elif str(ab.kind) == "interact" and not _can_touch_something():
+				_hud.hint("Aquí no hay nada que tocar  ·  F purifica criaturas débiles y enciende el brasero", 2.5)
+	if not _want_form.is_empty() and _want_form != _pred.form:
+		if not _unlocked.has(_want_form):
+			_hud.hint("Aún no tienes esa transformación", 2.5)
+			Audio.play("sin_energia")
+		elif _pred.form_cd > 0:
+			_hud.hint("La transformación se está recargando", 1.6)
+			Audio.play("sin_energia", null, -6.0)
+
+
+func _can_touch_something() -> bool:
+	var here := Vector2(_pred.pos.x, _pred.pos.z)
+	if (here - Defs.BRAZIER).length() < Defs.BRAZIER_RANGE + 0.5:
+		return true
+	var reach: float = float(Defs.FORMS.alux.special.range) + 1.0
+	for id in _enemies:
+		var v: EnemyView = _enemies[id]
+		if not v.dying and Vector2(v.global_position.x - here.x, v.global_position.z - here.y).length() < reach:
+			return true
+	return false
+
+
 # ───────────────────────── Presentación ─────────────────────────
 
 func _process(delta: float) -> void:
 	_time += delta
 	_poll_net(delta)
+
+	# Esc en el navegador suelta el ratón sin avisar al juego: se toma como "abrir el menú"
+	# (sólo si la captura llegó a durar: si el navegador la rechaza, no se abre nada)
+	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	if captured:
+		_captured_t += delta
+		if _captured_t > 0.5:
+			_was_captured = true
+	else:
+		_captured_t = 0.0
+		if _was_captured:
+			_was_captured = false
+			_mouse_l = false
+			_mouse_r = false
+			if _net == Net.PLAYING and not _hud.panel_open() and not _hud.help_open():
+				_open_menu()
+
+	if _result_in > 0.0:
+		_result_in -= delta
+		if _result_in <= 0.0 and not _result_kind.is_empty():
+			_show_result()
+	if _net_note_t > 0.0:
+		_net_note_t -= delta
+		if _net_note_t <= 0.0:
+			_hud.set_net("")
+	elif _net == Net.PLAYING:
+		# Aviso de conexión sólo cuando hay algo que decir
+		if _silence > 2.0:
+			_hud.set_net("warn", "Sin respuesta del servidor…")
+		elif _ping_ms > 350.0:
+			_hud.set_net("warn", "Conexión lenta  ·  %d ms" % int(_ping_ms))
+		else:
+			_hud.set_net("")
 
 	if _debug_on:
 		# Sólo en pruebas automáticas: permite orientar la cámara desde la página
@@ -766,9 +1225,13 @@ func _process(delta: float) -> void:
 			float(_pred.cd2) / float(Sim.ticks(form.secondary.cd)),
 			float(_pred.cd3) / float(Sim.ticks(form.special.cd)),
 		], _pred.energy, float(_pred.charge_t) / float(Sim.ticks(Defs.FORMS.balam.secondary.max_t)))
-		_hud.set_death(_pred.dead)
+		_hud.set_death(_pred.dead, _respawn_at - _time)
+		_hud.set_low_hp(_hp < 30.0 and not _pred.dead)
 		_hud.set_compass(_cam_yaw, me.global_position)
 		_update_hints(delta)
+		_audio.listener = me.global_position
+		_audio.set_loop_distance("amb_brasero", Vector3(0, 1.2, 0), -3.0)
+		_update_onboarding(delta, captured)
 
 	# Los demás: interpolados un poco en el pasado entre estados del servidor
 	var render_t := _time - INTERP_DELAY
@@ -810,6 +1273,33 @@ func _process(delta: float) -> void:
 	_debug_export(delta)
 
 
+## Ayudas del primer minuto y recordatorio del ratón. No insisten: cada una sale una vez.
+func _update_onboarding(delta: float, captured: bool) -> void:
+	if _hud.panel_open():
+		return
+	_tip_clock += delta
+	var step := Vector2(_pred.pos.x - _prev_pos.x, _pred.pos.z - _prev_pos.z).length()
+	_travelled += step
+	if _tip_clock > 7.0 and _travelled < 2.0:
+		_tip("move", "Muévete con W A S D  ·  Espacio salta", 6.0)
+	if _travelled > 12.0 and _encounter == 0 and _tip_clock > 9.0:
+		_tip("altars", "Los altares brillan en la brújula de arriba: camina hacia uno y quédate encima", 7.0)
+	if _encounter == 0 and not _tips.has("fight"):
+		for id in _enemies:
+			var v: EnemyView = _enemies[id]
+			if not v.dying and v.global_position.distance_to(_pred.pos) < 11.0:
+				_tip("fight", "Clic lanza chispas de jade  ·  clic derecho esquiva  ·  2 te convierte en Balam", 7.0)
+				break
+	# Recordatorio del ratón: sólo si lleva un rato moviéndose sin capturarlo
+	if captured:
+		_free_mouse_t = 0.0
+	elif step > 0.01:
+		_free_mouse_t += delta
+		if _free_mouse_t > 6.0:
+			_free_mouse_t = -30.0
+			_hud.hint("Haz clic en el juego para mirar con el ratón  ·  Q y E también giran la cámara", 5.0)
+
+
 ## Consejos contextuales: qué se puede tocar aquí y con qué forma.
 func _update_hints(delta: float) -> void:
 	_hint_in -= delta
@@ -822,8 +1312,7 @@ func _update_hints(delta: float) -> void:
 		var can_touch := _pred.form == "alux"
 		for id in _enemies:
 			var v: EnemyView = _enemies[id]
-			var purify_at: float = Defs.ENEMIES[v.kind].purify_at
-			if v.dying or purify_at <= 0.0 or v.hp > v.max_hp * purify_at:
+			if not v.purifiable():
 				continue
 			if Vector2(v.global_position.x - here.x, v.global_position.z - here.y).length() < 3.6:
 				text = "F  ·  Purificar a la criatura" if can_touch else "1  ·  Vuelve a ser alux para purificarla"
@@ -935,5 +1424,9 @@ func _debug_export(delta: float) -> void:
 		"frames": Engine.get_process_frames(), "rejoins": _rejoins, "glb": (_avatars.get(_my_slot) as Avatar).uses_glb if _avatars.has(_my_slot) else false,
 		"dmg_enemies": _seen_enemy_dmg, "dmg_players": _seen_player_dmg,
 		"perf": _perf_stats(), "quality": ["high", "low", "min"][_quality],
+		"ui": {"intro": _hud.intro_open(), "menu": _hud.menu_open(), "result": _hud.result_open(), "help": _hud.help_open(),
+			"objective": _hud.objective_text(), "captured": Input.mouse_mode == Input.MOUSE_MODE_CAPTURED},
+		"votes": _votes, "connected": _connected, "lock": _lock, "voted": _voted,
+		"stats": _stats, "audio": _audio.loaded(), "music": _audio.music(), "settings": _settings,
 	}
 	_js("window.__aluxState = %s" % JSON.stringify(state))

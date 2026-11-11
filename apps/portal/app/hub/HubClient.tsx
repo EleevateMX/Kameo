@@ -194,10 +194,12 @@ export function HubClient({ initialProfile, baseUrl }: { initialProfile: PlayerP
           <div className="howto">
             <h3>Cómo se juega</h3>
             <ul>
-              <li><kbd>W A S D</kbd> moverse · <kbd>Espacio</kbd> saltar</li>
-              <li><kbd>1</kbd> Alux · <kbd>2</kbd> Balam (corre y salta más)</li>
-              <li>Clic en el juego para mover la cámara con el ratón</li>
-              <li>Pisen todos los altares a la vez para abrir el santuario</li>
+              <li>Pisen los altares a la vez para abrir el santuario y venzan la emboscada</li>
+              <li><kbd>W A S D</kbd> moverse · <kbd>Espacio</kbd> saltar · ratón para mirar</li>
+              <li><kbd>Clic</kbd> atacar · <kbd>Clic derecho</kbd> esquivar · <kbd>F</kbd> tocar o purificar</li>
+              <li><kbd>1</kbd> Alux · <kbd>2</kbd> Balam, el jaguar (corre, salta y pega más)</li>
+              <li><kbd>Esc</kbd> menú: volumen, sensibilidad y salir · <kbd>H</kbd> controles</li>
+              <li>Una partida dura unos 10 minutos y se puede jugar de 1 a 4</li>
             </ul>
           </div>
         </section>

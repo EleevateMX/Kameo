@@ -4,11 +4,17 @@ extends CanvasLayer
 ## El estilo (placas, medallones, iconos) vive en ui/ui_kit.gd.
 
 signal form_requested(form: String)
+## Botones de menús y paneles: start, resume, help, recenter, quality, again, retry, reload, exit, menu
+signal action(id: String)
+## Ajustes del menú: sens, vol_master, vol_music, vol_sfx, vol_amb (0–1)
+signal setting_changed(key: String, value: float)
 
 const Defs := preload("res://scripts/shared/combat_def.gd")
 const World := preload("res://scripts/shared/world_def.gd")
 const Kit := preload("res://scripts/client/ui/ui_kit.gd")
 
+## Nombre de la build, visible en el menú para que quien pruebe pueda citarla al reportar.
+const BUILD := "Playtest 1  ·  El Claro de los Aluxes"
 const FORM_ACCENT := {"alux": Kit.JADE, "balam": Kit.AMBER}
 const KEY_HINTS := ["Clic · J", "Clic der. · K", "F"]
 
@@ -139,6 +145,11 @@ class AbilitySlot:
 	var lacks := false
 	var charge := 0.0
 	var flash := 0.0
+	var denied := 0.0       # > 0 mientras dura el aviso de "no se puede usar"
+
+	func deny() -> void:
+		denied = 1.0
+		queue_redraw()
 
 	func _init(p_key: String) -> void:
 		key = p_key
@@ -162,9 +173,15 @@ class AbilitySlot:
 		if flash > 0.0:
 			flash = maxf(0.0, flash - delta * 3.5)
 			queue_redraw()
+		if denied > 0.0:
+			denied = maxf(0.0, denied - delta * 2.6)
+			queue_redraw()
 
 	func _draw() -> void:
 		var rect := Rect2(Vector2.ZERO, size)
+		if denied > 0.0:
+			# sacudida lateral y borde rojo: la habilidad no está disponible
+			draw_set_transform(Vector2(sin(denied * 26.0) * 5.0 * denied, 0.0))
 		var usable := cooldown <= 0.001 and not lacks
 		var edge := accent if usable else accent.darkened(0.55)
 		if charge > 0.0:
@@ -194,6 +211,13 @@ class AbilitySlot:
 			var ring := Kit.flat(Color.TRANSPARENT, 15.0 + 6.0 * (1.0 - flash), 3, Color(1, 1, 1, flash))
 			ring.draw_center = false
 			draw_style_box(ring, rect.grow(6.0 * (1.0 - flash)))
+		if denied > 0.0:
+			var no := Kit.flat(Color(0.9, 0.15, 0.2, 0.22 * denied), 15.0, 3, Color(1.0, 0.3, 0.35, denied))
+			draw_style_box(no, rect)
+		if lacks and cooldown <= 0.001:
+			# sin energía: gota vacía en la esquina
+			draw_circle(Vector2(size.x - 11.0, size.y - 11.0), 7.0, Kit.INK)
+			draw_arc(Vector2(size.x - 11.0, size.y - 11.0), 5.0, 0.0, TAU, 16, Kit.TURQUOISE.darkened(0.2), 1.6, true)
 		# tecla
 		var kf := Kit.bold_font()
 		var kw := kf.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x + 10.0
@@ -278,6 +302,31 @@ var _toast_label: Label
 var _toast_time := 0.0
 var _last_form := ""
 var _portraits := {}
+var _objective_detail: Label
+var _free_row: Label
+var _net_chip: Plaque
+var _net_dot: ColorRect
+var _net_label: Label
+var _menu_button: Button
+var _intro: Plaque
+var _result: Plaque
+var _result_title: Label
+var _result_sub: Label
+var _result_stats: GridContainer
+var _result_note: Label
+var _result_buttons: HBoxContainer
+var _menu: Plaque
+var _menu_again: Button
+var _menu_quality: Button
+var _sliders := {}            # clave -> HSlider
+var _overlay_buttons: HBoxContainer
+var _shade: ColorRect
+var _low_hp := false
+var _base_marks: Array = []
+var _altars_key := -2
+var _pulse := 0.0
+var _hurt := 0.0
+var _hurt_color := Color(0.9, 0.1, 0.15)
 
 
 func _ready() -> void:
@@ -338,7 +387,7 @@ func _ready() -> void:
 	trow.add_child(_toast_label)
 	_toast.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
 	_toast.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_toast.position.y = 64
+	_toast.position.y = 100
 	_toast.modulate.a = 0.0
 
 	# Rendimiento (F3)
@@ -346,9 +395,12 @@ func _ready() -> void:
 	root.add_child(_perf)
 	_perf.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 14)
 	_perf.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_perf.position.y = 130
+	_perf.position.y = 170
 	_perf.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_perf.visible = false
+
+	_build_status(root)
+	_build_panels(root)
 
 	# Pantalla de conexión
 	_overlay = ColorRect.new()
@@ -372,12 +424,218 @@ func _ready() -> void:
 	_overlay_label.custom_minimum_size = Vector2(620, 0)
 	_overlay_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_overlay_label)
+	_overlay_buttons = HBoxContainer.new()
+	_overlay_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	_overlay_buttons.add_theme_constant_override("separation", 12)
+	col.add_child(_overlay_buttons)
+
+
+## Botón con el estilo de las placas. `primary` lo destaca en oro.
+func _button(text: String, id: String, primary := false) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(0, 40)
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var accent := Kit.GOLD if primary else Kit.JADE
+	var normal := Kit.flat(Kit.OBSIDIAN_SOLID.lerp(accent, 0.16 if primary else 0.06), 12.0, 2, accent.darkened(0.25))
+	var hover := Kit.flat(Kit.OBSIDIAN_SOLID.lerp(accent, 0.3), 12.0, 2, accent)
+	var down := Kit.flat(Kit.OBSIDIAN_SOLID.lerp(accent, 0.45), 12.0, 2, accent.lightened(0.3))
+	for sb in [normal, hover, down]:
+		sb.content_margin_left = 18
+		sb.content_margin_right = 18
+		sb.content_margin_top = 8
+		sb.content_margin_bottom = 8
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("pressed", down)
+	b.add_theme_stylebox_override("disabled", normal)
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	b.add_theme_font_override("font", Kit.bold_font())
+	b.add_theme_font_size_override("font_size", 15)
+	b.add_theme_color_override("font_color", accent.lightened(0.5))
+	b.add_theme_color_override("font_hover_color", Color.WHITE)
+	b.add_theme_color_override("font_pressed_color", Color.WHITE)
+	b.pressed.connect(func() -> void: action.emit(id))
+	return b
+
+
+## Indicador de conexión y botón de menú (arriba a la derecha).
+func _build_status(root: Control) -> void:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
+	col.alignment = BoxContainer.ALIGNMENT_BEGIN
+	root.add_child(col)
+	col.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 14)
+	col.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_menu_button = _button("Menú  ·  Esc", "menu")
+	_menu_button.custom_minimum_size = Vector2(0, 32)
+	_menu_button.add_theme_font_size_override("font_size", 12)
+	_menu_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_menu_button.modulate.a = 0.85
+	col.add_child(_menu_button)
+	_net_chip = Plaque.new(7, Kit.AMBER, 12.0)
+	_net_chip.studs = false
+	_net_chip.size_flags_horizontal = Control.SIZE_SHRINK_END
+	col.add_child(_net_chip)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 7)
+	_net_chip.add_child(row)
+	_net_dot = ColorRect.new()
+	_net_dot.custom_minimum_size = Vector2(9, 9)
+	_net_dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_net_dot)
+	_net_label = Kit.label("", 12, Kit.LIME, Kit.bold_font())
+	row.add_child(_net_label)
+	_net_chip.visible = false
+
+
+func _center(panel: Control) -> void:
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+
+
+## Bienvenida, resultado de la partida y menú.
+func _build_panels(root: Control) -> void:
+	# Velo que oscurece el juego mientras hay un panel abierto
+	_shade = ColorRect.new()
+	_shade.color = Color(0.01, 0.03, 0.03, 0.55)
+	_shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_shade.visible = false
+	root.add_child(_shade)
+
+	# ── Bienvenida ──
+	_intro = Plaque.new(22, Kit.GOLD)
+	_intro.mouse_filter = Control.MOUSE_FILTER_IGNORE   # un clic en cualquier parte empieza
+	root.add_child(_intro)
+	var iv := VBoxContainer.new()
+	iv.add_theme_constant_override("separation", 10)
+	_intro.add_child(iv)
+	var it := Kit.label("EL CLARO DE LOS ALUXES", 26, Kit.GOLD, Kit.title_font())
+	it.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	iv.add_child(it)
+	var goal := Kit.label("Abran el santuario pisando los altares a la vez\ny venzan juntos a los guardianes corrompidos.", 16, Kit.LIME)
+	goal.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	iv.add_child(goal)
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 7)
+	iv.add_child(grid)
+	for line in [
+		["W A S D", "Moverte"], ["Ratón", "Mirar"],
+		["Espacio", "Saltar"], ["Clic", "Atacar"],
+		["Clic derecho", "Esquivar"], ["F", "Tocar / purificar"],
+		["1  ·  2", "Alux  ·  Balam (jaguar)"], ["Esc", "Menú y ajustes"],
+	]:
+		var key := Kit.label(line[0], 14, Kit.JADE, Kit.bold_font())
+		key.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		key.custom_minimum_size = Vector2(110, 0)
+		grid.add_child(key)
+		var what := Kit.label(line[1], 14, Color(1, 1, 1, 0.9))
+		what.custom_minimum_size = Vector2(170, 0)
+		grid.add_child(what)
+	var tip := Kit.label("Las criaturas debilitadas se pueden purificar con F siendo alux.", 13, Color(1, 1, 1, 0.65))
+	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	iv.add_child(tip)
+	var go := _button("¡A jugar!   (clic o Enter)", "start", true)
+	go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	iv.add_child(go)
+	_center(_intro)
+	_intro.visible = false
+
+	# ── Resultado ──
+	_result = Plaque.new(22, Kit.GOLD)
+	_result.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(_result)
+	var rv := VBoxContainer.new()
+	rv.add_theme_constant_override("separation", 10)
+	_result.add_child(rv)
+	_result_title = Kit.label("", 40, Kit.GOLD, Kit.title_font())
+	_result_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rv.add_child(_result_title)
+	_result_sub = Kit.label("", 16, Kit.LIME)
+	_result_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_result_sub.custom_minimum_size = Vector2(460, 0)
+	_result_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rv.add_child(_result_sub)
+	_result_stats = GridContainer.new()
+	_result_stats.columns = 2
+	_result_stats.add_theme_constant_override("h_separation", 26)
+	_result_stats.add_theme_constant_override("v_separation", 4)
+	_result_stats.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	rv.add_child(_result_stats)
+	_result_note = Kit.label("", 13, Kit.GOLD)
+	_result_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rv.add_child(_result_note)
+	_result_buttons = HBoxContainer.new()
+	_result_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	_result_buttons.add_theme_constant_override("separation", 12)
+	rv.add_child(_result_buttons)
+	_center(_result)
+	_result.visible = false
+
+	# ── Menú ──
+	_menu = Plaque.new(20, Kit.JADE)
+	_menu.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(_menu)
+	var mv := VBoxContainer.new()
+	mv.add_theme_constant_override("separation", 8)
+	_menu.add_child(mv)
+	var mt := Kit.label("MENÚ", 24, Kit.GOLD, Kit.title_font())
+	mt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mv.add_child(mt)
+	var note := Kit.label("La partida sigue en marcha mientras el menú está abierto.", 12, Color(1, 1, 1, 0.55))
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mv.add_child(note)
+	mv.add_child(_button("Continuar", "resume", true))
+	_menu_again = _button("Jugar otra ronda", "again")
+	mv.add_child(_menu_again)
+	var two := HBoxContainer.new()
+	two.add_theme_constant_override("separation", 8)
+	mv.add_child(two)
+	var help_b := _button("Controles  (H)", "help")
+	help_b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	two.add_child(help_b)
+	var rec := _button("Recentrar cámara  (R)", "recenter")
+	rec.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	two.add_child(rec)
+	_menu_quality = _button("Calidad gráfica: alta  (F4)", "quality")
+	mv.add_child(_menu_quality)
+	var sg := GridContainer.new()
+	sg.columns = 2
+	sg.add_theme_constant_override("h_separation", 14)
+	sg.add_theme_constant_override("v_separation", 6)
+	mv.add_child(sg)
+	for def in [["sens", "Sensibilidad del ratón"], ["vol_master", "Volumen general"], ["vol_music", "Música"],
+			["vol_sfx", "Efectos"], ["vol_amb", "Ambiente"]]:
+		sg.add_child(Kit.label(def[1], 14, Kit.LIME))
+		var sl := HSlider.new()
+		sl.min_value = 0.0
+		sl.max_value = 1.0
+		sl.step = 0.05
+		sl.custom_minimum_size = Vector2(220, 22)
+		sl.focus_mode = Control.FOCUS_NONE
+		sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var key: String = def[0]
+		sl.value_changed.connect(func(v: float) -> void: setting_changed.emit(key, v))
+		sg.add_child(sl)
+		_sliders[key] = sl
+	mv.add_child(_button("Salir al portal", "exit"))
+	var build := Kit.label(BUILD, 11, Color(1, 1, 1, 0.4))
+	build.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mv.add_child(build)
+	_center(_menu)
+	_menu.visible = false
 
 
 func _build_party(root: Control) -> void:
 	var panel := Plaque.new(14)
 	panel.position = Vector2(16, 16)
-	panel.custom_minimum_size = Vector2(250, 0)
+	panel.custom_minimum_size = Vector2(226, 0)
+	panel.modulate.a = 0.92
 	root.add_child(panel)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
@@ -412,9 +670,15 @@ func _build_top(root: Control) -> void:
 	_objective_plaque.add_child(row)
 	_objective_icon = Medallion.new(30)
 	row.add_child(_objective_icon)
-	_objective = Kit.label("", 16, Kit.LIME, Kit.bold_font())
-	_objective.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(_objective)
+	var texts := VBoxContainer.new()
+	texts.add_theme_constant_override("separation", 0)
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(texts)
+	_objective = Kit.label("", 17, Kit.LIME, Kit.bold_font())
+	texts.add_child(_objective)
+	_objective_detail = Kit.label("", 12, Color(1, 1, 1, 0.7))
+	_objective_detail.visible = false
+	texts.add_child(_objective_detail)
 	var pad := Control.new()
 	pad.custom_minimum_size = Vector2(8, 0)
 	row.add_child(pad)
@@ -428,6 +692,8 @@ func _build_top(root: Control) -> void:
 		["sanctuary", Kit.MAGENTA, World.SANCTUARY - Vector2(7, 0)],
 		["ledge", Kit.GOLD, World.LEDGE],
 	]
+	_base_marks = _compass.marks.duplicate()
+	_compass.modulate.a = 0.8
 	col.add_child(_compass)
 
 
@@ -544,7 +810,8 @@ func _build_hints(root: Control) -> void:
 	for line in [
 		["W A S D", "Moverse"], ["Espacio", "Saltar"], ["Ratón  ·  Q / E", "Girar la cámara"],
 		["Clic  ·  J", "Habilidad primaria (mantener)"], ["Clic derecho  ·  K", "Habilidad secundaria"],
-		["F", "Habilidad especial / tocar"], ["1  ·  2", "Alux / Balam"], ["Esc", "Soltar el ratón"],
+		["F", "Habilidad especial / tocar"], ["1  ·  2", "Alux / Balam"], ["R", "Recentrar la cámara"],
+		["Esc", "Menú: volumen, sensibilidad, salir"],
 		["H", "Mostrar u ocultar esta ayuda"], ["F4", "Calidad gráfica: alta, baja o mínima"], ["F3", "Rendimiento"],
 	]:
 		grid.add_child(Kit.label(line[0], 14, Kit.JADE, Kit.bold_font()))
@@ -559,8 +826,13 @@ func _process(delta: float) -> void:
 	if _banner_time > 0.0:
 		_banner_time -= delta
 		_banner.modulate.a = clampf(_banner_time, 0.0, 1.0)
-	if _vignette.color.a > 0.0:
-		_vignette.color.a = maxf(0.0, _vignette.color.a - delta * 1.3)
+	_pulse += delta
+	_hurt = maxf(0.0, _hurt - delta * 1.3)
+	# con poca vida queda un latido rojo en los bordes hasta que el jugador se cura
+	var low := (0.1 + 0.07 * sin(_pulse * 5.0)) if _low_hp else 0.0
+	var col := _hurt_color if _hurt > low else Color(0.9, 0.1, 0.15)
+	col.a = maxf(_hurt, low)
+	_vignette.color = col
 	if _toast_time > 0.0:
 		_toast_time -= delta
 		_toast.modulate.a = clampf(_toast_time, 0.0, 1.0)
@@ -611,16 +883,11 @@ func set_roster(players: Array, my_id: String) -> void:
 		var info: Dictionary = _team.get(slot, {})
 		info["on"] = bool(p.on)
 		_team[slot] = info
-	for i in range(sorted.size(), 4):
-		var free_row := HBoxContainer.new()
-		free_row.add_theme_constant_override("separation", 10)
-		var m := Medallion.new(40)
-		m.configure("", Color(1, 1, 1, 0.2), Color(1, 1, 1, 0.12), 0.0, true)
-		free_row.add_child(m)
-		var l := Kit.label("Lugar libre", 13, Color(1, 1, 1, 0.35))
-		l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		free_row.add_child(l)
-		_players_box.add_child(free_row)
+	# Los lugares libres ocupan una sola línea discreta (menos panel permanente)
+	var free := 4 - sorted.size()
+	if free > 0:
+		var fl := Kit.label("%d lugar%s libre%s  ·  invita con el código" % [free, "" if free == 1 else "es", "" if free == 1 else "s"], 11, Color(1, 1, 1, 0.45))
+		_players_box.add_child(fl)
 	_refresh_team()
 
 
@@ -668,21 +935,44 @@ func _refresh_team() -> void:
 			st.add_theme_color_override("font_color", Kit.GOLD)
 
 
-## kind: "goal" (objetivo), "alert" (combate), "success" (logro)
-func set_objective(text: String, kind := "goal") -> void:
+## kind: "goal" (objetivo), "alert" (combate), "success" (logro), "wait" (esperando)
+## `detail` es una segunda línea pequeña con el paso siguiente o el estado de la espera.
+func set_objective(text: String, kind := "goal", detail := "") -> void:
+	if detail != _objective_detail.text:
+		_objective_detail.text = detail
+		_objective_detail.visible = not detail.is_empty()
 	if text == _objective.text and kind == _objective_kind:
 		return
 	_objective.text = text
 	_objective_kind = kind
-	var accent: Color = {"goal": Kit.JADE, "alert": Kit.MAGENTA, "success": Kit.GOLD}.get(kind, Kit.JADE)
+	var accent: Color = {"goal": Kit.JADE, "alert": Kit.MAGENTA, "success": Kit.GOLD, "wait": Kit.TURQUOISE}.get(kind, Kit.JADE)
 	_objective_plaque.set_accent(accent)
-	_objective_icon.configure(kind, accent, accent, 1.0 if kind != "goal" else 0.0)
+	_objective_icon.configure("goal" if kind == "wait" else kind, accent, accent, 1.0 if kind != "goal" else 0.0)
 	_objective.add_theme_color_override("font_color", Kit.LIME if kind == "goal" else accent.lightened(0.45))
 	# pequeño "latido" al cambiar
 	_objective_plaque.pivot_offset = _objective_plaque.size * 0.5
 	_objective_plaque.scale = Vector2(1.08, 1.08)
 	var tw := _objective_plaque.create_tween()
 	tw.tween_property(_objective_plaque, "scale", Vector2.ONE, 0.35).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+
+
+func objective_text() -> String:
+	return _objective.text
+
+
+## Marca los altares en la brújula mientras haya que pisarlos (dorados los que ya están activos).
+func set_altars(show: bool, mask: int) -> void:
+	var key := (mask if show else -1)
+	if key == _altars_key:
+		return
+	_altars_key = key
+	var marks := _base_marks.duplicate()
+	if show:
+		for i in World.PLATES.size():
+			var on := (mask & (1 << i)) != 0
+			marks.append(["goal", Kit.GOLD if on else Kit.JADE, World.PLATES[i]])
+	_compass.marks = marks
+	_compass.queue_redraw()
 
 
 func set_compass(cam_yaw: float, pos: Vector3) -> void:
@@ -725,18 +1015,147 @@ func set_forms(unlocked: Array, current: String, cooldown: float) -> void:
 		b.modulate.a = 1.0 if active else 0.8
 
 
-func set_death(active: bool) -> void:
-	_death.visible = active
+## Aviso de caída con cuenta atrás. Con un panel de resultado abierto no se muestra.
+func set_death(active: bool, seconds := -1.0) -> void:
+	_death.visible = active and not _result.visible
 	if active:
-		_death.text = "HAS CAÍDO\nReapareces en el punto de control…"
+		if seconds > 0.0:
+			_death.text = "HAS CAÍDO\nReapareces junto al brasero en %d…" % int(ceil(seconds))
+		else:
+			_death.text = "HAS CAÍDO\nReapareces en el punto de control…"
 
 
 func hurt() -> void:
-	_vignette.color = Color(0.9, 0.1, 0.15, 0.34)
+	_hurt = 0.38
+	_hurt_color = Color(0.9, 0.1, 0.15)
 
 
 func healed() -> void:
-	_vignette.color = Color(0.3, 1.0, 0.6, 0.2)
+	_hurt = 0.24
+	_hurt_color = Color(0.3, 1.0, 0.6)
+
+
+func set_low_hp(on: bool) -> void:
+	_low_hp = on
+
+
+## La habilidad `index` (0–2) no se puede usar ahora: sacude su ranura y explica por qué.
+func deny(index: int, why: String) -> void:
+	if index >= 0 and index < _slots.size():
+		_slots[index].deny()
+	if not why.is_empty():
+		hint(why, 1.6)
+
+
+## Estado de la conexión: kind "" (oculto), "ok", "warn" o "bad".
+func set_net(kind: String, text := "") -> void:
+	_net_chip.visible = not kind.is_empty()
+	if kind.is_empty():
+		return
+	var c: Color = {"ok": Kit.JADE, "warn": Kit.AMBER, "bad": Kit.BLOOD}.get(kind, Kit.AMBER)
+	_net_chip.set_accent(c)
+	_net_dot.color = c
+	_net_label.text = text
+
+
+# ───────────────────────── Paneles ─────────────────────────
+
+func _sync_shade() -> void:
+	_shade.visible = _intro.visible or _result.visible or _menu.visible
+
+
+func panel_open() -> bool:
+	return _intro.visible or _result.visible or _menu.visible
+
+
+func show_intro() -> void:
+	_intro.visible = true
+	_sync_shade()
+
+
+func hide_intro() -> void:
+	_intro.visible = false
+	_sync_shade()
+
+
+func intro_open() -> bool:
+	return _intro.visible
+
+
+## kind: "victory" o "defeat". stats: [[etiqueta, valor]…]. actions: [[id, texto, destacado]…]
+func show_result(kind: String, title: String, subtitle: String, stats: Array, actions: Array) -> void:
+	var accent := Kit.GOLD if kind == "victory" else Kit.BLOOD
+	_result.set_accent(accent)
+	_result_title.text = title
+	_result_title.add_theme_color_override("font_color", accent.lightened(0.15))
+	_result_sub.text = subtitle
+	for c in _result_stats.get_children():
+		_result_stats.remove_child(c)
+		c.queue_free()
+	for st in stats:
+		_result_stats.add_child(Kit.label(str(st[0]), 14, Color(1, 1, 1, 0.65)))
+		_result_stats.add_child(Kit.label(str(st[1]), 14, Kit.LIME, Kit.bold_font()))
+	_result_stats.visible = not stats.is_empty()
+	for c in _result_buttons.get_children():
+		_result_buttons.remove_child(c)
+		c.queue_free()
+	for a in actions:
+		_result_buttons.add_child(_button(str(a[1]), str(a[0]), bool(a[2])))
+	_result_note.text = ""
+	_result_note.visible = false
+	_menu.visible = false
+	_result.visible = true
+	_death.visible = false
+	_banner_time = 0.0
+	_banner.modulate.a = 0.0
+	_sync_shade()
+	_result.size = Vector2.ZERO   # el contenido cambió: se ajusta al mínimo y se vuelve a centrar
+	_center(_result)
+	_result.pivot_offset = _result.size * 0.5
+	_result.scale = Vector2(0.85, 0.85)
+	var tw := _result.create_tween()
+	tw.tween_property(_result, "scale", Vector2.ONE, 0.35).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+
+
+func set_result_note(text: String) -> void:
+	_result_note.text = text
+	_result_note.visible = not text.is_empty()
+
+
+func hide_result() -> void:
+	_result.visible = false
+	_sync_shade()
+
+
+func result_open() -> bool:
+	return _result.visible
+
+
+## Abre el menú con los valores actuales. `again` es el texto del botón de otra ronda ("" lo oculta).
+func show_menu(settings: Dictionary, quality_name: String, again := "") -> void:
+	for key in _sliders:
+		(_sliders[key] as HSlider).set_value_no_signal(float(settings.get(key, 0.5)))
+	update_menu(quality_name, again)
+	_help.visible = false
+	_menu.visible = true
+	_sync_shade()
+
+
+func update_menu(quality_name: String, again := "") -> void:
+	_menu_quality.text = "Calidad gráfica: %s  (F4)" % quality_name
+	_menu_again.visible = not again.is_empty()
+	_menu_again.text = again
+	_menu.size = Vector2.ZERO
+	_center(_menu)
+
+
+func hide_menu() -> void:
+	_menu.visible = false
+	_sync_shade()
+
+
+func menu_open() -> bool:
+	return _menu.visible
 
 
 func banner(text: String, color := Kit.GOLD, seconds := 4.0) -> void:
@@ -776,11 +1195,25 @@ func context_hint(text: String) -> void:
 
 func toggle_help() -> void:
 	_help.visible = not _help.visible
+	if _help.visible:
+		_menu.visible = false
+		_sync_shade()
 
 
-func set_overlay(text: String) -> void:
+func help_open() -> bool:
+	return _help.visible
+
+
+## Pantalla completa de carga, conexión o error. actions: [[id, texto, destacado]…]
+func set_overlay(text: String, actions: Array = []) -> void:
 	_overlay.visible = not text.is_empty()
 	_overlay_label.text = text
+	for c in _overlay_buttons.get_children():
+		_overlay_buttons.remove_child(c)
+		c.queue_free()
+	for a in actions:
+		_overlay_buttons.add_child(_button(str(a[1]), str(a[0]), bool(a[2])))
+	_overlay.mouse_filter = Control.MOUSE_FILTER_STOP if not actions.is_empty() else Control.MOUSE_FILTER_IGNORE
 
 
 func toggle_perf() -> bool:

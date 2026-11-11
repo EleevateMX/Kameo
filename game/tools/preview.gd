@@ -22,9 +22,15 @@ var shots := [
 	["panoramica", Vector3(0, 3.0, 0), PI * 0.85, 0.62, 44.0, false],
 	["horizonte", Vector3(5.0, 2.6, -3.0), 2.36, -0.08, 8.0, false],
 	["brasero", Vector3(0.0, 1.6, 0.0), 2.6, 0.18, 5.5, false],
+	["bienvenida", Vector3(2.6, 1.25, 2.6), PI, 0.42, 7.0, true],
+	["menu", Vector3(2.6, 1.25, 2.6), PI, 0.42, 7.0, true],
+	["esperando", Vector3(2.6, 1.25, 2.6), PI, 0.42, 7.0, true],
+	["reconectando", Vector3(2.6, 1.25, 2.6), PI, 0.42, 7.0, true],
 	["retrato_alux", Vector3(2.6, 0.95, 2.6), 0.3 + PI - 0.35, 0.1, 2.3, false],
 	["retrato_balam", Vector3(-3.4, 0.75, -1.6), 0.9 + PI - 0.6, 0.12, 2.9, false],
 	["combate", Vector3(14.0, 1.2, -1.0), PI * 0.5, 0.35, 8.0, true],
+	["victoria", Vector3(14.0, 1.2, -1.0), PI * 0.5, 0.35, 8.0, true],
+	["derrota", Vector3(14.0, 1.2, -1.0), PI * 0.5, 0.35, 8.0, true],
 ]
 var out := "user://"
 var only: Array = []
@@ -77,7 +83,7 @@ func _setup() -> void:
 		avatars.append(av)
 		roster.append({"id": str(i), "slot": i, "name": c[0], "color": c[1], "hat": c[2], "on": i != 3})
 		team[i] = {"hp": [100.0, 72.0, 41.0, 0.0][i], "form": c[3], "dead": i == 3}
-	for e in [["piedra", Vector3(16.5, 0, -2.5), -1.2, 44.0, "windup"], ["corrupta", Vector3(13.0, 0, 1.8), 1.9, 12.0, "chase"], ["corrupta", Vector3(17.0, 0, 2.0), 2.4, 40.0, "idle"]]:
+	for e in [["piedra", Vector3(16.5, 0, -2.5), -1.2, 44.0, "windup"], ["corrupta", Vector3(13.0, 0, 1.8), 1.9, 12.0, "chase"], ["corrupta", Vector3(17.0, 0, 2.0), 2.4, 30.0, "stun"]]:
 		var v := EnemyView.new()
 		world.add_child(v)
 		v.setup(foes.size() + 1, e[0])
@@ -88,11 +94,12 @@ func _setup() -> void:
 	hud.set_room("Q7KM2X")
 	hud.set_roster(roster, "0")
 	hud.set_team(team)
-	hud.set_objective("Pisen 4 altares al mismo tiempo para abrir el santuario  (2/4)")
+	hud.set_objective("Pisen 4 altares al mismo tiempo  (2/4)", "goal", "Un alux en cada altar  ·  están marcados en la brújula")
+	hud.set_altars(true, 0b0101)
 	hud.set_vitals(100.0, 62.0)
 	hud.set_abilities("alux", [0.0, 0.55, 0.0], 62.0, 0.0)
 	hud.set_forms(["alux", "balam"], "alux", 0.0)
-	hud.hint("Clic para mirar con el ratón  ·  H muestra los controles", 60.0)
+	hud.hint("Ratón para mirar  ·  H muestra los controles  ·  Esc abre el menú", 2.0)
 
 
 func _process(delta: float) -> bool:
@@ -127,8 +134,38 @@ func _process(delta: float) -> bool:
 	cam.global_position = target - fwd * float(s[4])
 	cam.look_at(target, Vector3.UP)
 	hud.visible = s[5]
+	hud.hide_intro()
+	hud.hide_menu()
+	hud.hide_result()
+	hud.set_net("")
+	match str(s[0]):
+		"bienvenida":
+			hud.show_intro()
+		"menu":
+			hud.show_menu({"sens": 0.5, "vol_master": 0.8, "vol_music": 0.55, "vol_sfx": 0.9, "vol_amb": 0.7}, "alta", "")
+		"esperando":
+			hud.set_objective("Quédate en el altar  (2/4)", "wait", "Esperando a que el grupo pise los demás altares")
+		"reconectando":
+			hud.set_net("warn", "Reconectando…  intento 2")
+			hud.banner("Se perdió la conexión  ·  reconectando", Color(1.0, 0.75, 0.4), 30.0)
+		"victoria":
+			hud.set_altars(false, 0)
+			hud.set_objective("Santuario liberado", "success", "Otra ronda: 1 de 4 listos  ·  Esc para unirte")
+			hud.show_result("victory", "¡VICTORIA!", "El santuario está libre y el claro vuelve a respirar.", [
+				["Tiempo", "2:47"], ["Criaturas purificadas", "3"], ["Enemigos vencidos", "5"], ["Caídas del grupo", "2"],
+				["Sello del Claro", "guardado en tu perfil"]], [
+				["again", "Jugar otra ronda", true], ["close", "Seguir explorando", false], ["exit", "Salir al portal", false]])
+			hud.set_result_note("Otra ronda: 1 de 4 listos")
+		"derrota":
+			hud.set_altars(false, 0)
+			hud.set_objective("Derrota  ·  el santuario se selló de nuevo", "alert", "Los altares despiertan en 5 s")
+			hud.show_result("defeat", "DERROTA", "Todo el grupo cayó y el santuario se selló de nuevo. Reúnanse en el brasero, cúrense con F y vuelvan a pisar los altares.", [
+				["Tiempo", "1:12"], ["Enemigos que quedaban", "4"], ["Caídas del grupo", "4"]], [
+				["retry", "Reintentar", true], ["exit", "Salir al portal", false]])
 	if s[0] == "combate":
-		hud.set_objective("¡Emboscada!  Quedan 5 guardianes corrompidos", "alert")
+		hud.set_altars(false, 0)
+		hud.set_objective("¡Emboscada!  Quedan 5 enemigos", "alert", "Véncelos o purifícalos  ·  si cae todo el grupo, se pierde")
+		hud.deny(2, "")
 		hud.set_vitals(58.0, 30.0)
 		hud.set_abilities("balam", [0.4, 0.0, 0.8], 30.0, 0.6)
 		hud.set_forms(["alux", "balam"], "balam", 0.0)

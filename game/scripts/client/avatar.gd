@@ -6,6 +6,7 @@ extends Node3D
 ## cuando existen; si faltan, recurre a modelos de respaldo hechos con primitivas.
 
 const Fx := preload("res://scripts/client/fx.gd")
+const Audio := preload("res://scripts/client/audio.gd")
 
 const SKIN := Color(0.66, 0.44, 0.29)
 const STRAW := Color(0.74, 0.56, 0.30)
@@ -27,6 +28,7 @@ var form := "alux"
 var online := true
 var dead := false
 var uses_glb := false
+var is_local := false        # el personaje de este jugador: sin nombre encima y con los sonidos más presentes
 
 var _models := {}            # forma -> Node3D
 var _players := {}           # forma -> AnimationPlayer (sólo .glb)
@@ -46,6 +48,8 @@ var _loco := ""
 var _squash := 0.0
 var _was_grounded := true
 var _speed := 0.0
+var _stride := 0.0
+var _was_swim := false
 
 
 func setup(p_name: String, color_hex: String, p_hat: int) -> void:
@@ -70,9 +74,10 @@ func setup(p_name: String, color_hex: String, p_hat: int) -> void:
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_label.no_depth_test = true
 	_label.fixed_size = false
-	_label.pixel_size = 0.0055
-	_label.font_size = 44
-	_label.outline_size = 14
+	# Nombre discreto: se lee de cerca y no tapa la escena
+	_label.pixel_size = 0.0042
+	_label.font_size = 34
+	_label.outline_size = 10
 	_label.outline_modulate = Color(0.05, 0.08, 0.07, 0.9)
 	add_child(_label)
 	_apply()
@@ -146,6 +151,7 @@ func set_form(f: String, with_effect := true) -> void:
 		_morph = 0.0
 		var gold := Color(1.0, 0.72, 0.25)
 		Fx.transform_burst(get_parent(), global_position, gold if form == "balam" else EYE, color.lightened(0.25))
+		Audio.play("transformar", global_position, 0.0 if is_local else -6.0)
 		if _players.has(form) and (_players[form] as AnimationPlayer).has_animation("Transform"):
 			(_players[form] as AnimationPlayer).speed_scale = 1.0
 			(_players[form] as AnimationPlayer).play("Transform", 0.0)
@@ -190,8 +196,10 @@ func _apply() -> void:
 	elif dead:
 		suffix = " (caído)"
 	_label.text = player_name + suffix
-	_label.modulate = Color(1, 1, 1, 1) if online and not dead else Color(1, 1, 1, 0.5)
-	_label.position.y = 2.1 if form == "alux" else 1.8
+	_label.modulate = Color(1, 1, 1, 0.9) if online and not dead else Color(1, 1, 1, 0.5)
+	_label.position.y = 2.0 if form == "alux" else 1.7
+	# el propio nombre no hace falta (ya está en el panel de grupo), salvo caído o desconectado
+	_label.visible = not is_local or dead or not online
 
 
 ## Reproduce una acción de combate (la decide el servidor o la predicción local).
@@ -232,6 +240,16 @@ func animate(delta: float, grounded: bool, swim: bool) -> void:
 		rising = d.y > 0.0
 	_speed = lerpf(_speed, speed, minf(1.0, delta * 10.0))
 	_last_pos = global_position
+	# Pasos: uno cada cierto tramo recorrido en el suelo
+	if grounded and not swim and not dead and speed > 1.0 and speed < 30.0:
+		_stride += speed * delta
+		if _stride > (1.5 if form == "alux" else 2.3):
+			_stride = 0.0
+			Audio.play("paso_%d" % (1 + randi() % 3), global_position, -2.0 if is_local else -10.0, 0.12)
+	if swim != _was_swim:
+		_was_swim = swim
+		if _has_last:
+			Audio.play("chapoteo", global_position, 0.0 if is_local else -8.0)
 	_has_last = true
 	var moving := speed > 0.4
 	if _act != "":
@@ -247,8 +265,10 @@ func animate(delta: float, grounded: bool, swim: bool) -> void:
 		_squash = -0.2 if grounded else 0.16
 		if grounded:
 			_play_glb_once("Land")
+			Audio.play("aterrizar", global_position, -3.0 if is_local else -12.0)
 		elif rising:
 			_play_glb_once("Jump")
+			Audio.play("salto", global_position, -3.0 if is_local else -12.0)
 	_was_grounded = grounded
 	_squash = lerpf(_squash, 0.0, minf(1.0, delta * 9.0))
 	var stretch := Vector3(1.0 - _squash * 0.5, 1.0 + _squash, 1.0 - _squash * 0.5)
