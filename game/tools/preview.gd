@@ -138,6 +138,7 @@ func _process(delta: float) -> bool:
 	hud.hide_menu()
 	hud.hide_result()
 	hud.set_net("")
+	hud.banner("", Color.WHITE, 0.01)
 	match str(s[0]):
 		"bienvenida":
 			hud.show_intro()
@@ -146,6 +147,7 @@ func _process(delta: float) -> bool:
 		"esperando":
 			hud.set_objective("Quédate en el altar  (2/4)", "wait", "Esperando a que el grupo pise los demás altares")
 		"reconectando":
+			hud.set_objective("Pisen 4 altares al mismo tiempo  (2/4)", "goal", "Un alux en cada altar  ·  están marcados en la brújula")
 			hud.set_net("warn", "Reconectando…  intento 2")
 			hud.banner("Se perdió la conexión  ·  reconectando", Color(1.0, 0.75, 0.4), 30.0)
 		"victoria":

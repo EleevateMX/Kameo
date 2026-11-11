@@ -925,7 +925,7 @@ func _refresh_team() -> void:
 		(row.name as Label).modulate.a = 1.0 if on else 0.5
 		var st: Label = row.state
 		if not on:
-			st.text = "reconectando"
+			st.text = "ausente"
 			st.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
 		elif dead:
 			st.text = "caído"

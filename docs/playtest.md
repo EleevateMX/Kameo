@@ -3,6 +3,26 @@
 Una sesión corta (10–15 minutos) para 1 a 4 personas. Esta guía sirve a quien organiza la prueba y
 a quien juega por primera vez.
 
+| Bienvenida | Emboscada |
+| --- | --- |
+| ![Bienvenida con el objetivo y los controles](img/playtest-bienvenida.jpg) | ![Emboscada: aviso de ataque, aturdido y purificable](img/playtest-combate.jpg) |
+
+| Victoria | Derrota |
+| --- | --- |
+| ![Panel de victoria](img/playtest-victoria.jpg) | ![Panel de derrota](img/playtest-derrota.jpg) |
+
+| Esperando al grupo | Menú | Reconectando |
+| --- | --- | --- |
+| ![Esperando en el altar](img/playtest-esperando.jpg) | ![Menú con ajustes](img/playtest-menu.jpg) | ![Aviso de reconexión](img/playtest-reconectando.jpg) |
+
+Estas siete imágenes salen de la vista previa del juego (escena preparada, calidad alta). La hoja de
+abajo son capturas de una sesión real en el navegador, tomadas por la prueba automática
+`npm run test:flow` en calidad mínima (el entorno de pruebas no tiene tarjeta gráfica): portal,
+bienvenida, exploración, menú, controles, emboscada, victoria, nueva ronda, derrota, reintento y
+vuelta al portal.
+
+![Sesión real paso a paso](img/playtest-flujo.jpg)
+
 ## Cómo entrar
 
 1. Abre el portal y entra (con Discord, o con la entrada de prueba si no está configurado).
