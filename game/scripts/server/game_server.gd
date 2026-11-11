@@ -34,6 +34,8 @@ const MAX_MSGS_PER_SEC := 90
 const INPUT_QUEUE_MAX := 12
 const INPUT_BUDGET_MAX := 8
 const REWARD_SEAL := "sello_del_claro"
+const FAIL_HOLD := 6.0              # tras una derrota, los altares tardan esto en volver a responder
+const RESTART_HOLD := 3.0           # lo mismo al empezar otra ronda
 
 
 class Conn:
@@ -79,6 +81,8 @@ class Room:
 	var tick := 0
 	var empty_since := -1.0
 	var combat := Combat.new()
+	var lock_t := 0.0            # mientras sea > 0 los altares no responden (derrota o nueva ronda)
+	var again := {}              # pid -> true: quiere jugar otra ronda tras la victoria
 
 
 var _tcp := TCPServer.new()
@@ -288,6 +292,14 @@ func _handle(c: Conn, msg: Dictionary) -> void:
 			p.queue.append(inp)
 		"ping":
 			_send(c, {"t": "pong", "c": _num(msg.get("c"))})
+		"again":
+			# Voto para jugar otra ronda. Sólo cuenta con la emboscada superada; la sala
+			# se reinicia cuando votan todos los conectados (ver _tick_room).
+			if room.combat.encounter == 2:
+				if _num(msg.get("v", 1.0)) != 0.0:
+					room.again[p.id] = true
+				else:
+					room.again.erase(p.id)
 		_:
 			pass  # cualquier otra cosa (p. ej. "dame la recompensa") se ignora
 
@@ -406,9 +418,17 @@ func _world_state(room: Room) -> Array:
 	for i in room.plates.size():
 		if room.plates[i]:
 			mask |= 1 << i
-	## [santuarioAbierto, altares, altaresNecesarios, emboscada(0/1/2), enemigosRestantes, puntoDeReaparición, braseroListo]
+	var votes := 0
+	var connected := 0
+	for p in room.players.values():
+		if p.conn_id != 0:
+			connected += 1
+			if room.again.has(p.id):
+				votes += 1
+	## [santuarioAbierto, altares, altaresNecesarios, emboscada(0/1/2/3), enemigosRestantes, puntoDeReaparición,
+	##  braseroListo, votosOtraRonda, conectados, segundosDeEsperaDeLosAltares]
 	return [1 if room.gate_open else 0, mask, room.need, room.combat.encounter, room.combat.wave_alive(),
-		room.combat.checkpoint, 1 if room.combat.brazier_cd <= 0.0 else 0]
+		room.combat.checkpoint, 1 if room.combat.brazier_cd <= 0.0 else 0, votes, connected, int(ceil(room.lock_t))]
 
 
 # ───────────────────────── Simulación de sala ─────────────────────────
@@ -435,12 +455,16 @@ func _tick_room(room: Room) -> void:
 
 	# Altares de presión: escalan con el número de aluxes conectados (1–4)
 	room.need = clampi(connected, 1, World.PLATES.size())
+	if room.lock_t > 0.0:
+		room.lock_t = maxf(0.0, room.lock_t - Sim.DT)
+		if room.lock_t <= 0.0 and room.combat.encounter == 3:
+			room.combat.encounter = 0   # la derrota ya se mostró: se puede volver a intentar
 	var pressed := 0
 	for i in World.PLATES.size():
 		var pp := World.plate_pos(i)
 		var on := false
 		for p in room.players.values():
-			if p.conn_id == 0:
+			if p.conn_id == 0 or room.lock_t > 0.0 or p.state.dead:
 				continue
 			var s: Sim.PlayerState = p.state
 			if absf(s.pos.y - pp.y) < 0.6 and Vector2(s.pos.x - pp.x, s.pos.z - pp.z).length() < World.PLATE_R:
@@ -454,8 +478,20 @@ func _tick_room(room: Room) -> void:
 		_on_gate_open(room)
 
 	# Combate: enemigos, proyectiles, vida, reaparición y emboscada
-	if room.combat.tick(everyone, room.gate_open):
-		_on_encounter_clear(room)
+	match room.combat.tick(everyone, room.gate_open):
+		Combat.CLEARED:
+			_on_encounter_clear(room)
+		Combat.FAILED:
+			_on_encounter_failed(room)
+
+	# Otra ronda: cuando todos los conectados la piden tras la victoria
+	if room.combat.encounter == 2 and connected > 0 and not room.again.is_empty():
+		var votes := 0
+		for p in everyone:
+			if p.conn_id != 0 and room.again.has(p.id):
+				votes += 1
+		if votes >= connected:
+			_restart(room)
 
 	if connected == 0:
 		room.combat.events.clear()
@@ -491,6 +527,25 @@ func _on_encounter_clear(room: Room) -> void:
 			ids.append(p.id)
 	print("[alux] Sala %s: emboscada superada" % room.code)
 	_grant_reward(room, REWARD_SEAL, ids)
+
+
+## Todo el grupo cayó: el santuario se vuelve a sellar y hay que abrirlo otra vez.
+func _on_encounter_failed(room: Room) -> void:
+	print("[alux] Sala %s: emboscada fallida" % room.code)
+	room.gate_open = false
+	room.lock_t = FAIL_HOLD
+	room.again.clear()
+	_broadcast(room, {"t": "event", "e": "defeat"})
+
+
+## Nueva ronda pedida por el grupo: sala como al principio y todos junto al brasero.
+func _restart(room: Room) -> void:
+	print("[alux] Sala %s: nueva ronda" % room.code)
+	room.gate_open = false
+	room.lock_t = RESTART_HOLD
+	room.again.clear()
+	room.combat.restart(room.players.values())
+	_broadcast(room, {"t": "event", "e": "restart"})
 
 
 func _cleanup() -> void:

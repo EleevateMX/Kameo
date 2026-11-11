@@ -34,7 +34,9 @@ export type ClientMessage =
   | { t: 'hello'; v: number; ticket: string }
   /** s secuencia · mx,mz dirección · j salto · f forma deseada · a botones · r giro de puntería (rad) */
   | { t: 'in'; s: number; mx: number; mz: number; j: 0 | 1; f: FormId | ''; a?: number; r?: number }
-  | { t: 'ping'; c: number };
+  | { t: 'ping'; c: number }
+  /** Voto para jugar otra ronda tras la victoria (v: 0 lo retira). Se reinicia cuando votan todos los conectados. */
+  | { t: 'again'; v?: 0 | 1 };
 
 /**
  * Estado simulado del jugador (19 valores):
@@ -46,7 +48,10 @@ export type PlayerStateArray = number[];
 export type SnapshotPlayer = number[];
 export const SNAP_SLOT = 0, SNAP_ACK = 1, SNAP_ON = 2, SNAP_HP = 3, SNAP_X = 4, SNAP_Y = 5, SNAP_Z = 6,
   SNAP_FORM = 9, SNAP_FLAGS = 11, SNAP_ENERGY = 12;
-/** [santuarioAbierto, altares, altaresNecesarios, emboscada(0 pendiente/1 en curso/2 superada), enemigosRestantes, puntoDeReaparición, braseroListo] */
+/**
+ * [santuarioAbierto, altares, altaresNecesarios, emboscada(0 pendiente/1 en curso/2 superada/3 fallida),
+ *  enemigosRestantes, puntoDeReaparición, braseroListo, votosOtraRonda, conectados, segundosDeEsperaDeLosAltares]
+ */
 export type WorldStateArray = number[];
 /** [id, tipo(0 piedra, 1 corrupta), x, y, z, giro, vida, vidaMáx, estado, slotObjetivo] */
 export type SnapshotEnemy = number[];
@@ -61,7 +66,7 @@ export const ENEMY_STATES = ['idle', 'chase', 'windup', 'strike', 'recover', 'st
  *  ["hit", "e"|"p", idOSlot, daño, vidaRestante, slotAtacante]
  *  ["die", "e"|"p", idOSlot, purificado, slotAutor]
  *  ["respawn", slot] · ["heal", slot, cantidad, vida] · ["evade", slot] · ["eatk", idEnemigo]
- *  ["brazier", slot] · ["enc", "start"|"clear", enemigos]
+ *  ["brazier", slot] · ["enc", "start"|"clear"|"fail", enemigos]
  */
 export type CombatEvent = (string | number)[];
 
@@ -81,6 +86,8 @@ export type ServerMessage =
   | { t: 'snap'; k: number; w: WorldStateArray; p: SnapshotPlayer[]; e: SnapshotEnemy[]; ev: CombatEvent[] }
   | { t: 'event'; e: 'gate_open'; by: string[] }
   | { t: 'event'; e: 'reward'; reward: string; saved: boolean; new: boolean }
+  /** defeat: todo el grupo cayó y el santuario se vuelve a sellar · restart: nueva ronda pedida por el grupo */
+  | { t: 'event'; e: 'defeat' | 'restart' }
   | { t: 'pong'; c: number }
   | { t: 'error'; code: string; msg: string };
 

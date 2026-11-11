@@ -454,6 +454,117 @@ test('combate: un jugador que no se defiende cae y reaparece en el punto de cont
   a.close();
 });
 
+test('partida de un jugador: derrota si cae, el santuario se vuelve a sellar y se puede reintentar hasta vencer', async () => {
+  const room = 'SOLO01';
+  const a = new Bot(randomUUID(), 'Sola');
+  await a.connect(ticket({ id: a.id, room }));
+  await sleep(300);
+  assert.equal(a.snap!.w[2], 1, 'un jugador solo necesita un altar');
+  const before = rewardCalls.length;
+
+  // Abre el santuario pisando un altar y se deja vencer sin defenderse
+  assert.ok(await a.walkTo(17.5, -5, 16));
+  await sleep(500);
+  assert.equal(a.snap!.w[0], 1, 'santuario abierto');
+  assert.equal(a.snap!.w[3], 1, 'emboscada en curso');
+  assert.equal(a.snap!.w[4], 3, 'con un jugador aparecen 2 criaturas y 1 guardián');
+  await a.walkTo(15, 0, 6);
+  const lost = await a.fight(() => undefined, () => a.snap!.w[3] === 3, 60);
+  assert.ok(lost, 'si cae el único jugador, la emboscada se pierde');
+  assert.ok(a.ofType('enc').some((e) => e[1] === 'fail'), 'llega el evento de derrota');
+  assert.ok(a.events.some((e) => e.e === 'defeat'));
+  assert.equal(a.snap!.w[0], 0, 'el santuario se vuelve a sellar');
+  assert.equal(a.snap!.w[4], 0, 'la emboscada se retira');
+  assert.ok(a.snap!.w[9] > 0, 'los altares quedan en espera unos segundos');
+  assert.equal(rewardCalls.length, before, 'perder no da recompensa');
+
+  // Reaparece junto al brasero y, pasada la espera, la sala vuelve al estado inicial
+  await a.fight(() => undefined, () => !a.dead() && a.snap!.w[3] === 0, 15);
+  assert.equal(a.dead(), false);
+  assert.equal(a.hp(), 100);
+  assert.equal(a.snap!.w[3], 0, 'se puede volver a intentar');
+  assert.ok(Math.hypot(a.pos().x, a.pos().z - 3.2) < 2.5, 'reaparece en la plaza');
+
+  // Segundo intento: esta vez pelea como Balam y vence
+  assert.ok(await a.walkTo(17.5, -5, 16, { f: 'balam' }));
+  await sleep(500);
+  assert.equal(a.snap!.w[3], 1, 'la emboscada vuelve a empezar');
+  const nearest = (b: Bot) => {
+    const m = b.me()!;
+    return b.foes().filter((f) => Math.hypot(f.x - 15, f.z) < 26).sort((p, q) => Math.hypot(p.x - m[4], p.z - m[6]) - Math.hypot(q.x - m[4], q.z - m[6]))[0];
+  };
+  let tries = 0;
+  while (a.snap!.w[3] !== 2 && tries < 4) {
+    // (si vuelve a caer, la sala se reinicia y lo intenta otra vez: es justo lo que haría un jugador)
+    await a.fight(nearest, () => a.snap!.w[3] === 2 || a.snap!.w[3] === 3, 90, { form: 'balam' });
+    if (a.snap!.w[3] === 3) {
+      await a.fight(() => undefined, () => !a.dead() && a.snap!.w[3] === 0, 15);
+      await a.walkTo(17.5, -5, 16);
+      await sleep(500);
+    }
+    tries++;
+  }
+  assert.equal(a.snap!.w[3], 2, 'un jugador solo puede vencer la emboscada');
+  await sleep(800);
+  assert.equal(rewardCalls.length, before + 1, 'la victoria da el sello');
+  a.close();
+});
+
+test('otra ronda: tras vencer, la sala se reinicia sólo cuando la piden todos los conectados', async () => {
+  const room = 'RONDA2';
+  const a = new Bot(randomUUID(), 'Uno');
+  const b = new Bot(randomUUID(), 'Dos');
+  await a.connect(ticket({ id: a.id, room, name: a.name }));
+  await b.connect(ticket({ id: b.id, room, name: b.name }));
+  await sleep(300);
+
+  // Pedir otra ronda antes de vencer no hace nada
+  a.send({ t: 'again' });
+  await sleep(300);
+  assert.equal(a.snap!.w[7], 0, 'el voto no cuenta sin victoria');
+
+  assert.deepEqual(await Promise.all([a.walkTo(0, -15.5, 14, { f: 'balam' }), b.walkTo(17.5, -5, 16, { f: 'balam' })]), [true, true]);
+  await sleep(500);
+  assert.equal(a.snap!.w[3], 1, 'emboscada en curso');
+  const nearest = (bot: Bot) => {
+    const m = bot.me()!;
+    return bot.foes().filter((f) => Math.hypot(f.x - 15, f.z) < 26).sort((p, q) => Math.hypot(p.x - m[4], p.z - m[6]) - Math.hypot(q.x - m[4], q.z - m[6]))[0];
+  };
+  const done = () => a.snap!.w[3] === 2;
+  const won = await Promise.all([a, b].map((bot) => bot.fight(nearest, done, 120, { form: 'balam' })));
+  assert.ok(won.every(Boolean), 'los dos vencen la emboscada');
+  const kills = a.ofType('die').filter((e) => e[1] === 'e').length;
+
+  // Uno solo no basta
+  a.send({ t: 'again' });
+  await sleep(500);
+  assert.equal(a.snap!.w[7], 1, 'un voto de dos');
+  assert.equal(a.snap!.w[8], 2, 'dos conectados');
+  assert.equal(a.snap!.w[3], 2, 'la sala sigue igual con un solo voto');
+  assert.equal(a.snap!.w[0], 1);
+
+  // Con los dos votos empieza otra ronda: santuario sellado, todos junto al brasero y con la vida completa
+  b.send({ t: 'again' });
+  await sleep(700);
+  for (const bot of [a, b]) {
+    assert.ok(bot.events.some((e) => e.e === 'restart'), 'llega el aviso de nueva ronda');
+    assert.equal(bot.snap!.w[3], 0, 'emboscada pendiente otra vez');
+    assert.equal(bot.snap!.w[0], 0, 'santuario sellado');
+    assert.equal(bot.snap!.w[7], 0, 'los votos se limpian');
+    assert.equal(bot.hp(), 100);
+    assert.ok(Math.hypot(bot.pos().x, bot.pos().z - 3.2) < 3, `vuelve a la plaza (${bot.pos().x.toFixed(1)}, ${bot.pos().z.toFixed(1)})`);
+  }
+  // Los altares esperan unos segundos y luego vuelven a funcionar
+  assert.ok(a.snap!.w[9] > 0);
+  await sleep(3200);
+  assert.deepEqual(await Promise.all([a.walkTo(0, -15.5, 14), b.walkTo(17.5, -5, 16)]), [true, true]);
+  await sleep(500);
+  assert.equal(a.snap!.w[3], 1, 'la segunda ronda empieza al pisar de nuevo los altares');
+  assert.ok(a.ofType('die').filter((e) => e[1] === 'e').length >= kills);
+  a.close();
+  b.close();
+});
+
 test('una conexión que deja de enviar se libera sola y el jugador puede volver', async () => {
   const room = 'MUDA01';
   const id = randomUUID();

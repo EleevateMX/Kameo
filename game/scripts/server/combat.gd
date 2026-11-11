@@ -37,7 +37,7 @@ class Enemy:
 var enemies: Array = []
 var bolts: Array = []
 var events: Array = []
-var encounter := 0               # 0 pendiente · 1 en curso · 2 superada
+var encounter := 0               # 0 pendiente · 1 en curso · 2 superada · 3 fallida (se reinicia sola)
 var checkpoint := 0
 var brazier_cd := 0.0
 var _next_id := 1
@@ -247,8 +247,11 @@ func damage_player(p: Variant, amount: float, from: Vector2, knock: float) -> vo
 
 # ───────────────────────── Tick ─────────────────────────
 
-## Avanza el combate un tick. Devuelve true si la emboscada se superó en este tick.
-func tick(players: Array, gate_open: bool) -> bool:
+## Avanza el combate un tick. Devuelve CLEARED si la emboscada se superó en este tick,
+## FAILED si todo el grupo conectado cayó a la vez, y NOTHING en cualquier otro caso.
+enum { NOTHING, CLEARED, FAILED }
+
+func tick(players: Array, gate_open: bool) -> int:
 	_time += DT
 	_gate_open = gate_open
 	brazier_cd = maxf(0.0, brazier_cd - DT)
@@ -290,8 +293,46 @@ func tick(players: Array, gate_open: bool) -> bool:
 			encounter = 2
 			checkpoint = 1
 			events.append(["enc", "clear", 0])
-			return true
-	return false
+			return CLEARED
+		# Derrota: no queda en pie ninguno de los jugadores conectados
+		var connected := 0
+		var standing := 0
+		for p in players:
+			if p.conn_id != 0:
+				connected += 1
+				if not p.state.dead:
+					standing += 1
+		if connected > 0 and standing == 0:
+			_fail(players)
+			return FAILED
+	return NOTHING
+
+
+## El grupo entero cayó: la emboscada se retira y habrá que volver a abrir el santuario.
+func _fail(players: Array) -> void:
+	encounter = 3
+	checkpoint = 0
+	enemies = enemies.filter(func(e: Enemy) -> bool: return not e.wave)
+	for b in bolts:
+		events.append(["bolt_end", b.id, snappedf(b.x, 0.01), snappedf(b.y, 0.01), snappedf(b.z, 0.01), 0])
+	bolts.clear()
+	events.append(["enc", "fail", 0])
+	# Quien no esté conectado no reaparece por su cuenta: se le lleva ya al punto de control
+	for p in players:
+		if p.conn_id == 0:
+			_respawn(p, false)
+
+
+## Nueva ronda (tras una victoria, a petición del grupo): todo vuelve al estado inicial.
+func restart(players: Array) -> void:
+	encounter = 0
+	checkpoint = 0
+	_gate_open = false
+	enemies = enemies.filter(func(e: Enemy) -> bool: return not e.wave)
+	bolts.clear()
+	brazier_cd = 0.0
+	for p in players:
+		_respawn(p, p.conn_id != 0)
 
 
 func wave_alive() -> int:
@@ -302,7 +343,7 @@ func wave_alive() -> int:
 	return n
 
 
-func _respawn(p: Variant) -> void:
+func _respawn(p: Variant, announce := true) -> void:
 	var s: Sim.PlayerState = p.state
 	var c: Vector2 = Defs.CHECKPOINTS[checkpoint]
 	var off := Vector2(cos(p.slot * 1.57), sin(p.slot * 1.57)) * 1.4
@@ -318,7 +359,9 @@ func _respawn(p: Variant) -> void:
 	p.hp = Defs.MAX_HP
 	p.invuln_t = Defs.RESPAWN_INVULN
 	p.hurt_at = _time
-	events.append(["respawn", p.slot])
+	p.respawn_t = 0.0
+	if announce:
+		events.append(["respawn", p.slot])
 
 
 func _tick_bolts() -> void:
