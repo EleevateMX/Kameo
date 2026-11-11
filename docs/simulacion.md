@@ -49,7 +49,7 @@ scripts/test-sim.sh
 6. **Predicción**: un cliente que parte del estado redondeado de la red y repite las mismas entradas
    no se separa del servidor más de 2 cm, y sus temporizadores y energía coinciden exactamente.
 
-Último resultado: **427 600 comprobaciones, 0 violaciones**; separación máxima entre predicción y
+Último resultado: **427 840 comprobaciones, 0 violaciones**; separación máxima entre predicción y
 servidor, 1.2 mm.
 
 Esta prueba encontró y permitió corregir tres fallos reales antes de llegar a los jugadores:

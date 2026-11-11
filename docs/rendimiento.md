@@ -10,7 +10,8 @@ Pulsa **F3** para ver, actualizado cada segundo:
 - **dibujados**: llamadas de dibujo del cuadro.
 - **memoria**: memoria del motor y, en Chrome/Edge, la del montón de JavaScript.
 
-Con `?debug=1` en la dirección, los mismos datos quedan en `window.__aluxState.perf`.
+Con `?debug=1` en la dirección, los mismos datos quedan en `window.__aluxState.perf`, junto con los
+triángulos (`tris`) y objetos (`objects`) dibujados en el cuadro.
 
 ## Medición automática con GPU
 
@@ -29,19 +30,61 @@ final imprime los FPS de cada uno. `npm run shots -w @alux/tests` hace lo mismo 
 | Entorno | Resultado |
 | --- | --- |
 | Servidor de juego (Godot sin ventana) durante la prueba de red (varias salas, hasta 4 jugadores y 12 enemigos cada una) | 30 ticks/s; ~100 MB de memoria; ~5 % de un núcleo en una muestra puntual. Falta una prueba de carga con muchas salas. |
-| Navegador **sin GPU** (render por software, entorno de pruebas), un jugador a 640×360 | 2.4 FPS en calidad alta, 7.6 FPS en calidad baja. No es representativo de un jugador real. Con y sin los modelos de Blender el resultado es el mismo. |
+| Navegador **sin GPU** (render por software, entorno de pruebas), un jugador a 640×360 | 1.5 FPS en calidad alta, 5.3 en baja y 8.4 en mínima (ver la comparación de abajo). No es representativo de un jugador real. |
 | Navegador **con GPU** | **Pendiente.** No había GPU disponible en el entorno donde se desarrolló. |
 | Latencia real por Internet | **Pendiente.** Sólo se ha probado en la misma máquina (ping < 5 ms). |
 
+## Costo de la mejora visual (antes y después)
+
+Misma medición en los dos casos: un jugador solo en la sala, 640×360, Chromium con render por
+software (sin GPU), 15 s contando cuadros reales con `tests/e2e/perf-probe.ts`, nivel de calidad fijado.
+
+| | Antes (Fase 3) | Después (dirección artística) |
+| --- | --- | --- |
+| **Alta**: cuadros por segundo | 2.5 | 1.5 |
+| **Alta**: llamadas de dibujo | 248 | 285–321 |
+| **Alta**: triángulos por cuadro | 243 778 | 312 208 |
+| **Baja**: cuadros por segundo | 8.4 | 5.3 |
+| **Baja**: llamadas de dibujo | 121 | 250 |
+| **Baja**: triángulos por cuadro | 95 394 | 165 686 |
+| **Mínima** (nivel nuevo): cuadros por segundo | no existía | 8.4 |
+| **Mínima**: llamadas de dibujo / triángulos | no existía | 245 / 104 706 |
+| Descarga del juego (`index.pck`) | 596 188 bytes | 1 156 100 bytes |
+| Personajes: materiales por cuerpo | 15 (alux) y 8 (Balam) | 4 y 4 |
+| Personajes: triángulos | 7 548 y 7 740 | 9 454 y 8 956 |
+
+Lectura honesta de la tabla:
+
+- En render por software la escena nueva cuesta **alrededor de un 40 % más** en alta y en baja. El nivel
+  **mínimo** nuevo recupera el rendimiento que antes tenía el nivel bajo.
+- El aumento de llamadas de dibujo viene del escenario (estelas, pilares, ruinas y flora son más piezas)
+  y del HUD dibujado por código. No se ha separado cuánto aporta cada uno.
+- Los triángulos en alta se cuentan dos veces cuando hay sombras (pase de sombras + pase de color). El
+  terreno ya no proyecta sombra (sólo la recibe), lo que ahorró unos 90 000 triángulos por cuadro.
+- **Sigue sin haber medición con GPU.** Estos números sirven para comparar antes y después, no para
+  saber cómo irá en la computadora de un jugador.
+- Las pruebas automáticas de cuatro navegadores corren en calidad mínima (`&q=min`) porque en este
+  entorno sin GPU los otros niveles van demasiado lentos para ellas.
+
 ## Presupuesto pensado para navegador
 
-- Personajes: ≤ 8 000 triángulos cada uno, sin texturas (materiales de color plano).
-- Escenario: terreno de ~33 000 triángulos, árboles y arbustos con instanciado (3 llamadas de dibujo).
+- Personajes: ≤ 9 500 triángulos cada uno, sin texturas, 4 materiales por cuerpo (color y oclusión en los vértices).
+- Escenario: terreno de ~33 000 triángulos; árboles, palmas, helechos, flores y hierba con instanciado;
+  piedra tallada en mallas fusionadas con color por vértice (un solo material de piedra).
+- Agua, llama y sello del santuario: un shader pequeño cada uno, sin texturas.
 - Efectos: mallas pequeñas sin iluminación; se precalientan al cargar para evitar tirones.
-- Red: ~15 estados/s de unos 2 KB con 4 jugadores y una emboscada completa.
-- Descarga: motor de 9 MB comprimido (una vez, luego en caché) + ~1 MB de juego.
+- Red: ~15 estados/s de unos 2 KB con 4 jugadores y una emboscada completa (la mejora visual no la cambió).
+- Descarga: motor de 9 MB comprimido (una vez, luego en caché) + ~1.2 MB de juego.
 
-El juego baja solo a calidad baja si durante 8 s no llega a 20 FPS (`?q=high` lo impide y `?q=low`
-la fuerza desde el principio). Si en una GPU modesta no se alcanzan 60 FPS, las primeras palancas son:
-calidad baja (sin sombras ni resplandor, 60 % de resolución interna), reducir `directional_shadow/size` en `project.godot` y
-bajar el número de luces puntuales del escenario.
+## Niveles de calidad
+
+| Nivel | Cambios respecto al anterior | Parámetro |
+| --- | --- | --- |
+| Alta | Sombras, resplandor, suavizado 2×, partículas, flora menuda, selva de fondo. | `?q=high` (no baja sola) |
+| Baja | Sin sombras, resplandor, partículas ni flora menuda; 60 % de resolución interna. | `?q=low` |
+| Mínima | Además sin cordilleras, pirámide lejana ni nubes; 50 % de resolución interna. | `?q=min` |
+
+Sin parámetro, el juego empieza en alta y baja un nivel cada vez que pasa 8 s por debajo de 20 FPS.
+Con `?q=low` empieza en baja y todavía puede bajar a mínima. El nivel sólo afecta a lo que dibuja ese
+navegador. Si en una GPU modesta no se alcanzan 60 FPS, las siguientes palancas son reducir
+`directional_shadow/size` en `project.godot` y fusionar más piezas estáticas del escenario.

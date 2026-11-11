@@ -1,6 +1,7 @@
 # Pendientes y validaciones que faltan
 
-Estado al cierre de la Fase 3. Nada de lo que aparece aquí como pendiente debe darse por hecho.
+Estado tras la Fase 3 y la mejora de dirección artística. Nada de lo que aparece aquí como pendiente
+debe darse por hecho.
 
 ## Integraciones que dependen de credenciales o infraestructura
 
@@ -10,7 +11,7 @@ Estado al cierre de la Fase 3. Nada de lo que aparece aquí como pendiente debe 
 | **Supabase alojado** | **Pendiente** | El proyecto ALUX **no llegó a crearse**: Supabase pidió una confirmación de costo que no se respondió a tiempo. No se tocó ningún otro proyecto. Además, el entorno de desarrollo no tiene salida TCP hacia PostgreSQL, así que la conexión API ↔ Supabase habrá que probarla desde el servidor real. |
 | Esquema y RLS | Validado sólo en local | La migración se aplica limpia en PostgreSQL 16 (local y en contenedor) y las pruebas de la API pasan contra él. RLS está activado sin políticas en las 10 tablas. Falta aplicarla en Supabase, pasar sus *advisors* de seguridad y comprobar con la clave pública (`anon`) que no se puede leer ni escribir nada. |
 | **Docker + HTTPS/WSS** | Probado en local | `scripts/test-deploy.sh` construye las tres imágenes y verifica portal por HTTPS, rutas internas cerradas, sesión con cookie `Secure`, guardado en PostgreSQL, ticket y entrada al juego por `wss://` a través de Caddy. Falta: un VPS real, un dominio con certificado de Let's Encrypt (aquí se usó el certificado interno de Caddy para `localhost`) y Supabase como base de datos. |
-| **Rendimiento con GPU** | **Pendiente** | No había GPU. Todo lo medido en navegador es render por software (1–8 FPS), no representativo. Las herramientas están listas (F3 en el juego, `E2E_GPU=1 npm run test:e2e`, `docs/rendimiento.md`). |
+| **Rendimiento con GPU** | **Pendiente** | No había GPU. Todo lo medido en navegador es render por software (1.5–8 FPS), no representativo; ahí la escena nueva cuesta un 40 % más que la anterior. Las herramientas están listas (F3 en el juego, `E2E_GPU=1 npm run test:e2e`, `docs/rendimiento.md`). |
 | Latencia por Internet | **Pendiente** | Sólo se ha jugado con cliente y servidor en la misma máquina. |
 | Respaldo antes de migraciones destructivas | No aplica todavía | La única migración crea tablas en un proyecto vacío. Cuando haya datos, el procedimiento será: `pg_dump` (o respaldo de Supabase), revisar el alcance del cambio y sólo entonces aplicar. |
 
@@ -20,18 +21,24 @@ Estado al cierre de la Fase 3. Nada de lo que aparece aquí como pendiente debe 
   cuatro navegadores (movimiento, transformación, combate y reconexión).
 - **Servidor autoritativo**: tickets, velocidad, teletransporte, formas, daño, enfriamientos, energía y
   recompensas no se pueden falsear desde el cliente (`tests/protocol.test.ts`).
-- **Simulación propia**: 427 600 comprobaciones sin violaciones (`docs/simulacion.md`).
+- **Simulación propia**: 427 840 comprobaciones sin violaciones con el escenario nuevo (`docs/simulacion.md`).
 - **Despliegue en contenedores** en una sola máquina.
 
 ## Juego
 
-- **Arte**
-  - Alux y Balam: modelados por código en Blender con esqueleto y animaciones. Se leen bien a distancia
-    de juego, pero son de **calidad provisional**: volúmenes que se solapan, deformación simple en las
-    articulaciones, manos sin dedos, boca sin animar, pies que resbalan un poco al correr y Balam con
-    cara algo de cachorro. Detalle en `art/README.md`.
-  - **Enemigos, escenario y efectos siguen hechos con primitivas** (placeholders identificados en el código).
-  - Sin texturas, sin sonido y sin música.
+- **Arte** (detalle en [direccion-artistica.md](direccion-artistica.md))
+  - **Enemigos: siguen hechos con primitivas** (sólo se recolorearon). Es lo que más desentona ahora.
+  - Alux y Balam: segunda pasada hecha (rostro, manos, ropa, rosetas, animaciones nuevas). Quedan:
+    cabeza de Balam (nariz pesada, perfil algo de oso), uniones visibles de cerca en las articulaciones,
+    mangas del alux que atraviesan el canesú al levantar los brazos, y una boca que sólo abre y cierra.
+  - Las animaciones se han revisado en cuadros fijos; **falta verlas en movimiento con GPU** (ritmo,
+    transiciones y que el pie no patine al correr, que está calculado pero no observado).
+  - Escenario: hecho por código con color por vértice. Faltan variedad de ruinas, fauna ambiental y
+    un ciclo de luz. Sin texturas por decisión de rendimiento.
+  - En el render por software de las pruebas, las sombras se ven tenues; falta confirmarlas con GPU.
+  - HUD: sin minimapa (hay brújula), sin opciones dentro del juego para cambiar la calidad (hoy va por
+    dirección `?q=` o automática) y sin adaptación a pantallas pequeñas o táctiles.
+  - Sin sonido y sin música.
   - Cinemática de introducción: aplazada hasta tener modelos definitivos (decisión del proyecto).
 - **Combate**
   - Sin jefe final ni más tipos de enemigo.
@@ -55,5 +62,5 @@ Estado al cierre de la Fase 3. Nada de lo que aparece aquí como pendiente debe 
 
 1. Confirmar la creación del proyecto de Supabase y dar las credenciales de Discord.
 2. Desplegar en un VPS con dominio y repetir `tests/deploy-check.ts` y la prueba de 4 navegadores con GPU.
-3. Sustituir enemigos y escenario por arte definitivo; sonido.
+3. Modelar los enemigos con el mismo método que los personajes; revisar animaciones con GPU; sonido.
 4. Jefe del capítulo 1 y la siguiente transformación (Guardián del Cenote).

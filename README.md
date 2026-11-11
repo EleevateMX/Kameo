@@ -4,19 +4,29 @@ Aventura cooperativa 3D para **4 jugadores**, en el navegador, inspirada en las 
 Entras con tu cuenta de **Discord**, creas tu alux, formas un grupo y juegan juntos: transformaciones,
 acertijos que sólo se resuelven en equipo y, más adelante, el camino hasta Kukulkán.
 
-![Portada](docs/img/portada.jpg)
+![El Claro de los Aluxes: plaza, brasero y grupo de cuatro](docs/img/juego-plaza.jpg)
 ![Combate cooperativo en la emboscada del santuario](docs/img/juego-combate.jpg)
 
 | El alux | Balam, el jaguar |
 | --- | --- |
 | ![Alux](docs/img/juego-alux-de-cerca.jpg) | ![Balam](docs/img/juego-balam-de-cerca.jpg) |
 
+| La pirámide | El cenote | El santuario sellado |
+| --- | --- | --- |
+| ![Pirámide](docs/img/juego-piramide.jpg) | ![Cenote](docs/img/juego-cenote.jpg) | ![Santuario](docs/img/juego-santuario.jpg) |
+
+Capturas hechas con la vista previa del juego (`scripts/preview.sh`): es el escenario, los personajes y la
+interfaz reales, con una escena preparada y sin servidor. En el entorno de desarrollo no hay GPU.
+
 ## Qué funciona hoy (Fases 1–3 y parte de la 4)
 
 - **Portal** (Next.js): portada, inicio de sesión con Discord (OAuth2 con `state` y cookies seguras),
   creación del alux (nombre, color, accesorio), salas privadas por código, partida pública e invitaciones.
-- **Juego 3D** (Godot 4, exportado a WebAssembly/WebGL 2): el Claro de los Aluxes, con plaza, pirámide,
-  cenote para nadar, mirador y santuario sellado.
+- **Juego 3D** (Godot 4, exportado a WebAssembly/WebGL 2): el Claro de los Aluxes, con plaza enlosada y
+  brasero, pirámide con escalinata, cenote para nadar, mirador, ceiba sagrada y santuario sellado
+  ([docs/direccion-artistica.md](docs/direccion-artistica.md)).
+- **Interfaz propia**: panel de grupo con retratos, placa de objetivo, brújula, barras de vida y energía,
+  ranuras de habilidad con enfriamiento y selector de forma, todo dibujado por código.
 - **Multijugador con servidor autoritativo** (Godot sin ventana, WebSocket): hasta 4 jugadores por sala,
   predicción local e interpolación, reconexión automática conservando lugar y posición.
 - **Combate cooperativo** decidido por el servidor ([docs/combate.md](docs/combate.md)):
@@ -28,7 +38,7 @@ acertijos que sólo se resuelven en equipo y, más adelante, el camino hasta Kuk
 - **Encuentro cooperativo**: pisar a la vez tantos altares como jugadores haya (1–4) abre el santuario
   y desata una emboscada que escala con el grupo. Al vencerla todos reciben el *Sello del Claro*.
 - **Personajes modelados en Blender** con animaciones (alux y Balam), generados por scripts
-  reproducibles ([art/README.md](art/README.md)). Enemigos y escenario siguen siendo provisionales.
+  reproducibles ([art/README.md](art/README.md)). Los enemigos siguen siendo provisionales.
 - **Progreso persistente**: PostgreSQL/Supabase, o un archivo local si no configuras base de datos.
 
 Lo que falta y lo que aún no se ha podido validar está en [docs/pendientes.md](docs/pendientes.md).
@@ -43,6 +53,8 @@ Lo que falta y lo que aún no se ha podido validar está en [docs/pendientes.md]
 | Habilidad secundaria | Clic derecho | K |
 | Habilidad especial | | F |
 | Transformarse | | 1 Alux · 2 Balam |
+| Ayuda de controles | | H |
+| Calidad gráfica (alta, baja, mínima) | | F4 |
 | Rendimiento | | F3 |
 
 ## Probarlo en tu computadora
@@ -66,7 +78,8 @@ Abre <http://localhost:3000>. Sin configurar nada, la portada ofrece una **entra
 y los datos se guardan en `apps/api/data/dev-store.json`. Para probar con cuatro jugadores, abre cuatro
 ventanas de incógnito o cuatro navegadores distintos y comparte el código de sala.
 
-Si tu computadora no tiene tarjeta gráfica, añade `&q=low` a la dirección del juego (calidad baja).
+El juego baja solo la calidad gráfica si no llega a 20 FPS. También puedes cambiarla con **F4** o
+añadiendo `&q=low` o `&q=min` a la dirección del juego.
 
 ### Activar el inicio de sesión con Discord
 
@@ -126,6 +139,7 @@ game/                     Proyecto Godot 4 (cliente Web y servidor dedicado en e
   scripts/shared/         Mundo, simulación y verificación de tickets (cliente y servidor)
   scripts/server/         Servidor autoritativo
   scripts/client/         Red, predicción, escenario 3D, personajes, HUD
+  tools/                  Vista previa sin servidor para iterar el arte (scripts/preview.sh)
 services/game-server/     Imagen Docker del servidor de juego
 packages/shared-contracts Protocolo, JWT y tipos compartidos
 supabase/migrations/      Esquema de base de datos
@@ -138,6 +152,7 @@ docs/                     Arquitectura, protocolo, combate, simulación, rendimi
 ## Documentación
 
 - [Arquitectura y plan por fases](docs/arquitectura.md)
+- [Dirección artística: HUD, personajes, escenario y niveles de calidad](docs/direccion-artistica.md)
 - [Combate: formas, habilidades, enemigos y emboscada](docs/combate.md)
 - [Protocolo de red y reglas anti-trampas](docs/protocolo.md)
 - [Simulación de movimiento: garantías y pruebas](docs/simulacion.md)
