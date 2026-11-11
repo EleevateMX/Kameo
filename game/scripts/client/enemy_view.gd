@@ -1,10 +1,14 @@
 extends Node3D
 ## Enemigo visible. Sólo representa lo que dice el servidor: posición, vida y estado.
 ## Modelos provisionales hechos con primitivas (pendientes de arte definitivo).
+## Lo que sí debe leerse siempre: quién es (nombre), qué va a hacer (aviso «!» al preparar
+## un golpe), cuándo está aturdido (estrellas girando) y cuándo se puede purificar (anillo de
+## jade en el suelo y la tecla F sobre la cabeza).
 
 const Avatar := preload("res://scripts/client/avatar.gd")
 const Defs := preload("res://scripts/shared/combat_def.gd")
 const Fx := preload("res://scripts/client/fx.gd")
+const Audio := preload("res://scripts/client/audio.gd")
 
 const INTERP_DELAY := 0.13
 
@@ -26,6 +30,11 @@ var _last := Vector3.ZERO
 var _state_t := 0.0
 var _eye_mat: StandardMaterial3D
 var _height := 1.5
+var _mark: Label3D           # «!» de ataque o «F» de purificar
+var _name: Label3D
+var _stars: Node3D           # aturdido
+var _ring: MeshInstance3D    # purificable
+var _purifiable := false
 
 
 func setup(id: int, p_kind: String) -> void:
@@ -35,6 +44,7 @@ func setup(id: int, p_kind: String) -> void:
 	_model = _build_piedra() if kind == "piedra" else _build_corrupta()
 	add_child(_model)
 	_build_bar()
+	_build_marks()
 
 
 func push_state(t: float, pos: Vector3, yaw: float, p_hp: float, p_max: float, p_state: String) -> void:
@@ -62,6 +72,7 @@ func _on_state(next: String) -> void:
 			Fx.telegraph(get_parent(), global_position + fwd * 1.0, def.hit_radius, def.windup)
 		else:
 			Fx.burst(get_parent(), global_position + Vector3(0, 0.6, 0), Color(1.0, 0.2, 0.7), 8, 2.0, 0.05, 0.35)
+		Audio.play("enemigo_aviso", global_position, -4.0)
 	elif next == "dead":
 		dying = true
 
@@ -164,9 +175,14 @@ func update_view(now: float, delta: float) -> void:
 		var hot := state == "windup" or state == "strike"
 		_eye_mat.emission_energy_multiplier = lerpf(_eye_mat.emission_energy_multiplier, 5.0 if hot else 1.8, minf(1.0, delta * 10.0))
 
+	_update_marks(delta)
+
 	# Barra de vida: visible cuando está herido o en combate
 	var bar_on := state != "dead" and (hp < max_hp or state != "idle")
 	_bar.visible = bar_on
+	# el nombre sólo de cerca: con muchos enemigos juntos las etiquetas se pisan
+	var cam := get_viewport().get_camera_3d()
+	_name.visible = bar_on and cam != null and cam.global_position.distance_to(global_position) < 13.0
 	if bar_on:
 		var f := clampf(hp / max_hp, 0.0, 1.0)
 		_bar_fill.scale.x = maxf(f, 0.001)
@@ -174,6 +190,97 @@ func update_view(now: float, delta: float) -> void:
 		var purify_at: float = Defs.ENEMIES[kind].purify_at
 		var col := Color(0.5, 1.0, 0.75) if purify_at > 0.0 and f <= purify_at else Color(0.95, 0.25, 0.3)
 		(_bar_fill.material_override as StandardMaterial3D).albedo_color = col
+
+
+## ¿Se puede purificar ahora? (criaturas con poca vida)
+func purifiable() -> bool:
+	var at: float = Defs.ENEMIES[kind].purify_at
+	return at > 0.0 and state != "dead" and not dying and hp <= max_hp * at
+
+
+func _build_marks() -> void:
+	# Nombre pequeño sobre la barra de vida
+	_name = Label3D.new()
+	_name.text = str(Defs.ENEMIES[kind].name)
+	_name.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_name.no_depth_test = true
+	_name.pixel_size = 0.0036
+	_name.font_size = 28
+	_name.outline_size = 8
+	_name.modulate = Color(1.0, 0.86, 0.8) if kind == "piedra" else Color(1.0, 0.7, 0.9)
+	_name.outline_modulate = Color(0.05, 0.03, 0.05, 0.9)
+	_name.position = Vector3(0, _height + 0.78, 0)
+	_name.visible = false
+	add_child(_name)
+	# Aviso sobre la cabeza
+	_mark = Label3D.new()
+	_mark.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_mark.no_depth_test = true
+	_mark.pixel_size = 0.008
+	_mark.font_size = 96
+	_mark.outline_size = 22
+	_mark.outline_modulate = Color(0.05, 0.03, 0.03, 0.95)
+	_mark.position = Vector3(0, _height + 1.25, 0)
+	_mark.visible = false
+	add_child(_mark)
+	# Estrellas de aturdimiento
+	_stars = Node3D.new()
+	_stars.position = Vector3(0, _height + 0.35, 0)
+	var star := SphereMesh.new()
+	star.radius = 0.09
+	star.height = 0.18
+	star.radial_segments = 6
+	star.rings = 3
+	var sm := Fx.glow_mat(Color(1.0, 0.9, 0.3))
+	for i in 3:
+		var mi := MeshInstance3D.new()
+		mi.mesh = star
+		mi.material_override = sm
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.position = Vector3(cos(i * TAU / 3.0), 0, sin(i * TAU / 3.0)) * 0.5
+		_stars.add_child(mi)
+	_stars.visible = false
+	add_child(_stars)
+	# Anillo de jade en el suelo: "ya se puede purificar"
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.92
+	torus.outer_radius = 1.06
+	torus.rings = 28
+	torus.ring_segments = 6
+	_ring = MeshInstance3D.new()
+	_ring.mesh = torus
+	_ring.material_override = Fx.glow_mat(Color(0.4, 1.0, 0.75), 0.9)
+	_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_ring.position = Vector3(0, 0.08, 0)
+	_ring.visible = false
+	add_child(_ring)
+
+
+func _update_marks(delta: float) -> void:
+	var can := purifiable()
+	if can and not _purifiable:
+		# acaba de quedar purificable: destello para que el grupo lo vea
+		Fx.ring(get_parent(), global_position, 1.8, Color(0.5, 1.0, 0.8), 0.5)
+		Audio.play("objetivo", global_position, -6.0)
+	_purifiable = can
+	_ring.visible = can
+	if can:
+		var k := 1.0 + 0.12 * sin(_state_t * 6.0 + _phase)
+		_ring.scale = Vector3(k, 1.0, k)
+	_stars.visible = state == "stun"
+	if _stars.visible:
+		_stars.rotation.y += delta * 6.0
+	var warn := state == "windup"
+	_mark.visible = (warn or can) and state != "dead"
+	if warn:
+		_mark.text = "!"
+		_mark.modulate = Color(1.0, 0.35, 0.2)
+		var k := clampf(_state_t / float(Defs.ENEMIES[kind].windup), 0.0, 1.0)
+		_mark.scale = Vector3.ONE * (0.55 + 0.45 * k)
+	elif can:
+		_mark.text = "F"
+		_mark.modulate = Color(0.5, 1.0, 0.8)
+		_mark.scale = Vector3.ONE * (0.6 + 0.06 * sin(_state_t * 6.0))
 
 
 func _build_bar() -> void:
