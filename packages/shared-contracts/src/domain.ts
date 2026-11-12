@@ -34,6 +34,7 @@ export interface RoomInfo {
 
 /** Catálogo de recompensas que el servidor de juego puede otorgar. */
 export const REWARDS: Record<string, { title: string; quest?: string; unlock?: FormId }> = {
+  llamado_de_yaxche: { title: 'El llamado de la abuela', quest: 'cap1_llamado' },
   sello_del_claro: { title: 'Sello del Claro', quest: 'cap1_santuario' },
 };
 

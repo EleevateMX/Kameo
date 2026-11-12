@@ -560,6 +560,8 @@ test('otra ronda: tras vencer, la sala se reinicia sólo cuando la piden todos l
   assert.deepEqual(await Promise.all([a.walkTo(0, -15.5, 14), b.walkTo(17.5, -5, 16)]), [true, true]);
   await sleep(500);
   assert.equal(a.snap!.w[3], 1, 'la segunda ronda empieza al pisar de nuevo los altares');
+  assert.equal(a.events.filter((e) => e.e === 'cine').length, 1, 'la cinemática del sello no se repite en la misma sala');
+  assert.equal(a.snap!.w[11], 0);
   assert.ok(a.ofType('die').filter((e) => e[1] === 'e').length >= kills);
   a.close();
   b.close();
@@ -593,6 +595,11 @@ test('historia: hablar con Chiich Yaxché sólo cuenta estando a su lado y lo sa
     assert.equal(ev.length, 1);
     assert.deepEqual([ev[0].k, ev[0].npc, ev[0].by], ['talked', 'yaxche', 'Uno']);
   }
+  // …y queda guardado en el perfil de los dos presentes
+  await sleep(500);
+  const saved = rewardCalls.filter((c) => c.reward === 'llamado_de_yaxche' && c.room === room);
+  assert.equal(saved.length, 1, 'una sola petición para guardar el avance');
+  assert.deepEqual([...saved[0].players].sort(), [a.id, b.id].sort());
   // Repetirlo no vuelve a avisar, y los altares siguen funcionando igual
   assert.ok(await b.walkTo(-4.2, 1.8, 14));
   b.send({ t: 'talk', n: 'yaxche' });
@@ -601,6 +608,95 @@ test('historia: hablar con Chiich Yaxché sólo cuenta estando a su lado y lo sa
   assert.equal(a.snap!.w[3], 0);
   a.close();
   b.close();
+});
+
+/** Da los últimos pasos hasta pisar un altar y devuelve en cuanto el servidor pausa la sala. */
+async function stepOntoPlate(bot: Bot, x: number, z: number) {
+  const end = Date.now() + 6000;
+  while (Date.now() < end && !((bot.snap?.w[11] ?? 0) > 0)) {
+    const m = bot.me()!;
+    const dx = x - m[4], dz = z - m[6], d = Math.hypot(dx, dz) || 1;
+    bot.input(dx / d, dz / d);
+    await sleep(33);
+  }
+  return (bot.snap?.w[11] ?? 0) > 0;
+}
+
+test('cinemática compartida: la sala se pausa, se omite por mayoría y ningún cliente la termina solo', async () => {
+  // Dos jugadores: hace falta el voto de los dos
+  const room = 'CINE02';
+  const a = new Bot(randomUUID(), 'Uno');
+  const b = new Bot(randomUUID(), 'Dos');
+  await a.connect(ticket({ id: a.id, room, name: a.name }));
+  await b.connect(ticket({ id: b.id, room, name: b.name }));
+  await sleep(300);
+  assert.equal(a.snap!.w[11], 0, 'sin cinemática al empezar');
+  // Uno ya está en su altar; el otro se queda a dos pasos y entra cuando toca
+  assert.deepEqual(await Promise.all([a.walkTo(0, -15.5, 14), b.walkTo(15.4, -4.5, 16)]), [true, true]);
+  assert.ok(await stepOntoPlate(b, 17.5, -5), 'al pisar el segundo altar empieza la cinemática');
+  await sleep(300);
+  for (const bot of [a, b]) {
+    const ev = bot.events.filter((e) => e.e === 'cine');
+    assert.equal(ev.length, 1, 'al abrir el santuario empieza la cinemática para todos');
+    assert.equal(ev[0].id, 'sello');
+    assert.ok(ev[0].dur > 5 && ev[0].dur < 10);
+    assert.ok(bot.snap!.w[11] > 0, 'la sala está en pausa');
+  }
+  // En pausa nadie se mueve, nadie ataca y nadie recibe daño
+  const where = b.pos();
+  for (let i = 0; i < 40; i++) { b.input(-1, 0, { a: 1, j: 1 }); await sleep(33); }
+  assert.ok(Math.hypot(b.pos().x - where.x, b.pos().z - where.z) < 0.3, 'en pausa el personaje no camina');
+  assert.equal(b.hp(), 100);
+  assert.equal(b.foes().filter((f) => f.state !== 'idle').length, 0, 'los enemigos esperan');
+  // Un voto de dos no basta; con el segundo se omite
+  a.send({ t: 'skip' });
+  await sleep(400);
+  assert.equal(a.snap!.w[12], 1, 'un voto contado');
+  assert.ok(a.snap!.w[11] > 0, 'con un voto de dos sigue');
+  assert.equal(a.events.filter((e) => e.e === 'cine_end').length, 0);
+  b.send({ t: 'skip' });
+  await sleep(400);
+  for (const bot of [a, b]) {
+    assert.equal(bot.snap!.w[11], 0, 'omitida por mayoría');
+    const end = bot.events.filter((e) => e.e === 'cine_end');
+    assert.equal(end.length, 1);
+    assert.deepEqual([end[0].id, end[0].skipped], ['sello', true]);
+  }
+  const from = b.pos();
+  for (let i = 0; i < 30; i++) { b.input(-1, 0); await sleep(33); }
+  assert.ok(Math.hypot(b.pos().x - from.x, b.pos().z - from.z) > 1,
+    `al terminar se recupera el control (de ${from.x.toFixed(1)},${from.z.toFixed(1)} a ${b.pos().x.toFixed(1)},${b.pos().z.toFixed(1)}; vida ${b.hp()}, caído ${b.dead()}, banderas ${b.me()![11]})`);
+  // Votar fuera de una cinemática no hace nada
+  a.send({ t: 'skip' });
+  await sleep(300);
+  assert.equal(a.snap!.w[12], 0);
+  a.close();
+  b.close();
+
+  // Un jugador solo: sin votos termina sola al cumplirse su duración
+  const c = new Bot(randomUUID(), 'Sola');
+  await c.connect(ticket({ id: c.id, room: 'CINE01', name: c.name }));
+  await sleep(300);
+  assert.ok(await c.walkTo(15.4, -4.5, 16));
+  assert.ok(await stepOntoPlate(c, 17.5, -5));
+  const started = Date.now();
+  await c.fight(() => undefined, () => c.snap!.w[11] === 0, 15);
+  const took = (Date.now() - started) / 1000;
+  assert.ok(took > 5 && took < 9, `dura lo que dura su guion (${took.toFixed(1)} s)`);
+  assert.equal(c.events.filter((e) => e.e === 'cine_end')[0].skipped, false);
+  c.close();
+
+  // Un jugador solo que vota: se omite al instante
+  const d = new Bot(randomUUID(), 'Prisa');
+  await d.connect(ticket({ id: d.id, room: 'CINE00', name: d.name }));
+  await sleep(300);
+  assert.ok(await d.walkTo(15.4, -4.5, 16));
+  assert.ok(await stepOntoPlate(d, 17.5, -5));
+  d.send({ t: 'skip' });
+  await sleep(400);
+  assert.equal(d.snap!.w[11], 0, 'solo: su voto es mayoría');
+  assert.equal(d.events.filter((e) => e.e === 'cine_end')[0].skipped, true);
+  d.close();
 });
 
 test('una conexión que deja de enviar se libera sola y el jugador puede volver', async () => {

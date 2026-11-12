@@ -35,6 +35,7 @@ const MAX_MSGS_PER_SEC := 90
 const INPUT_QUEUE_MAX := 12
 const INPUT_BUDGET_MAX := 8
 const REWARD_SEAL := "sello_del_claro"
+const REWARD_CALL := "llamado_de_yaxche"   # el grupo escuchó a Chiich Yaxché (progreso del capítulo)
 const FAIL_HOLD := 6.0              # tras una derrota, los altares tardan esto en volver a responder
 const RESTART_HOLD := 3.0           # lo mismo al empezar otra ronda
 
@@ -85,6 +86,11 @@ class Room:
 	var lock_t := 0.0            # mientras sea > 0 los altares no responden (derrota o nueva ronda)
 	var again := {}              # pid -> true: quiere jugar otra ronda tras la victoria
 	var story := 0               # banderas del progreso narrativo (Story.F_*)
+	# Cinemática compartida en curso: mientras dura, la sala está en pausa
+	var cine := ""               # id de la cinemática ("" si no hay)
+	var cine_t := 0.0            # segundos que le quedan
+	var cine_votes := {}         # pid -> true: votó por omitirla
+	var cines_seen := {}         # id -> true: ya se reprodujo en esta sala
 
 
 var _tcp := TCPServer.new()
@@ -307,6 +313,16 @@ func _handle(c: Conn, msg: Dictionary) -> void:
 				room.story |= Story.F_TALKED
 				print("[alux] Sala %s: %s habló con %s" % [room.code, p.name, Story.NPCS[npc].name])
 				_broadcast(room, {"t": "event", "e": "story", "k": "talked", "npc": npc, "by": p.name})
+				# Queda guardado en el perfil de quienes estaban presentes
+				var present := []
+				for q in room.players.values():
+					if q.conn_id != 0:
+						present.append(q.id)
+				_grant_reward(room, REWARD_CALL, present)
+		"skip":
+			# Voto para omitir la cinemática compartida en curso (se cuenta en _tick_room)
+			if not room.cine.is_empty():
+				room.cine_votes[p.id] = true
 		"again":
 			# Voto para jugar otra ronda. Sólo cuenta con la emboscada superada; la sala
 			# se reinicia cuando votan todos los conectados (ver _tick_room).
@@ -441,9 +457,15 @@ func _world_state(room: Room) -> Array:
 			if room.again.has(p.id):
 				votes += 1
 	## [santuarioAbierto, altares, altaresNecesarios, emboscada(0/1/2/3), enemigosRestantes, puntoDeReaparición,
-	##  braseroListo, votosOtraRonda, conectados, segundosDeEsperaDeLosAltares, banderasDeHistoria]
+	var skip_votes := 0
+	for p in room.players.values():
+		if p.conn_id != 0 and room.cine_votes.has(p.id):
+			skip_votes += 1
+	##  braseroListo, votosOtraRonda, conectados, segundosDeEsperaDeLosAltares, banderasDeHistoria,
+	##  segundosDeCinemáticaCompartida, votosParaOmitirla]
 	return [1 if room.gate_open else 0, mask, room.need, room.combat.encounter, room.combat.wave_alive(),
-		room.combat.checkpoint, 1 if room.combat.brazier_cd <= 0.0 else 0, votes, connected, int(ceil(room.lock_t)), room.story]
+		room.combat.checkpoint, 1 if room.combat.brazier_cd <= 0.0 else 0, votes, connected, int(ceil(room.lock_t)), room.story,
+		int(ceil(room.cine_t)) if not room.cine.is_empty() else 0, skip_votes]
 
 
 # ───────────────────────── Simulación de sala ─────────────────────────
@@ -453,6 +475,25 @@ func _tick_room(room: Room) -> void:
 	var connected := 0
 	var everyone: Array = room.players.values()
 	for p in everyone:
+		if p.conn_id != 0:
+			connected += 1
+
+	# Cinemática compartida: la sala entera está en pausa hasta que termine su duración
+	# o la mayoría de los conectados vote por omitirla. Ningún cliente la termina por su cuenta.
+	var frozen := not room.cine.is_empty()
+	if frozen:
+		room.cine_t -= Sim.DT
+		var skip_votes := 0
+		for p in everyone:
+			if p.conn_id != 0 and room.cine_votes.has(p.id):
+				skip_votes += 1
+		var voted_out := connected > 0 and skip_votes >= Story.skip_votes_needed(connected)
+		if room.cine_t <= 0.0 or voted_out or connected == 0:
+			_end_cine(room, voted_out)
+			frozen = false
+
+	connected = 0
+	for p in everyone:
 		if p.conn_id == 0:
 			continue
 		connected += 1
@@ -460,6 +501,13 @@ func _tick_room(room: Room) -> void:
 		p.budget = mini(p.budget + 1, INPUT_BUDGET_MAX)
 		while p.budget > 0 and not p.queue.is_empty():
 			var inp: Dictionary = p.queue.pop_front()
+			if frozen:
+				# en pausa: el personaje no se mueve ni actúa (la gravedad sigue)
+				inp.mx = 0.0
+				inp.mz = 0.0
+				inp.j = 0
+				inp.a = 0
+				inp.f = ""
 			var actions: Array = []
 			Sim.step(p.state, inp, p.unlocked, room.gate_open, actions)
 			p.last_seq = inp.s
@@ -493,11 +541,12 @@ func _tick_room(room: Room) -> void:
 		_on_gate_open(room)
 
 	# Combate: enemigos, proyectiles, vida, reaparición y emboscada
-	match room.combat.tick(everyone, room.gate_open):
-		Combat.CLEARED:
-			_on_encounter_clear(room)
-		Combat.FAILED:
-			_on_encounter_failed(room)
+	if not frozen:
+		match room.combat.tick(everyone, room.gate_open):
+			Combat.CLEARED:
+				_on_encounter_clear(room)
+			Combat.FAILED:
+				_on_encounter_failed(room)
 
 	# Otra ronda: cuando todos los conectados la piden tras la victoria
 	if room.combat.encounter == 2 and connected > 0 and not room.again.is_empty():
@@ -533,6 +582,27 @@ func _on_gate_open(room: Room) -> void:
 	_broadcast(room, {"t": "event", "e": "gate_open", "by": names})
 	# Al abrirse despiertan los guardianes corrompidos: el sello se gana al vencerlos
 	room.combat.start_encounter(ids.size())
+	_start_cine(room, "sello")
+
+
+## Empieza una cinemática compartida (una vez por sala). Pausa la sala hasta que termine.
+func _start_cine(room: Room, id: String) -> void:
+	var length := Story.cutscene_length(id)
+	if length <= 0.0 or room.cines_seen.has(id) or not room.cine.is_empty():
+		return
+	room.cines_seen[id] = true
+	room.cine = id
+	room.cine_t = length
+	room.cine_votes.clear()
+	_broadcast(room, {"t": "event", "e": "cine", "id": id, "dur": snappedf(length, 0.1)})
+
+
+func _end_cine(room: Room, skipped: bool) -> void:
+	var id := room.cine
+	room.cine = ""
+	room.cine_t = 0.0
+	room.cine_votes.clear()
+	_broadcast(room, {"t": "event", "e": "cine_end", "id": id, "skipped": skipped})
 
 
 func _on_encounter_clear(room: Room) -> void:

@@ -38,7 +38,9 @@ export type ClientMessage =
   /** Voto para jugar otra ronda tras la victoria (v: 0 lo retira). Se reinicia cuando votan todos los conectados. */
   | { t: 'again'; v?: 0 | 1 }
   /** El jugador terminó de hablar con un personaje (n = su id). El servidor comprueba que está a su lado. */
-  | { t: 'talk'; n: string };
+  | { t: 'talk'; n: string }
+  /** Voto para omitir la cinemática compartida en curso. Se omite cuando vota la mayoría de los conectados. */
+  | { t: 'skip' };
 
 /**
  * Estado simulado del jugador (19 valores):
@@ -53,7 +55,8 @@ export const SNAP_SLOT = 0, SNAP_ACK = 1, SNAP_ON = 2, SNAP_HP = 3, SNAP_X = 4, 
 /**
  * [santuarioAbierto, altares, altaresNecesarios, emboscada(0 pendiente/1 en curso/2 superada/3 fallida),
  *  enemigosRestantes, puntoDeReaparición, braseroListo, votosOtraRonda, conectados, segundosDeEsperaDeLosAltares,
- *  banderasDeHistoria(1 = alguien habló con Chiich Yaxché)]
+ *  banderasDeHistoria(1 = alguien habló con Chiich Yaxché), segundosDeCinemáticaCompartida(0 = ninguna),
+ *  votosParaOmitirla]
  */
 export type WorldStateArray = number[];
 /** [id, tipo(0 piedra, 1 corrupta), x, y, z, giro, vida, vidaMáx, estado, slotObjetivo] */
@@ -93,6 +96,9 @@ export type ServerMessage =
   | { t: 'event'; e: 'defeat' | 'restart' }
   /** Avance de la historia de la sala: k = 'talked' (alguien habló con el personaje npc). */
   | { t: 'event'; e: 'story'; k: string; npc: string; by: string }
+  /** Cinemática compartida: la empieza y la termina el servidor; mientras dura, la sala está en pausa. */
+  | { t: 'event'; e: 'cine'; id: string; dur: number }
+  | { t: 'event'; e: 'cine_end'; id: string; skipped: boolean }
   | { t: 'pong'; c: number }
   | { t: 'error'; code: string; msg: string };
 

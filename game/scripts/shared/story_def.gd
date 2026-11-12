@@ -61,6 +61,17 @@ const DIALOGUES := {
 ##   sound     efecto al empezar el plano (opcional)
 ##   title     rótulo grande (opcional)
 const CUTSCENES := {
+	## «El sello cede»: compartida. La empieza el servidor cuando el grupo abre el santuario por
+	## primera vez; mientras dura, la sala está en pausa. Se omite por mayoría.
+	"sello": {
+		"title": "El sello cede", "shared": true,
+		"shots": [
+			{"dur": 3.5, "from": [Vector3(15.5, 3.2, 4.0), Vector3(26, 3.2, 0)], "to": [Vector3(17.5, 2.6, 2.2), Vector3(27, 3.8, 0)],
+				"text": "Cada alux en su altar, y el sello cede…", "sound": "santuario_abre"},
+			{"dur": 3.5, "from": [Vector3(8.5, 5.5, -7.0), Vector3(15, 0.8, 0)], "to": [Vector3(10.0, 3.6, -5.0), Vector3(15, 0.8, 0)],
+				"text": "…pero quienes lo cuidaban ya no recuerdan a quién. ¡Los Olvidados despiertan!"},
+		],
+	},
 	## «El llamado»: introducción del Capítulo I. Local (cada jugador la ve al entrar; no detiene a nadie).
 	"llamado": {
 		"title": "El llamado", "shared": false,
@@ -76,6 +87,20 @@ const CUTSCENES := {
 		],
 	},
 }
+
+
+## Duración total de una cinemática, en segundos (0 si no existe).
+static func cutscene_length(id: String) -> float:
+	var total := 0.0
+	for shot in CUTSCENES.get(id, {}).get("shots", []):
+		total += float(shot.get("dur", 0.0))
+	return total
+
+
+## Votos necesarios para omitir una cinemática compartida: la mayoría de los conectados
+## (1 de 1, 2 de 2, 2 de 3, 3 de 4).
+static func skip_votes_needed(connected: int) -> int:
+	return maxi(1, connected / 2 + 1)
 
 
 ## Momento de la historia según el estado de la sala (para elegir diálogo y objetivo).
