@@ -1,0 +1,1787 @@
+[
+  {
+    "id": "amb_selva",
+    "archivo": "game/assets/audio/amb_selva.wav",
+    "tipo": "ambiente provisional",
+    "bus": "Ambience",
+    "duracion_s": 10.0,
+    "hz": 22050,
+    "bytes": 441044,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función amb_selva",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3080319769
+    ]
+  },
+  {
+    "id": "amb_brasero",
+    "archivo": "game/assets/audio/amb_brasero.wav",
+    "tipo": "ambiente provisional",
+    "bus": "Ambience",
+    "duracion_s": 4.0,
+    "hz": 22050,
+    "bytes": 176444,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función amb_brasero",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      693432675
+    ]
+  },
+  {
+    "id": "mus_claro",
+    "archivo": "game/assets/audio/mus_claro.wav",
+    "tipo": "música provisional",
+    "bus": "Music",
+    "duracion_s": 19.2,
+    "hz": 22050,
+    "bytes": 846764,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función mus_claro",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2847809201
+    ]
+  },
+  {
+    "id": "mus_emboscada",
+    "archivo": "game/assets/audio/mus_emboscada.wav",
+    "tipo": "música provisional",
+    "bus": "Music",
+    "duracion_s": 9.6,
+    "hz": 22050,
+    "bytes": 423404,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función mus_emboscada",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2296180283
+    ]
+  },
+  {
+    "id": "mus_jefe",
+    "archivo": "game/assets/audio/mus_jefe.wav",
+    "tipo": "música provisional",
+    "bus": "Music",
+    "duracion_s": 24.0,
+    "hz": 22050,
+    "bytes": 1058444,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función mus_jefe",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3012687264
+    ]
+  },
+  {
+    "id": "mus_jefe_furia",
+    "archivo": "game/assets/audio/mus_jefe_furia.wav",
+    "tipo": "música provisional",
+    "bus": "Music",
+    "duracion_s": 24.0,
+    "hz": 22050,
+    "bytes": 1058444,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función mus_jefe_furia",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2220555415
+    ]
+  },
+  {
+    "id": "mus_recuerdo",
+    "archivo": "game/assets/audio/mus_recuerdo.wav",
+    "tipo": "música provisional",
+    "bus": "Music",
+    "duracion_s": 24.0,
+    "hz": 22050,
+    "bytes": 1058444,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función mus_recuerdo",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      4252003205
+    ]
+  },
+  {
+    "id": "paso_1",
+    "archivo": "game/assets/audio/paso_1.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.12,
+    "hz": 22050,
+    "bytes": 5336,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función paso(0)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1213083729
+    ]
+  },
+  {
+    "id": "paso_2",
+    "archivo": "game/assets/audio/paso_2.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.12,
+    "hz": 22050,
+    "bytes": 5336,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función paso(1)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3511116267
+    ]
+  },
+  {
+    "id": "paso_3",
+    "archivo": "game/assets/audio/paso_3.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.12,
+    "hz": 22050,
+    "bytes": 5336,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función paso(2)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2789233021
+    ]
+  },
+  {
+    "id": "salto",
+    "archivo": "game/assets/audio/salto.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.2,
+    "hz": 22050,
+    "bytes": 8864,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función salto",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      744034075
+    ]
+  },
+  {
+    "id": "aterrizar",
+    "archivo": "game/assets/audio/aterrizar.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.2,
+    "hz": 22050,
+    "bytes": 8864,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función aterrizar",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1155038717
+    ]
+  },
+  {
+    "id": "chapoteo",
+    "archivo": "game/assets/audio/chapoteo.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.5,
+    "hz": 22050,
+    "bytes": 22094,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función chapoteo",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1281327729
+    ]
+  },
+  {
+    "id": "chispa",
+    "archivo": "game/assets/audio/chispa.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.3,
+    "hz": 22050,
+    "bytes": 13274,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función chispa",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2482218595
+    ]
+  },
+  {
+    "id": "chispa_impacto",
+    "archivo": "game/assets/audio/chispa_impacto.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.3,
+    "hz": 22050,
+    "bytes": 13274,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función chispa_impacto",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2589497633
+    ]
+  },
+  {
+    "id": "esquiva",
+    "archivo": "game/assets/audio/esquiva.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.25,
+    "hz": 22050,
+    "bytes": 11068,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función esquiva",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1439770003
+    ]
+  },
+  {
+    "id": "garras",
+    "archivo": "game/assets/audio/garras.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.25,
+    "hz": 22050,
+    "bytes": 11068,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función garras",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      600338165
+    ]
+  },
+  {
+    "id": "zarpazo_carga",
+    "archivo": "game/assets/audio/zarpazo_carga.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.8,
+    "hz": 22050,
+    "bytes": 35324,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función zarpazo_carga",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2163540247
+    ]
+  },
+  {
+    "id": "zarpazo",
+    "archivo": "game/assets/audio/zarpazo.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.5,
+    "hz": 22050,
+    "bytes": 22094,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función zarpazo",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3208237941
+    ]
+  },
+  {
+    "id": "salto_jaguar",
+    "archivo": "game/assets/audio/salto_jaguar.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.5,
+    "hz": 22050,
+    "bytes": 22094,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función salto_jaguar",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      948100299
+    ]
+  },
+  {
+    "id": "salto_impacto",
+    "archivo": "game/assets/audio/salto_impacto.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.4,
+    "hz": 22050,
+    "bytes": 17684,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función salto_impacto",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      500050164
+    ]
+  },
+  {
+    "id": "golpe",
+    "archivo": "game/assets/audio/golpe.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.15,
+    "hz": 22050,
+    "bytes": 6660,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función golpe",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3714016624
+    ]
+  },
+  {
+    "id": "dano",
+    "archivo": "game/assets/audio/dano.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.3,
+    "hz": 22050,
+    "bytes": 13274,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función dano",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      4200998079
+    ]
+  },
+  {
+    "id": "caida",
+    "archivo": "game/assets/audio/caida.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.9,
+    "hz": 22050,
+    "bytes": 39734,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función caida",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3876087076
+    ]
+  },
+  {
+    "id": "reaparecer",
+    "archivo": "game/assets/audio/reaparecer.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.9,
+    "hz": 22050,
+    "bytes": 39734,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función reaparecer",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1471749084
+    ]
+  },
+  {
+    "id": "curar",
+    "archivo": "game/assets/audio/curar.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.8,
+    "hz": 22050,
+    "bytes": 35324,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función curar",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3519634662
+    ]
+  },
+  {
+    "id": "purificar",
+    "archivo": "game/assets/audio/purificar.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.0,
+    "hz": 22050,
+    "bytes": 44144,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función purificar",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2117522164
+    ]
+  },
+  {
+    "id": "transformar",
+    "archivo": "game/assets/audio/transformar.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.7,
+    "hz": 22050,
+    "bytes": 30914,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función transformar",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      35806889
+    ]
+  },
+  {
+    "id": "enemigo_aviso",
+    "archivo": "game/assets/audio/enemigo_aviso.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.35,
+    "hz": 22050,
+    "bytes": 15478,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función enemigo_aviso",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      109460222
+    ]
+  },
+  {
+    "id": "enemigo_golpe",
+    "archivo": "game/assets/audio/enemigo_golpe.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.4,
+    "hz": 22050,
+    "bytes": 17684,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función enemigo_golpe",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1776594813
+    ]
+  },
+  {
+    "id": "enemigo_muere",
+    "archivo": "game/assets/audio/enemigo_muere.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.5,
+    "hz": 22050,
+    "bytes": 22094,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función enemigo_muere",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      555178282
+    ]
+  },
+  {
+    "id": "altar_on",
+    "archivo": "game/assets/audio/altar_on.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.4,
+    "hz": 22050,
+    "bytes": 17684,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función altar_on",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      4012733018
+    ]
+  },
+  {
+    "id": "altar_off",
+    "archivo": "game/assets/audio/altar_off.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.25,
+    "hz": 22050,
+    "bytes": 11068,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función altar_off",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      895169648
+    ]
+  },
+  {
+    "id": "santuario_abre",
+    "archivo": "game/assets/audio/santuario_abre.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 2.2,
+    "hz": 22050,
+    "bytes": 97064,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función santuario_abre",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      462606875
+    ]
+  },
+  {
+    "id": "emboscada",
+    "archivo": "game/assets/audio/emboscada.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.6,
+    "hz": 22050,
+    "bytes": 70604,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función emboscada",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3142064612
+    ]
+  },
+  {
+    "id": "victoria",
+    "archivo": "game/assets/audio/victoria.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 3.2,
+    "hz": 22050,
+    "bytes": 141164,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función victoria",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      700166136
+    ]
+  },
+  {
+    "id": "derrota",
+    "archivo": "game/assets/audio/derrota.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 2.6,
+    "hz": 22050,
+    "bytes": 114704,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función derrota",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3404043256
+    ]
+  },
+  {
+    "id": "ui_click",
+    "archivo": "game/assets/audio/ui_click.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.06,
+    "hz": 22050,
+    "bytes": 2690,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ui_click",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      514901684
+    ]
+  },
+  {
+    "id": "ui_abrir",
+    "archivo": "game/assets/audio/ui_abrir.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.2,
+    "hz": 22050,
+    "bytes": 8864,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ui_abrir",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      173600316
+    ]
+  },
+  {
+    "id": "sin_energia",
+    "archivo": "game/assets/audio/sin_energia.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.15,
+    "hz": 22050,
+    "bytes": 6660,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función sin_energia",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2174013503
+    ]
+  },
+  {
+    "id": "objetivo",
+    "archivo": "game/assets/audio/objetivo.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.5,
+    "hz": 22050,
+    "bytes": 22094,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función objetivo",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2404286830
+    ]
+  },
+  {
+    "id": "jefe_despierta",
+    "archivo": "game/assets/audio/jefe_despierta.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 3.5,
+    "hz": 22050,
+    "bytes": 154394,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_despierta",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3272708448
+    ]
+  },
+  {
+    "id": "jefe_paso",
+    "archivo": "game/assets/audio/jefe_paso.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.5,
+    "hz": 22050,
+    "bytes": 22094,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_paso",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1181112592
+    ]
+  },
+  {
+    "id": "jefe_aviso",
+    "archivo": "game/assets/audio/jefe_aviso.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.8,
+    "hz": 22050,
+    "bytes": 35324,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_aviso",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1970687894
+    ]
+  },
+  {
+    "id": "jefe_losa",
+    "archivo": "game/assets/audio/jefe_losa.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.2,
+    "hz": 22050,
+    "bytes": 52964,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_losa",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2978984250
+    ]
+  },
+  {
+    "id": "jefe_barrido",
+    "archivo": "game/assets/audio/jefe_barrido.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.9,
+    "hz": 22050,
+    "bytes": 39734,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_barrido",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3624358276
+    ]
+  },
+  {
+    "id": "jefe_llamada",
+    "archivo": "game/assets/audio/jefe_llamada.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.5,
+    "hz": 22050,
+    "bytes": 66194,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_llamada",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      4063751971
+    ]
+  },
+  {
+    "id": "jefe_embestida",
+    "archivo": "game/assets/audio/jefe_embestida.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.4,
+    "hz": 22050,
+    "bytes": 61784,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_embestida",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      226065373
+    ]
+  },
+  {
+    "id": "jefe_choque",
+    "archivo": "game/assets/audio/jefe_choque.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.3,
+    "hz": 22050,
+    "bytes": 57374,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_choque",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      4061774821
+    ]
+  },
+  {
+    "id": "jefe_aturdido",
+    "archivo": "game/assets/audio/jefe_aturdido.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.5,
+    "hz": 22050,
+    "bytes": 66194,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_aturdido",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1512621403
+    ]
+  },
+  {
+    "id": "pilar_sube",
+    "archivo": "game/assets/audio/pilar_sube.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.0,
+    "hz": 22050,
+    "bytes": 44144,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función pilar_sube",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      4069320031
+    ]
+  },
+  {
+    "id": "lluvia_piedra",
+    "archivo": "game/assets/audio/lluvia_piedra.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 4.0,
+    "hz": 22050,
+    "bytes": 176444,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función lluvia_piedra",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      12662734
+    ]
+  },
+  {
+    "id": "ancla_activa",
+    "archivo": "game/assets/audio/ancla_activa.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.6,
+    "hz": 22050,
+    "bytes": 26504,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ancla_activa",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2120889910
+    ]
+  },
+  {
+    "id": "cadenas_jade",
+    "archivo": "game/assets/audio/cadenas_jade.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.2,
+    "hz": 22050,
+    "bytes": 52964,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función cadenas_jade",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2234060327
+    ]
+  },
+  {
+    "id": "corazon_expuesto",
+    "archivo": "game/assets/audio/corazon_expuesto.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.0,
+    "hz": 22050,
+    "bytes": 44144,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función corazon_expuesto",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3975770764
+    ]
+  },
+  {
+    "id": "corazon_golpe",
+    "archivo": "game/assets/audio/corazon_golpe.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.4,
+    "hz": 22050,
+    "bytes": 17684,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función corazon_golpe",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      797598652
+    ]
+  },
+  {
+    "id": "corazon_libre",
+    "archivo": "game/assets/audio/corazon_libre.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.6,
+    "hz": 22050,
+    "bytes": 70604,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función corazon_libre",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1167672057
+    ]
+  },
+  {
+    "id": "glifo_restaurado",
+    "archivo": "game/assets/audio/glifo_restaurado.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.2,
+    "hz": 22050,
+    "bytes": 52964,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función glifo_restaurado",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1782589182
+    ]
+  },
+  {
+    "id": "ritual_toque",
+    "archivo": "game/assets/audio/ritual_toque.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 2.0,
+    "hz": 22050,
+    "bytes": 88244,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ritual_toque",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      630215950
+    ]
+  },
+  {
+    "id": "silencio_grieta",
+    "archivo": "game/assets/audio/silencio_grieta.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.8,
+    "hz": 22050,
+    "bytes": 35324,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función silencio_grieta",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1024619822
+    ]
+  },
+  {
+    "id": "liberacion",
+    "archivo": "game/assets/audio/liberacion.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 4.0,
+    "hz": 22050,
+    "bytes": 176444,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función liberacion",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1469259441
+    ]
+  },
+  {
+    "id": "pluma_jade",
+    "archivo": "game/assets/audio/pluma_jade.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 2.5,
+    "hz": 22050,
+    "bytes": 110294,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función pluma_jade",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      4184417390
+    ]
+  },
+  {
+    "id": "cine_patio_silencio",
+    "archivo": "game/assets/audio/cine_patio_silencio.wav",
+    "tipo": "efecto",
+    "bus": "Cinematics",
+    "duracion_s": 4.0,
+    "hz": 22050,
+    "bytes": 176444,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función cine_patio_silencio",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      4098187044
+    ]
+  },
+  {
+    "id": "cine_grietas",
+    "archivo": "game/assets/audio/cine_grietas.wav",
+    "tipo": "efecto",
+    "bus": "Cinematics",
+    "duracion_s": 4.0,
+    "hz": 22050,
+    "bytes": 176444,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función cine_grietas",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      745518888
+    ]
+  },
+  {
+    "id": "cine_ojos",
+    "archivo": "game/assets/audio/cine_ojos.wav",
+    "tipo": "efecto",
+    "bus": "Cinematics",
+    "duracion_s": 4.0,
+    "hz": 22050,
+    "bytes": 176444,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función cine_ojos",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2027691353
+    ]
+  },
+  {
+    "id": "cine_en_pie",
+    "archivo": "game/assets/audio/cine_en_pie.wav",
+    "tipo": "efecto",
+    "bus": "Cinematics",
+    "duracion_s": 4.0,
+    "hz": 22050,
+    "bytes": 176444,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función cine_en_pie",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1714906752
+    ]
+  },
+  {
+    "id": "cine_silencio_se_va",
+    "archivo": "game/assets/audio/cine_silencio_se_va.wav",
+    "tipo": "efecto",
+    "bus": "Cinematics",
+    "duracion_s": 4.0,
+    "hz": 22050,
+    "bytes": 176444,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función cine_silencio_se_va",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3331936059
+    ]
+  },
+  {
+    "id": "cine_pluma",
+    "archivo": "game/assets/audio/cine_pluma.wav",
+    "tipo": "efecto",
+    "bus": "Cinematics",
+    "duracion_s": 4.0,
+    "hz": 22050,
+    "bytes": 176444,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función cine_pluma",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      4166241784
+    ]
+  },
+  {
+    "id": "cine_cenote",
+    "archivo": "game/assets/audio/cine_cenote.wav",
+    "tipo": "efecto",
+    "bus": "Cinematics",
+    "duracion_s": 4.0,
+    "hz": 22050,
+    "bytes": 176444,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función cine_cenote",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1732223769
+    ]
+  },
+  {
+    "id": "paso_hierba_1",
+    "archivo": "game/assets/audio/paso_hierba_1.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.18,
+    "hz": 22050,
+    "bytes": 7982,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función paso_hierba(0)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2658975625
+    ]
+  },
+  {
+    "id": "paso_hierba_2",
+    "archivo": "game/assets/audio/paso_hierba_2.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.18,
+    "hz": 22050,
+    "bytes": 7982,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función paso_hierba(1)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      125169203
+    ]
+  },
+  {
+    "id": "paso_hierba_3",
+    "archivo": "game/assets/audio/paso_hierba_3.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.18,
+    "hz": 22050,
+    "bytes": 7982,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función paso_hierba(2)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1886576293
+    ]
+  },
+  {
+    "id": "paso_piedra_1",
+    "archivo": "game/assets/audio/paso_piedra_1.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.08,
+    "hz": 22050,
+    "bytes": 3572,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función paso_piedra(0)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2392563882
+    ]
+  },
+  {
+    "id": "paso_piedra_2",
+    "archivo": "game/assets/audio/paso_piedra_2.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.08,
+    "hz": 22050,
+    "bytes": 3572,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función paso_piedra(1)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      395505936
+    ]
+  },
+  {
+    "id": "paso_piedra_3",
+    "archivo": "game/assets/audio/paso_piedra_3.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.08,
+    "hz": 22050,
+    "bytes": 3572,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función paso_piedra(2)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1620427142
+    ]
+  },
+  {
+    "id": "paso_agua_1",
+    "archivo": "game/assets/audio/paso_agua_1.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.3,
+    "hz": 22050,
+    "bytes": 13274,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función paso_agua(0)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      793485234
+    ]
+  },
+  {
+    "id": "paso_agua_2",
+    "archivo": "game/assets/audio/paso_agua_2.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.3,
+    "hz": 22050,
+    "bytes": 13274,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función paso_agua(1)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3057831432
+    ]
+  },
+  {
+    "id": "recoger",
+    "archivo": "game/assets/audio/recoger.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.35,
+    "hz": 44100,
+    "bytes": 30914,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función recoger",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3899406346
+    ]
+  },
+  {
+    "id": "interactuar",
+    "archivo": "game/assets/audio/interactuar.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.3,
+    "hz": 22050,
+    "bytes": 13274,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función interactuar",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2821969522
+    ]
+  },
+  {
+    "id": "dano_fuerte",
+    "archivo": "game/assets/audio/dano_fuerte.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.55,
+    "hz": 22050,
+    "bytes": 24300,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función dano_fuerte",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1069636533
+    ]
+  },
+  {
+    "id": "aliado_caido",
+    "archivo": "game/assets/audio/aliado_caido.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.8,
+    "hz": 22050,
+    "bytes": 35324,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función aliado_caido",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3860058107
+    ]
+  },
+  {
+    "id": "aliado_revive",
+    "archivo": "game/assets/audio/aliado_revive.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.8,
+    "hz": 44100,
+    "bytes": 70604,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función aliado_revive",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1677412477
+    ]
+  },
+  {
+    "id": "chispa_2",
+    "archivo": "game/assets/audio/chispa_2.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.3,
+    "hz": 22050,
+    "bytes": 13274,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función chispa_variante(0)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3309875118
+    ]
+  },
+  {
+    "id": "chispa_3",
+    "archivo": "game/assets/audio/chispa_3.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.3,
+    "hz": 22050,
+    "bytes": 13274,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función chispa_variante(1)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2991562552
+    ]
+  },
+  {
+    "id": "luz_alux",
+    "archivo": "game/assets/audio/luz_alux.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.6,
+    "hz": 44100,
+    "bytes": 52964,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función luz_alux",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2181903667
+    ]
+  },
+  {
+    "id": "escudo_alux",
+    "archivo": "game/assets/audio/escudo_alux.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.7,
+    "hz": 44100,
+    "bytes": 61784,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función escudo_alux",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      620612708
+    ]
+  },
+  {
+    "id": "escudo_golpe",
+    "archivo": "game/assets/audio/escudo_golpe.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.4,
+    "hz": 22050,
+    "bytes": 17684,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función escudo_golpe",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3824839278
+    ]
+  },
+  {
+    "id": "apoyo_alux",
+    "archivo": "game/assets/audio/apoyo_alux.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.8,
+    "hz": 44100,
+    "bytes": 70604,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función apoyo_alux",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3491221512
+    ]
+  },
+  {
+    "id": "balam_rugido",
+    "archivo": "game/assets/audio/balam_rugido.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.0,
+    "hz": 22050,
+    "bytes": 44144,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función balam_rugido",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2061831719
+    ]
+  },
+  {
+    "id": "balam_grunido",
+    "archivo": "game/assets/audio/balam_grunido.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.45,
+    "hz": 22050,
+    "bytes": 19888,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función balam_grunido",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3997693491
+    ]
+  },
+  {
+    "id": "garras_2",
+    "archivo": "game/assets/audio/garras_2.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.25,
+    "hz": 22050,
+    "bytes": 11068,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función garras_variante(0)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2011986059
+    ]
+  },
+  {
+    "id": "garras_3",
+    "archivo": "game/assets/audio/garras_3.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.25,
+    "hz": 22050,
+    "bytes": 11068,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función garras_variante(1)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      15419421
+    ]
+  },
+  {
+    "id": "balam_golpe",
+    "archivo": "game/assets/audio/balam_golpe.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.35,
+    "hz": 22050,
+    "bytes": 15478,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función balam_golpe",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      4157089444
+    ]
+  },
+  {
+    "id": "balam_especial",
+    "archivo": "game/assets/audio/balam_especial.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.9,
+    "hz": 22050,
+    "bytes": 39734,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función balam_especial",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      328275660
+    ]
+  },
+  {
+    "id": "enemigo_aparece",
+    "archivo": "game/assets/audio/enemigo_aparece.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.8,
+    "hz": 22050,
+    "bytes": 35324,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función enemigo_aparece",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      769713700
+    ]
+  },
+  {
+    "id": "enemigo_dano",
+    "archivo": "game/assets/audio/enemigo_dano.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.2,
+    "hz": 22050,
+    "bytes": 8864,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función enemigo_dano",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1242701379
+    ]
+  },
+  {
+    "id": "enemigo_purificado",
+    "archivo": "game/assets/audio/enemigo_purificado.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.7,
+    "hz": 44100,
+    "bytes": 61784,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función enemigo_purificado",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      33265370
+    ]
+  },
+  {
+    "id": "enemigo_paso",
+    "archivo": "game/assets/audio/enemigo_paso.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.25,
+    "hz": 22050,
+    "bytes": 11068,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función enemigo_paso",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1778758295
+    ]
+  },
+  {
+    "id": "guardian_llamada",
+    "archivo": "game/assets/audio/guardian_llamada.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.9,
+    "hz": 22050,
+    "bytes": 39734,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función guardian_llamada",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3705802785
+    ]
+  },
+  {
+    "id": "guardian_ataque",
+    "archivo": "game/assets/audio/guardian_ataque.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.5,
+    "hz": 22050,
+    "bytes": 22094,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función guardian_ataque",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2615995427
+    ]
+  },
+  {
+    "id": "criatura_llamada",
+    "archivo": "game/assets/audio/criatura_llamada.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.6,
+    "hz": 22050,
+    "bytes": 26504,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función criatura_llamada",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      311609684
+    ]
+  },
+  {
+    "id": "criatura_ataque",
+    "archivo": "game/assets/audio/criatura_ataque.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 0.25,
+    "hz": 22050,
+    "bytes": 11068,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función criatura_ataque",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2328954452
+    ]
+  },
+  {
+    "id": "jefe_respira",
+    "archivo": "game/assets/audio/jefe_respira.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 3.0,
+    "hz": 22050,
+    "bytes": 132344,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_respira",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1208088247
+    ]
+  },
+  {
+    "id": "jefe_fase",
+    "archivo": "game/assets/audio/jefe_fase.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.8,
+    "hz": 22050,
+    "bytes": 79424,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_fase",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3552688205
+    ]
+  },
+  {
+    "id": "jefe_cae",
+    "archivo": "game/assets/audio/jefe_cae.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.4,
+    "hz": 22050,
+    "bytes": 61784,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_cae",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3929649566
+    ]
+  },
+  {
+    "id": "pilar_rompe",
+    "archivo": "game/assets/audio/pilar_rompe.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.0,
+    "hz": 22050,
+    "bytes": 44144,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función pilar_rompe",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      718374328
+    ]
+  },
+  {
+    "id": "ritual_pulso",
+    "archivo": "game/assets/audio/ritual_pulso.wav",
+    "tipo": "efecto",
+    "bus": "SFX",
+    "duracion_s": 1.2,
+    "hz": 22050,
+    "bytes": 52964,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ritual_pulso",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1304771214
+    ]
+  },
+  {
+    "id": "ui_mover",
+    "archivo": "game/assets/audio/ui_mover.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.05,
+    "hz": 44100,
+    "bytes": 4454,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ui_mover",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2524855344
+    ]
+  },
+  {
+    "id": "ui_confirmar",
+    "archivo": "game/assets/audio/ui_confirmar.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.22,
+    "hz": 44100,
+    "bytes": 19448,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ui_confirmar",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      441319124
+    ]
+  },
+  {
+    "id": "ui_cancelar",
+    "archivo": "game/assets/audio/ui_cancelar.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.2,
+    "hz": 22050,
+    "bytes": 8864,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ui_cancelar",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      1962545789
+    ]
+  },
+  {
+    "id": "ui_cerrar",
+    "archivo": "game/assets/audio/ui_cerrar.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.2,
+    "hz": 22050,
+    "bytes": 8864,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ui_cerrar",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3440946156
+    ]
+  },
+  {
+    "id": "ui_error",
+    "archivo": "game/assets/audio/ui_error.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.25,
+    "hz": 22050,
+    "bytes": 11068,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ui_error",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      4187732197
+    ]
+  },
+  {
+    "id": "ui_recompensa",
+    "archivo": "game/assets/audio/ui_recompensa.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 1.2,
+    "hz": 44100,
+    "bytes": 105884,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ui_recompensa",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      208575199
+    ]
+  },
+  {
+    "id": "ui_jugador_entra",
+    "archivo": "game/assets/audio/ui_jugador_entra.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.4,
+    "hz": 22050,
+    "bytes": 17684,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ui_jugador(True)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3017557360
+    ]
+  },
+  {
+    "id": "ui_jugador_sale",
+    "archivo": "game/assets/audio/ui_jugador_sale.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.4,
+    "hz": 22050,
+    "bytes": 17684,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ui_jugador(False)",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      3400760415
+    ]
+  },
+  {
+    "id": "ui_invitacion",
+    "archivo": "game/assets/audio/ui_invitacion.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.5,
+    "hz": 44100,
+    "bytes": 44144,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ui_invitacion",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      692818076
+    ]
+  },
+  {
+    "id": "ui_sala_creada",
+    "archivo": "game/assets/audio/ui_sala_creada.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.7,
+    "hz": 44100,
+    "bytes": 61784,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ui_sala_creada",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      556480067
+    ]
+  },
+  {
+    "id": "ui_prueba",
+    "archivo": "game/assets/audio/ui_prueba.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 1.0,
+    "hz": 22050,
+    "bytes": 44144,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función ui_prueba",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2981564186
+    ]
+  },
+  {
+    "id": "punto_control",
+    "archivo": "game/assets/audio/punto_control.wav",
+    "tipo": "efecto",
+    "bus": "UI",
+    "duracion_s": 0.9,
+    "hz": 22050,
+    "bytes": 39734,
+    "origen": "síntesis propia: art/audio/gen_audio.py, función punto_control",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261111,
+      2332166164
+    ]
+  }
+]

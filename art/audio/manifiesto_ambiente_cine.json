@@ -1,0 +1,142 @@
+[
+  {
+    "id": "amb_agua",
+    "archivo": "game/web/static/audio/amb_agua.mp3",
+    "tipo": "ambiente",
+    "bus": "Ambience",
+    "duracion_s": 24.51,
+    "bytes": 313879,
+    "origen": "síntesis propia: art/audio/gen_ambiente.py, función amb_agua",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      3397531036
+    ]
+  },
+  {
+    "id": "amb_aves",
+    "archivo": "game/web/static/audio/amb_aves.mp3",
+    "tipo": "ambiente",
+    "bus": "Ambience",
+    "duracion_s": 28.429,
+    "bytes": 163601,
+    "origen": "síntesis propia: art/audio/gen_ambiente.py, función amb_aves",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      1847435202
+    ]
+  },
+  {
+    "id": "amb_brasero",
+    "archivo": "game/web/static/audio/amb_brasero.mp3",
+    "tipo": "ambiente",
+    "bus": "Ambience",
+    "duracion_s": 11.031,
+    "bytes": 123550,
+    "origen": "síntesis propia: art/audio/gen_ambiente.py, función amb_brasero",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      693432675
+    ]
+  },
+  {
+    "id": "amb_cenote",
+    "archivo": "game/web/static/audio/amb_cenote.mp3",
+    "tipo": "ambiente",
+    "bus": "Ambience",
+    "duracion_s": 33.0,
+    "bytes": 290891,
+    "origen": "síntesis propia: art/audio/gen_ambiente.py, función amb_cenote",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      110886802
+    ]
+  },
+  {
+    "id": "amb_energia",
+    "archivo": "game/web/static/audio/amb_energia.mp3",
+    "tipo": "ambiente",
+    "bus": "Ambience",
+    "duracion_s": 23.57,
+    "bytes": 227150,
+    "origen": "síntesis propia: art/audio/gen_ambiente.py, función amb_energia",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      2563898971
+    ]
+  },
+  {
+    "id": "amb_insectos",
+    "archivo": "game/web/static/audio/amb_insectos.mp3",
+    "tipo": "ambiente",
+    "bus": "Ambience",
+    "duracion_s": 26.078,
+    "bytes": 285810,
+    "origen": "síntesis propia: art/audio/gen_ambiente.py, función amb_insectos",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      3000017704
+    ]
+  },
+  {
+    "id": "amb_ruinas",
+    "archivo": "game/web/static/audio/amb_ruinas.mp3",
+    "tipo": "ambiente",
+    "bus": "Ambience",
+    "duracion_s": 29.212,
+    "bytes": 246576,
+    "origen": "síntesis propia: art/audio/gen_ambiente.py, función amb_ruinas",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      4052072677
+    ]
+  },
+  {
+    "id": "amb_selva",
+    "archivo": "game/web/static/audio/amb_selva.mp3",
+    "tipo": "ambiente",
+    "bus": "Ambience",
+    "duracion_s": 31.093,
+    "bytes": 385681,
+    "origen": "síntesis propia: art/audio/gen_ambiente.py, función amb_selva",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      3080319769
+    ]
+  },
+  {
+    "id": "amb_tormenta",
+    "archivo": "game/web/static/audio/amb_tormenta.mp3",
+    "tipo": "ambiente",
+    "bus": "Ambience",
+    "duracion_s": 27.749,
+    "bytes": 416841,
+    "origen": "síntesis propia: art/audio/gen_ambiente.py, función amb_tormenta",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      1717622698
+    ]
+  },
+  {
+    "id": "amb_viento",
+    "archivo": "game/web/static/audio/amb_viento.mp3",
+    "tipo": "ambiente",
+    "bus": "Ambience",
+    "duracion_s": 32.347,
+    "bytes": 288613,
+    "origen": "síntesis propia: art/audio/gen_ambiente.py, función amb_viento",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      2791736723
+    ]
+  }
+]

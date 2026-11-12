@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "tracks": {
+    "amb_selva": {
+      "file": "amb_selva.mp3",
+      "bus": "Ambience",
+      "loop": [
+        0.5,
+        30.593061
+      ],
+      "seconds": 31.093,
+      "bytes": 385681,
+      "lufs": -28.0,
+      "peak_db": -13.3
+    },
+    "amb_aves": {
+      "file": "amb_aves.mp3",
+      "bus": "Ambience",
+      "loop": [
+        0.5,
+        27.928571
+      ],
+      "seconds": 28.429,
+      "bytes": 163601,
+      "lufs": -28.0,
+      "peak_db": -12.9
+    },
+    "amb_insectos": {
+      "file": "amb_insectos.mp3",
+      "bus": "Ambience",
+      "loop": [
+        0.5,
+        25.577551
+      ],
+      "seconds": 26.078,
+      "bytes": 285810,
+      "lufs": -28.1,
+      "peak_db": -11.6
+    },
+    "amb_viento": {
+      "file": "amb_viento.mp3",
+      "bus": "Ambience",
+      "loop": [
+        0.5,
+        31.846939
+      ],
+      "seconds": 32.347,
+      "bytes": 288613,
+      "lufs": -27.8,
+      "peak_db": -10.5
+    },
+    "amb_agua": {
+      "file": "amb_agua.mp3",
+      "bus": "Ambience",
+      "loop": [
+        0.5,
+        24.010204
+      ],
+      "seconds": 24.51,
+      "bytes": 313879,
+      "lufs": -28.0,
+      "peak_db": -13.9
+    },
+    "amb_cenote": {
+      "file": "amb_cenote.mp3",
+      "bus": "Ambience",
+      "loop": [
+        0.5,
+        32.5
+      ],
+      "seconds": 33.0,
+      "bytes": 290891,
+      "lufs": -28.0,
+      "peak_db": -11.4
+    },
+    "amb_ruinas": {
+      "file": "amb_ruinas.mp3",
+      "bus": "Ambience",
+      "loop": [
+        0.5,
+        28.712245
+      ],
+      "seconds": 29.212,
+      "bytes": 246576,
+      "lufs": -28.1,
+      "peak_db": -14.9
+    },
+    "amb_tormenta": {
+      "file": "amb_tormenta.mp3",
+      "bus": "Ambience",
+      "loop": [
+        0.5,
+        27.249388
+      ],
+      "seconds": 27.749,
+      "bytes": 416841,
+      "lufs": -27.8,
+      "peak_db": -8.0
+    },
+    "amb_energia": {
+      "file": "amb_energia.mp3",
+      "bus": "Ambience",
+      "loop": [
+        0.5,
+        23.069796
+      ],
+      "seconds": 23.57,
+      "bytes": 227150,
+      "lufs": -28.0,
+      "peak_db": -19.0
+    },
+    "amb_brasero": {
+      "file": "amb_brasero.mp3",
+      "bus": "Ambience",
+      "loop": [
+        0.5,
+        10.53102
+      ],
+      "seconds": 11.031,
+      "bytes": 123550,
+      "lufs": -27.9,
+      "peak_db": -13.1
+    }
+  }
+}

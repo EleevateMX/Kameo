@@ -1,36 +1,46 @@
 #!/usr/bin/env python3
 """Audio provisional de ALUX, sintetizado por código.
 
-Genera todos los `.wav` de `game/assets/audio/` (mono, 22050 Hz, 16 bits PCM) solo con
-numpy y el módulo `wave` de la biblioteca estándar. No usa grabaciones ni muestras de
-nadie: todo sale de senos, ruido filtrado y envolventes, con semillas fijas, así que el
+Genera todos los `.wav` de `game/assets/audio/` (mono, 16 bits PCM; 22050 Hz, salvo los
+efectos de la Alpha 0.3.1 que necesitan brillo, a 44100 Hz) solo con numpy y el módulo
+`wave` de la biblioteca estándar. No usa grabaciones ni muestras de nadie: todo sale de
+senos, ruido filtrado, envolventes y modelos sencillos, con semillas fijas, así que el
 resultado es original, libre de licencias y reproducible byte a byte.
 
 Uso:
-    python art/audio/gen_audio.py              # genera todo y lo comprueba
-    python art/audio/gen_audio.py --check      # solo comprueba lo que hay en disco
-    python art/audio/gen_audio.py --compacto   # variante con bucles más cortos, ver README
-    python art/audio/gen_audio.py --salida DIR # escribe en otra carpeta
+    python art/audio/gen_audio.py                 # genera todo y lo comprueba
+    python art/audio/gen_audio.py --check         # solo comprueba lo que hay en disco
+    python art/audio/gen_audio.py --compacto      # variante con bucles más cortos, ver README
+    python art/audio/gen_audio.py --salida DIR    # escribe en otra carpeta
+    python art/audio/gen_audio.py --solo alfa031  # solo una capa o unos nombres («ui_*,chispa_?»)
+    python art/audio/gen_audio.py --manifiesto    # además escribe art/audio/manifiesto_efectos.json
 """
 
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import hashlib
+import json
 import sys
 import wave
 import zlib
+from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
 
-SR = 22050  # frecuencia de muestreo
+SR = 22050  # frecuencia de muestreo (la de todo lo anterior a la Alpha 0.3.1; ver `con_sr`)
+SR_ALTO = 44100  # para los efectos de la 0.3.1 que necesitan brillo (interfaz, luz, escudo…)
 SEMILLA = 20261111  # semilla base; cada sonido deriva la suya de su nombre
 DOS_PI = 2.0 * np.pi
 RAIZ = Path(__file__).resolve().parents[2]
 SALIDA = RAIZ / "game" / "assets" / "audio"
 LIMITE_BYTES = 2.2e6  # presupuesto pedido para la primera capa (2.2 MB)
 LIMITE_JEFE = 3.0e6  # objetivo para lo añadido con el jefe Nojoch Tuunich (~3 MB)
+LIMITE_031 = 2.5e6  # presupuesto firme para los efectos añadidos en la Alpha 0.3.1 (2.5 MB)
+PREVIO_031 = 0.003  # silencio delante de cada efecto de la 0.3.1 para no recortar su ataque (s)
+MANIFIESTO = RAIZ / "art" / "audio" / "manifiesto_efectos.json"
 
 
 # --------------------------------------------------------------------------------------
@@ -40,6 +50,23 @@ LIMITE_JEFE = 3.0e6  # objetivo para lo añadido con el jefe Nojoch Tuunich (~3 
 def gen(nombre: str) -> np.random.Generator:
     """Generador aleatorio propio de cada sonido (independiente del orden de ejecución)."""
     return np.random.default_rng([SEMILLA, zlib.crc32(nombre.encode("utf-8"))])
+
+
+@contextmanager
+def con_sr(hz: int):
+    """Cambia la frecuencia de muestreo mientras se sintetiza o se mide un sonido.
+
+    Todas las utilidades leen `SR` en el momento de llamarlas, así que basta con cambiar
+    la variable global; al salir vuelve a su valor. Lo anterior a la 0.3.1 se genera
+    siempre a 22050 Hz y no cambia.
+    """
+    global SR
+    antes = SR
+    SR = int(hz)
+    try:
+        yield
+    finally:
+        SR = antes
 
 
 def n_(seg: float) -> int:
@@ -1836,6 +1863,865 @@ def mus_recuerdo(compases):
 
 
 # --------------------------------------------------------------------------------------
+# Alpha 0.3.1: piezas comunes (timbres con aire, madera hueca y voz de felino)
+# --------------------------------------------------------------------------------------
+# Los efectos de esta capa que necesitan brillo se sintetizan a 44100 Hz (ver `con_sr` y
+# la columna de frecuencia de `EFECTOS_031`); el resto, a 22050 Hz como los anteriores.
+# Solo van a 44.1 kHz los que tienen contenido real por encima de 11 kHz (destellos, aire,
+# parciales altos de campana); los cálidos o apagados no ganarían nada y pesarían el doble.
+
+# Campana con aire: los parciales de siempre y cuatro más, muy agudos y breves, que solo
+# caben enteros a 44.1 kHz (a 22.05 kHz los que pasan del techo no se añaden)
+PARC_AIRE = PARC_CAMPANA + ((6.8, 0.075, 0.18), (8.3, 0.05, 0.13), (10.1, 0.035, 0.10), (12.6, 0.022, 0.08))
+
+
+def campana_clara(f, seg, tau=0.35, ataque=0.003, parciales=PARC_AIRE, techo=15000.0):
+    """Como `campana`, con el techo de parciales configurable (sube con la frecuencia de muestreo)."""
+    n = n_(seg)
+    t = t_(n)
+    techo = min(techo, 0.42 * SR)
+    y = np.zeros(n)
+    for razon, amp, kt in parciales:
+        if f * razon < techo:
+            y += amp * np.sin(DOS_PI * f * razon * t + razon) * np.exp(-t / (tau * kt))
+    return y * rampa(n, ataque) * salida(n, min(0.05, seg / 3))
+
+
+def lengueta(f, seg, g, brillo=1.0, aire=1.0):
+    """Kalimba con más aire: la de siempre, un parcial alto y el chasquido de la uña."""
+    y = kalimba(f, seg, g, brillo)
+    n = len(y)
+    t = t_(n)
+    tau = 0.55 * (261.6 / f) ** 0.5
+    if 9.2 * f < 0.42 * SR:
+        y += 0.05 * aire * brillo * np.sin(DOS_PI * 9.2 * f * t) * np.exp(-t / (0.05 * tau)) * rampa(n, 0.001)
+    k = min(n, n_(0.012))
+    una = ruido(k, g, 3500, min(12000.0, 0.42 * SR)) * np.exp(-t[:k] / 0.002) * rampa(k, 0.0006)
+    y[:k] += 0.15 * aire * una
+    return y
+
+
+def apagar(y, tau):
+    """Apaga antes una nota (caída exponencial añadida) para que quepa entera en un efecto corto."""
+    return y * np.exp(-t_(len(y)) / tau)
+
+
+def madera(f, g, seg=0.12, hueco=1.0, seco=1.0):
+    """Toque de madera hueca: tres modos de tabla, la cavidad que resuena debajo y el golpe."""
+    y = modos(((f, 1.0, 0.030 * seco), (2.71 * f, 0.45, 0.014 * seco), (5.15 * f, 0.20, 0.007 * seco)), seg)
+    if hueco:
+        poner(y, modos(((0.52 * f, 0.5 * hueco, 0.045 * seco),), seg), 0.0, 1.0)
+    poner(y, rafaga(min(seg, 0.02), g, 1200, 5000, tau=0.0025, ataque=0.0005), 0.0, 0.35)
+    return y
+
+
+def formantes(x, lista):
+    """Resonancias en paralelo (fase cero): cada formante es (centro en Hz, ancho en Hz, ganancia)."""
+    n = len(x)
+    m = 1024
+    xx = np.concatenate([np.zeros(m), x, np.zeros(m)])
+    f = np.fft.rfftfreq(len(xx), 1.0 / SR)
+    h = np.zeros_like(f)
+    for fc, ancho, gan in lista:
+        h += gan / (1.0 + ((f - fc) / (0.5 * ancho)) ** 2)
+    return np.fft.irfft(np.fft.rfft(xx) * h, len(xx))[m:m + n]
+
+
+def voz_ronca(n, g, f0, aspereza=0.6, temblor=0.04, sub=0.5, soplo=0.3, pulso_hz=27.0):
+    """Fuente de un gruñido (RMS 1): modelo sencillo de cuerdas vocales grandes.
+
+    Tren de pulsos grave (diente de sierra limitado en banda) con la altura inestable, un
+    subarmónico a media frecuencia, la aspereza de un gruñido (la amplitud se cierra unas
+    27 veces por segundo, de forma irregular) y soplo entre pulso y pulso. Es síntesis
+    pura: no parte de ninguna grabación de un animal.
+    """
+    f = np.broadcast_to(np.asarray(f0, dtype=float), (n,)) * (1.0 + temblor * lento(n, g, 4.0, 30.0))
+    w = fase_de(f)
+    fmax = float(np.max(f))
+    y = np.zeros(n)
+    k = 1
+    while k * fmax < 0.40 * SR and k <= 48:
+        y += np.sin(k * w) / k
+        k += 1
+    s = np.zeros(n)
+    k = 1
+    while 0.5 * k * fmax < 0.40 * SR and k <= 64:
+        s += np.sin(0.5 * k * w + 0.7) / k
+        k += 1
+    y += sub * s * np.clip(0.6 + 0.5 * lento(n, g, 2.0, 12.0), 0.0, None)
+    cierre = 0.5 + 0.5 * np.sin(fase_de(pulso_hz * (1.0 + 0.15 * lento(n, g, 1.0, 6.0))))
+    y *= 1.0 - aspereza * cierre ** 2
+    y += soplo * rms(y) * ruido(n, g, 250, 5000, color=1.0) * (0.55 + 0.45 * np.sin(w))
+    return y / (rms(y) + 1e-12)
+
+
+# Formantes de una garganta grande (más graves que los de una voz humana): boca abierta y cerrada
+_FORM_ABIERTA = ((330.0, 150.0, 1.0), (780.0, 220.0, 0.85), (1350.0, 320.0, 0.45),
+                 (2300.0, 450.0, 0.18), (3200.0, 600.0, 0.07))
+_FORM_CERRADA = ((250.0, 120.0, 1.0), (560.0, 180.0, 0.60), (1100.0, 280.0, 0.22), (2000.0, 400.0, 0.07))
+
+
+def rugido(n, g, f0, abre, aspereza=0.6, soplo=0.3, pulso_hz=27.0):
+    """Rugido de felino (RMS 1): la fuente ronca pasa por dos juegos de formantes.
+
+    `abre` (0..1, número o array) abre la boca: mezcla los formantes cerrados y los abiertos.
+    """
+    fuente = voz_ronca(n, g, f0, aspereza=aspereza, soplo=soplo, pulso_hz=pulso_hz)
+    a = np.broadcast_to(np.asarray(abre, dtype=float), (n,))
+    y = a * formantes(fuente, _FORM_ABIERTA) + (1.0 - a) * formantes(fuente, _FORM_CERRADA)
+    return y / (rms(y) + 1e-12)
+
+
+# --------------------------------------------------------------------------------------
+# Alpha 0.3.1: personaje
+# --------------------------------------------------------------------------------------
+
+def paso_hierba(k):
+    """Paso sobre hierba y hojas: dos roces suaves (talón y punta) y briznas que crujen; sin golpe."""
+    g = gen(f"paso_hierba_{k + 1}")
+    y = np.zeros(n_(0.18))
+    centro = (2600.0, 3200.0, 2200.0)[k]
+    sep = (0.055, 0.045, 0.065)[k]
+    for t0, d, gan, fc in ((0.0, 0.10, 1.0, centro), (sep, 0.115, 0.75, 1.25 * centro)):
+        n = n_(d)
+        u = np.arange(n) / n
+        roce = ruido(n, g, 0.45 * fc, 1.9 * fc, color=1.0) * np.sin(np.pi * u ** 0.55) ** 2
+        roce *= np.clip(1.0 + 0.7 * lento(n, g, 40.0, 160.0), 0.0, None)  # granulado de las hojas
+        poner(y, roce, t0, gan)
+    n = n_(0.13)  # la hierba cede: ruido grave muy flojo, sin tono ni pegada
+    u = np.arange(n) / n
+    poner(y, ruido(n, g, 180, 700, color=1.5) * np.sin(np.pi * u ** 0.7) ** 2, 0.0, 0.35)
+    for _ in range((5, 7, 4)[k]):  # briznas que se parten
+        t0 = g.uniform(0.01, 0.13)
+        fc = g.uniform(2500.0, 6000.0)
+        d = g.uniform(0.004, 0.010)
+        poner(y, rafaga(d, g, 0.7 * fc, 1.5 * fc, tau=d / 3.0, ataque=0.0008), t0, g.uniform(0.15, 0.40))
+    return y
+
+
+def paso_piedra(k):
+    """Paso sobre losa: toque seco de la suela contra la piedra y un poco de arenilla."""
+    g = gen(f"paso_piedra_{k + 1}")
+    y = np.zeros(n_(0.08))
+    f = (640.0, 760.0, 560.0)[k]
+    poner(y, rafaga(0.03, g, 900, 5500, tau=(0.0035, 0.0030, 0.0045)[k], ataque=0.0004), 0.0, 1.0)
+    poner(y, modos(((f, 0.8, 0.012), (1.83 * f, 0.55, 0.008), (3.4 * f, 0.30, 0.005)), 0.07), 0.0, 1.0)
+    poner(y, glis(230, 105, 0.06) * env_perc(n_(0.06), 0.014), 0.0, 0.5)  # peso del pie
+    poner(y, rafaga(0.06, g, 500, 2500, tau=0.014, ataque=0.004, color=1.0), (0.012, 0.009, 0.015)[k], 0.30)
+    return y
+
+
+def paso_agua(k):
+    """Paso en agua somera: el pie entra (plof corto), salpica y deja unas burbujas."""
+    g = gen(f"paso_agua_{k + 1}")
+    y = np.zeros(n_(0.30))
+    f = (260.0, 215.0)[k]
+    poner(y, glis(f, 0.55 * f, 0.07) * env_perc(n_(0.07), 0.02, 0.003), 0.0, 0.8)
+    poner(y, rafaga(0.10, g, 250, 1500, tau=0.022, ataque=0.003, color=1.0), 0.0, 0.8)
+    n = n_(0.25)
+    rocio = ruido(n, g, 1500, 6500, color=1.0) * env_perc(n, (0.060, 0.075)[k], 0.02)
+    rocio *= np.clip(1.0 + 0.9 * lento(n, g, 15, 60), 0.0, None)
+    poner(y, rocio, 0.015, 0.55)
+    for _ in range((3, 4)[k]):
+        t0 = g.uniform(0.05, 0.20)
+        f0 = g.uniform(600.0, 1300.0)
+        d = g.uniform(0.02, 0.04)
+        gota = glis(f0, f0 * g.uniform(1.5, 2.2), d) * env_perc(n_(d), d / 3.0, 0.002)
+        poner(y, gota, t0, g.uniform(0.25, 0.5) * (1.0 - t0 / 0.3))
+    return y
+
+
+def recoger():
+    """Recoger un objeto: una pulsación brillante (Do) con su octava y un destello que sube."""
+    g = gen("recoger")
+    y = np.zeros(n_(0.35))
+    poner(y, madera(1900.0, g, 0.03, hueco=0.0, seco=0.4), 0.0, 0.25)  # el objeto roza la mano
+    poner(y, apagar(lengueta(midi(84), 0.33, g, brillo=0.8), 0.10), 0.0, 1.0)
+    poner(y, campana_clara(midi(96), 0.30, tau=0.09, ataque=0.002), 0.012, 0.35)
+    poner(y, campana_clara(midi(91), 0.25, tau=0.06, ataque=0.002), 0.050, 0.20)
+    m = n_(0.2)
+    v = np.arange(m) / m
+    poner(y, ruido_barrido(m, g, 3000.0 * 3.0 ** v, ancho=0.5, f_max=14000.0) * np.sin(np.pi * v) ** 2, 0.02, 0.10)
+    _destellos(y, g, 0.05, 0.26, 6, 6000, 13000, 0.18, tau=0.006)
+    return reverb(y, g, t60=0.35, mezcla=0.12)
+
+
+def interactuar():
+    """Tocar o activar algo: toque de madera hueca y una nota de kalimba (Re)."""
+    g = gen("interactuar")
+    y = np.zeros(n_(0.30))
+    poner(y, madera(392.0, g, 0.14, hueco=1.0), 0.0, 1.0)
+    poner(y, apagar(kalimba(midi(74), 0.29, g, brillo=0.8), 0.12), 0.008, 0.65)
+    n = n_(0.25)
+    poner(y, np.sin(DOS_PI * midi(62) * t_(n)) * env_perc(n, 0.07, 0.004), 0.008, 0.25)
+    return reverb(y, g, t60=0.3, mezcla=0.10)
+
+
+def dano_fuerte():
+    """Golpe fuerte recibido: porrazo grave con chasquido, rebote y un quejido que cae más hondo que en `dano`."""
+    g = gen("dano_fuerte")
+    y = np.zeros(n_(0.55))
+    poner(y, glis(150, 44, 0.42) * env_perc(n_(0.42), 0.11, 0.002), 0.0, 1.0)
+    poner(y, rafaga(0.05, g, 900, 4500, tau=0.007, ataque=0.0005), 0.0, 0.8)  # chasquido del impacto
+    poner(y, rafaga(0.22, g, 160, 1100, tau=0.045, color=1.0), 0.0, 0.9)  # cuerpo
+    poner(y, glis(105, 50, 0.20) * env_perc(n_(0.20), 0.05, 0.004), 0.11, 0.45)  # rebote
+    n = n_(0.48)
+    u = np.arange(n) / n
+    w = fase_de(370.0 * (165.0 / 370.0) ** (u ** 0.8))
+    tono = (np.sin(w) + 0.3 * np.sin(2 * w) + np.sin(3 * w) / 9.0) * (0.8 + 0.2 * np.sin(DOS_PI * 21.0 * t_(n)))
+    poner(y, tono * env_perc(n, 0.17, 0.010) * salida(n, 0.06), 0.03, 0.7)
+    poner(y, rafaga(0.50, g, 45, 200, tau=0.16, ataque=0.02, color=2.0), 0.0, 0.4)
+    return saturar(y, 1.8)
+
+
+def aliado_caido():
+    """Un compañero cae: dos notas que bajan (Fa, Re), tristes y cortas, con cuerpo medio para oírse de lejos."""
+    g = gen("aliado_caido")
+    y = np.zeros(n_(0.8))
+    for t0, m, d, cae, gan in ((0.0, 77, 0.30, 0.0, 1.0), (0.26, 74, 0.50, 0.7, 0.95)):
+        poner(y, flauta(midi(m), d, g, vib=0.004, ataque=0.025, rel=0.15, cae=cae), t0, 0.42 * gan)
+        poner(y, kalimba(midi(m), 0.5, g), t0, 0.9 * gan)
+        poner(y, kalimba(midi(m - 12), 0.5, g, brillo=0.5), t0, 0.35 * gan)
+    poner(y, tambor(88, 0.3, g, tau=0.09, barrido=0.5, piel=0.2, banda=(200, 1200)), 0.0, 0.35)  # golpe sordo
+    return reverb(y, g, t60=0.6, mezcla=0.2)
+
+
+def aliado_revive():
+    """Un compañero vuelve: dos notas que suben (Re, La) con brillo, aire que asciende y destellos."""
+    g = gen("aliado_revive")
+    y = np.zeros(n_(0.8))
+    for t0, m, d, gan in ((0.0, 74, 0.45, 0.9), (0.20, 81, 0.58, 1.0)):
+        poner(y, lengueta(midi(m), 0.6, g), t0, 0.8 * gan)
+        poner(y, campana_clara(midi(m), d, tau=0.20, ataque=0.004), t0, 0.6 * gan)
+        poner(y, campana_clara(midi(m + 12), 0.8 * d, tau=0.12, ataque=0.004), t0 + 0.01, 0.25 * gan)
+    n = n_(0.5)
+    u = np.arange(n) / n
+    aire = ruido_barrido(n, g, 1500.0 * (7000.0 / 1500.0) ** u, ancho=0.5, f_max=14000.0)
+    poner(y, aire * np.sin(np.pi * u) ** 1.5, 0.0, 0.14)
+    _destellos(y, g, 0.24, 0.62, 8, 5000, 12500, 0.16, tau=0.007)
+    return reverb(y, g, t60=0.6, mezcla=0.2)
+
+
+# --------------------------------------------------------------------------------------
+# Alpha 0.3.1: alux
+# --------------------------------------------------------------------------------------
+
+def chispa_variante(k):
+    """Variantes de `chispa` para las ráfagas: el mismo gorjeo vítreo, con otro tono y otros destellos.
+
+    k = 0 → `chispa_2` (dos semitonos arriba, sube más deprisa); k = 1 → `chispa_3` (tres abajo).
+    """
+    g = gen(f"chispa_{k + 2}")
+    tono = (2.0 ** (2.0 / 12.0), 2.0 ** (-3.0 / 12.0))[k]
+    y = np.zeros(n_(0.3))
+    n = n_((0.13, 0.15)[k])
+    u = np.arange(n) / n
+    w = fase_de(850.0 * tono * 4.0 ** (u ** (0.65, 0.95)[k]))
+    poner(y, (np.sin(w) + 0.3 * np.sin(2 * w)) * rampa(n, 0.004) * np.exp(-t_(n) / 0.07) * salida(n, 0.03), 0.0, 1.0)
+    retraso = (0.85, 1.15)[k]
+    for f, amp, tau, t0 in ((2350, 0.50, 0.070, 0.030), (3520, 0.35, 0.055, 0.045),
+                            (4700, 0.25, 0.045, 0.060), (5900, 0.12, 0.035, 0.070)):
+        m = n_(5.0 * tau)
+        poner(y, np.sin(DOS_PI * f * tono * t_(m)) * env_perc(m, tau, 0.002), retraso * t0, (0.8, 1.0)[k] * amp)
+    _destellos(y, g, (0.06, 0.08)[k], 0.26, (8, 6)[k], 3000, 6500, 0.30)
+    poner(y, rafaga(0.05, g, 3000, 7000, tau=0.010), 0.0, 0.25)
+    return y
+
+
+def luz_alux():
+    """Estallido de luz: golpe de aire al encenderse y una campana cálida (Re) que se hincha, con halo agudo."""
+    g = gen("luz_alux")
+    y = np.zeros(n_(0.6))
+    n = n_(0.58)
+    t = t_(n)
+    u = np.arange(n) / n
+    hincha = np.sin(0.5 * np.pi * np.clip(t / 0.17, 0.0, 1.0)) ** 2 * np.exp(-np.clip(t - 0.17, 0.0, None) / 0.11)
+    cuerpo = np.zeros(n)
+    for m, gan in ((62, 1.0), (69, 0.7), (74, 0.8), (77, 0.45), (81, 0.3)):  # Re, La, Re, Fa, La
+        w = DOS_PI * midi(m) * t
+        cuerpo += gan * (np.sin(w + m) + 0.25 * np.sin(2 * w) + 0.08 * np.sin(3 * w))
+    poner(y, cuerpo * hincha * salida(n, 0.08), 0.0, 0.36)
+    poner(y, rafaga(0.06, g, 1500, 9000, tau=0.010, ataque=0.0008), 0.0, 0.40)  # se enciende
+    poner(y, lengueta(midi(74), 0.4, g, brillo=0.7), 0.0, 0.45)
+    poner(y, campana_clara(midi(74), 0.57, tau=0.17, ataque=0.15), 0.0, 1.0)  # la campana entra hinchándose
+    poner(y, campana_clara(midi(81), 0.50, tau=0.14, ataque=0.16), 0.02, 0.55)
+    poner(y, campana_clara(midi(86), 0.42, tau=0.11, ataque=0.12), 0.07, 0.38)
+    halo = ruido_barrido(n, g, 3500.0 * (9500.0 / 3500.0) ** u, ancho=0.6, f_max=14000.0)
+    poner(y, halo * hincha, 0.0, 0.10)
+    _destellos(y, g, 0.17, 0.50, 8, 5500, 13000, 0.14, tau=0.007)
+    return reverb(y, g, t60=0.5, mezcla=0.18)
+
+
+def escudo_alux():
+    """Escudo que se levanta: soplido que sube, la cúpula vítrea que se cierra y un tono sostenido breve (Re y La)."""
+    g = gen("escudo_alux")
+    y = np.zeros(n_(0.7))
+    n = n_(0.34)
+    u = np.arange(n) / n
+    sube = ruido_barrido(n, g, 450.0 * (5200.0 / 450.0) ** (u ** 0.9), ancho=0.6, f_max=12000.0)
+    poner(y, sube * rampa(n, 0.008) * (0.30 + 0.70 * u ** 1.3) * salida(n, 0.05), 0.0, 0.75)
+    poner(y, glis(147, 294, 0.33) * rampa(n_(0.33), 0.01) * np.sin(np.pi * np.arange(n_(0.33)) / n_(0.33)) ** 0.8,
+          0.0, 0.40)  # el cuerpo sube una octava
+    poner(y, rafaga(0.03, g, 1800, 8000, tau=0.004, ataque=0.0005), 0.0, 0.30)  # arranque nítido
+    poner(y, campana_clara(midi(86), 0.12, tau=0.03, ataque=0.001, parciales=PARC_CRISTAL), 0.0, 0.25)
+    tc = 0.30  # la cúpula se cierra
+    poner(y, rafaga(0.04, g, 2500, 9000, tau=0.006, ataque=0.0005), tc, 0.35)
+    for m, gan, desaf in ((74, 1.0, 0.0), (74, 0.6, 0.006), (81, 0.7, 0.0), (86, 0.3, -0.004)):
+        poner(y, campana_clara(midi(m) * (1.0 + desaf), 0.39, tau=0.30, ataque=0.010, parciales=PARC_CRISTAL),
+              tc, gan)
+    k = n_(0.39)  # tono sostenido: no decae como una campana, se mantiene y bate despacio
+    tk = t_(k)
+    sost = np.zeros(k)
+    for m, gan, desaf in ((62, 0.5, 0.0), (74, 1.0, 0.0), (74, 0.7, 0.007), (81, 0.6, 0.0), (81, 0.4, -0.006)):
+        sost += gan * np.sin(DOS_PI * midi(m) * (1.0 + desaf) * tk + m)
+    poner(y, sost * env_asr(k, 0.03, 0.22), tc, 0.30)
+    _destellos(y, g, tc + 0.02, 0.62, 6, 5500, 13000, 0.14, tau=0.006)
+    return reverb(y, g, t60=0.5, mezcla=0.18)
+
+
+def escudo_golpe():
+    """El escudo absorbe un golpe: «dong» vítreo amortiguado (Re grave) que cede un poco de tono."""
+    g = gen("escudo_golpe")
+    y = np.zeros(n_(0.4))
+    n = n_(0.38)
+    t = t_(n)
+    cede = 2.0 ** (0.7 * np.exp(-t / 0.035) / 12.0)  # la cúpula se hunde y vuelve: el tono cae al asentarse
+    w = fase_de(midi(62) * cede)
+    dong = np.zeros(n)
+    for razon, amp, tau in ((1.0, 1.0, 0.10), (2.76, 0.45, 0.05), (5.40, 0.22, 0.028), (8.93, 0.08, 0.014)):
+        dong += amp * np.sin(razon * w + razon) * np.exp(-t / tau)
+    poner(y, dong * rampa(n, 0.002) * salida(n, 0.05), 0.0, 1.0)
+    poner(y, glis(125, 70, 0.12) * env_perc(n_(0.12), 0.03, 0.002), 0.0, 0.6)  # el golpe que absorbe
+    poner(y, rafaga(0.05, g, 400, 2600, tau=0.008, ataque=0.0006, color=1.0), 0.0, 0.5)
+    m = n_(0.16)
+    v = np.arange(m) / m
+    onda = ruido_barrido(m, g, 6500.0 * (1600.0 / 6500.0) ** v, ancho=0.5)
+    poner(y, onda * env_perc(m, 0.05, 0.004), 0.004, 0.10)  # la onda recorre la cúpula
+    _destellos(y, g, 0.02, 0.2, 4, 4000, 7500, 0.06, tau=0.005)
+    return reverb(y, g, t60=0.35, mezcla=0.12)
+
+
+def apoyo_alux():
+    """Apoyo a un compañero: tres notas de kalimba que suben (Do, Fa, La) con su octava y destellos."""
+    g = gen("apoyo_alux")
+    y = np.zeros(n_(0.8))
+    for i, m in enumerate((72, 77, 81)):
+        t0 = 0.13 * i
+        poner(y, lengueta(midi(m), 0.7, g), t0, 0.8 + 0.1 * i)
+        poner(y, campana_clara(midi(m + 12), 0.45, tau=0.14, ataque=0.003), t0 + 0.006, 0.28)
+    n = n_(0.62)
+    u = np.arange(n) / n
+    calor = np.sin(DOS_PI * midi(53) * t_(n)) + 0.7 * np.sin(DOS_PI * midi(60) * t_(n) + 1.0)
+    poner(y, calor * np.sin(np.pi * u ** 0.6) ** 1.5, 0.0, 0.16)
+    _destellos(y, g, 0.30, 0.68, 9, 5000, 12500, 0.17, tau=0.007)
+    return reverb(y, g, t60=0.6, mezcla=0.2)
+
+
+# --------------------------------------------------------------------------------------
+# Alpha 0.3.1: Balam
+# --------------------------------------------------------------------------------------
+
+def balam_rugido():
+    """Rugido de Balam: gruñido con formantes que se abre y se hunde, grave y con cuerpo."""
+    g = gen("balam_rugido")
+    y = np.zeros(n_(1.0))
+    n = n_(0.98)
+    u = np.arange(n) / n
+    f0 = 82.0 + 34.0 * np.sin(np.pi * np.clip(u / 0.75, 0.0, 1.0)) ** 1.2 - 22.0 * u ** 2  # 82 → 116 → 60 Hz
+    abre = np.sin(np.pi * u ** 0.7) ** 0.8
+    env = rampa(n, 0.05) * (0.32 + 0.68 * abre ** 1.3) * salida(n, 0.25)
+    # la aspereza se hace más lenta al final: el rugido acaba en un gruñido gutural
+    poner(y, rugido(n, g, f0, abre, aspereza=0.65, pulso_hz=29.0 - 11.0 * u ** 2) * env, 0.0, 1.0)
+    pecho = ruido(n, g, 45, 170, color=2.0) * (0.6 + 0.4 * np.sin(fase_de(26.0 + 6.0 * u)))
+    poner(y, pecho * env, 0.0, 0.35)
+    aliento = ruido_barrido(n, g, 700.0 * (1800.0 / 700.0) ** abre, ancho=0.8, color=1.5)
+    poner(y, aliento * env * abre, 0.0, 0.18)
+    poner(y, rafaga(0.06, g, 300, 2200, tau=0.012, color=1.0), 0.0, 0.25)  # arranque
+    return saturar(y, 1.5)
+
+
+def balam_grunido():
+    """Gruñido corto de Balam (al transformarse): boca casi cerrada, áspero, cae de tono."""
+    g = gen("balam_grunido")
+    y = np.zeros(n_(0.45))
+    n = n_(0.44)
+    t = t_(n)
+    u = np.arange(n) / n
+    abre = 0.55 * np.sin(np.pi * u ** 0.6)
+    env = rampa(n, 0.03) * np.exp(-np.clip(t - 0.14, 0.0, None) / 0.20) * salida(n, 0.10)
+    poner(y, rugido(n, g, 94.0 * (64.0 / 94.0) ** u, abre, aspereza=0.8, soplo=0.2) * env, 0.0, 1.0)
+    poner(y, ruido(n, g, 45, 170, color=2.0) * env, 0.0, 0.35)
+    poner(y, rafaga(0.05, g, 250, 1800, tau=0.010, color=1.0), 0.0, 0.25)
+    return saturar(y, 1.5)
+
+
+# Tajos de las variantes de `garras`: (inicio, banda de arriba, banda de abajo, ganancia)
+_TAJOS = (((0.0, 4600, 1500, 0.90), (0.045, 3900, 1250, 1.00), (0.105, 5000, 1700, 0.80)),
+          ((0.0, 3700, 1100, 1.00), (0.060, 4400, 1400, 0.85), (0.110, 4900, 1600, 0.95)))
+
+
+def garras_variante(k):
+    """Variantes de `garras`: tres tajos de aire con otro orden de alturas y otro compás."""
+    g = gen(f"garras_{k + 2}")
+    y = np.zeros(n_(0.25))
+    for t0, fa, fb, gan in _TAJOS[k]:
+        n = n_((0.10, 0.12)[k])
+        u = np.arange(n) / n
+        tajo = ruido_barrido(n, g, fa * (fb / fa) ** u, ancho=0.45, color=1.5)
+        poner(y, tajo * env_perc(n, (0.025, 0.031)[k], 0.004), t0, gan)
+    poner(y, rafaga(0.2, g, 200, 900, tau=(0.045, 0.055)[k], ataque=0.01, color=1.0), 0.0, 0.5)
+    return y
+
+
+def balam_golpe():
+    """La garra impacta: golpe con cuerpo y una rasgadura que baja."""
+    g = gen("balam_golpe")
+    y = np.zeros(n_(0.35))
+    poner(y, glis(190, 62, 0.30) * env_perc(n_(0.30), 0.07, 0.002), 0.0, 1.0)
+    poner(y, rafaga(0.14, g, 220, 1600, tau=0.028, color=1.0), 0.0, 1.0)
+    poner(y, rafaga(0.04, g, 1500, 6000, tau=0.006, ataque=0.0005), 0.0, 0.7)
+    n = n_(0.20)
+    u = np.arange(n) / n
+    rasga = ruido_barrido(n, g, 4800.0 * (1100.0 / 4800.0) ** (u ** 0.7), ancho=0.5, color=1.0)
+    rasga *= np.clip(np.sin(fase_de(130.0 - 70.0 * u)), 0.0, 1.0) ** 1.5  # se rasga a tirones cada vez más lentos
+    poner(y, rasga * env_perc(n, 0.07, 0.003), 0.012, 0.9)
+    poner(y, rafaga(0.30, g, 50, 220, tau=0.10, ataque=0.015, color=2.0), 0.0, 0.4)
+    return saturar(y, 2.0)
+
+
+def balam_especial():
+    """Ataque especial de Balam: rugido corto y, a los 0.38 s, la onda de choque (bombazo y anillo de aire que se abre)."""
+    g = gen("balam_especial")
+    y = np.zeros(n_(0.9))
+    n = n_(0.46)
+    u = np.arange(n) / n
+    abre = np.sin(np.pi * u ** 0.5) ** 0.7
+    env = rampa(n, 0.03) * (0.6 + 0.4 * abre) * salida(n, 0.12)
+    poner(y, rugido(n, g, 96.0 + 30.0 * np.sin(np.pi * u) - 10.0 * u, abre, aspereza=0.6) * env, 0.0, 0.8)
+    poner(y, ruido(n, g, 45, 170, color=2.0) * env, 0.0, 0.3)
+    poner(y, rafaga(0.05, g, 300, 2200, tau=0.010, color=1.0), 0.0, 0.2)
+    tq = 0.38  # onda de choque
+    poner(y, glis(125, 34, 0.50) * env_perc(n_(0.50), 0.15, 0.002), tq, 1.2)
+    poner(y, rafaga(0.10, g, 600, 5500, tau=0.014, ataque=0.0005), tq, 0.9)
+    poner(y, rafaga(0.35, g, 150, 1300, tau=0.07, color=1.0), tq, 1.0)
+    m = n_(0.48)
+    v = np.arange(m) / m
+    anillo = ruido_barrido(m, g, 2600.0 * (260.0 / 2600.0) ** (v ** 0.6), ancho=0.8, color=1.0, f_min=100.0)
+    poner(y, anillo * env_perc(m, 0.17, 0.010), tq + 0.01, 0.7)
+    poner(y, rafaga(0.50, g, 35, 160, tau=0.20, ataque=0.02, color=2.0), tq, 0.6)
+    return saturar(reverb(y, g, t60=0.5, mezcla=0.10), 2.0)
+
+
+# --------------------------------------------------------------------------------------
+# Alpha 0.3.1: enemigos (guardián de piedra y criatura corrompida)
+# --------------------------------------------------------------------------------------
+
+def enemigo_aparece():
+    """Un enemigo surge de la piedra corrompida: grieta, retumbo y zumbido oscuro que suben, y el golpe al salir."""
+    g = gen("enemigo_aparece")
+    y = np.zeros(n_(0.8))
+    n = n_(0.6)
+    u = np.arange(n) / n
+    sube = u ** 1.4
+    retumbo = ruido(n, g, 60, 500, color=1.5) * tirones(n, g, 10, 40)
+    poner(y, retumbo * (0.25 + 0.75 * sube) * salida(n, 0.03), 0.0, 1.1)
+    z = zumbido(n, g, 98.0 * 2.0 ** (6.0 * u / 12.0), trem=(8.0, 22.0), brillo=0.5)
+    poner(y, z * (0.2 + 0.8 * sube) * salida(n, 0.04), 0.0, 0.8)
+    poner(y, crujidos(0.6, g, 22, banda=(500.0, 3000.0), crece=0.8), 0.0, 0.7)
+    poner(y, chasquido(g, 0.38, grave=160.0), 0.0)  # la primera grieta, para que arranque nítido
+    ts = 0.58  # sale
+    poner(y, impacto_piedra(g, 0.21, 140, 70, tau=0.05, brillo=0.9), ts, 1.0)
+    escombros(y, g, ts + 0.03, 0.78, 7, gan=0.4)
+    return saturar(y, 1.6)
+
+
+def enemigo_dano():
+    """Un enemigo recibe daño: salta una lasca de piedra y suelta un quejido oscuro muy corto."""
+    g = gen("enemigo_dano")
+    y = np.zeros(n_(0.2))
+    poner(y, rafaga(0.04, g, 1200, 5500, tau=0.006, ataque=0.0005), 0.0, 0.9)
+    poner(y, modos(((410, 0.6, 0.030), (655, 0.45, 0.022), (1040, 0.3, 0.014)), 0.12), 0.0, 0.9)
+    n = n_(0.18)
+    u = np.arange(n) / n
+    z = zumbido(n, g, 233.0 * (150.0 / 233.0) ** u, trem=(30.0, 18.0), hondo=0.6, brillo=0.5)
+    poner(y, z * env_perc(n, 0.055, 0.004), 0.008, 0.55)
+    poner(y, glis(150, 80, 0.10) * env_perc(n_(0.10), 0.025), 0.0, 0.5)
+    return y
+
+
+def enemigo_purificado():
+    """Purificado: la corrupción (zumbido oscuro) se deshace hacia arriba como ceniza y queda una campanilla limpia (La, Re)."""
+    g = gen("enemigo_purificado")
+    y = np.zeros(n_(0.7))
+    n = n_(0.30)
+    u = np.arange(n) / n
+    z = zumbido(n, g, 147.0 * 2.0 ** (-4.0 * u / 12.0), trem=(20.0, 6.0), brillo=0.5)
+    poner(y, z * rampa(n, 0.004) * (1.0 - u) ** 1.5, 0.0, 0.5)
+    poner(y, rafaga(0.03, g, 800, 4000, tau=0.005, ataque=0.0005), 0.0, 0.35)
+    m = n_(0.40)
+    v = np.arange(m) / m
+    ceniza = ruido_barrido(m, g, 900.0 * (8000.0 / 900.0) ** v, ancho=0.5, f_max=13000.0)
+    ceniza *= np.sin(np.pi * v ** 0.6) ** 1.5 * np.clip(1.0 + 0.8 * lento(m, g, 20, 70), 0.0, None)
+    poner(y, ceniza, 0.02, 0.30)
+    tc = 0.20  # la campanilla
+    poner(y, campana_clara(midi(81), 0.49, tau=0.20, ataque=0.003), tc, 0.9)
+    poner(y, campana_clara(midi(86), 0.42, tau=0.16, ataque=0.003), tc + 0.07, 0.6)
+    poner(y, lengueta(midi(81), 0.4, g, brillo=0.6), tc, 0.35)
+    _destellos(y, g, tc + 0.05, 0.60, 7, 5500, 13000, 0.14, tau=0.006)
+    return reverb(y, g, t60=0.6, mezcla=0.2)
+
+
+def enemigo_paso():
+    """Movimiento de un enemigo: arrastre corto de piedra y el toque seco al asentarse."""
+    g = gen("enemigo_paso")
+    y = np.zeros(n_(0.25))
+    n = n_(0.17)
+    u = np.arange(n) / n
+    roce = ruido_barrido(n, g, 320.0 * (700.0 / 320.0) ** u, ancho=0.9, color=1.5, f_min=90.0, f_max=3500.0)
+    roce *= tirones(n, g, 18, 70, 1.6)
+    poner(y, roce * rampa(n, 0.012) * (0.5 + 0.5 * u) * salida(n, 0.03), 0.0, 0.32)
+    poner(y, ruido(n, g, 50, 200, color=2.0) * np.sin(np.pi * u) ** 1.2, 0.0, 0.15)
+    poner(y, impacto_piedra(g, 0.085, 170, 90, tau=0.02, brillo=0.6), 0.16, 0.9)
+    return y
+
+
+def guardian_llamada():
+    """Llamada del guardián de piedra: gemido grave que sube y se hunde, con el rechinar de sus bloques."""
+    g = gen("guardian_llamada")
+    y = np.zeros(n_(0.9))
+    n = n_(0.88)
+    u = np.arange(n) / n
+    f = 68.0 + 30.0 * np.sin(np.pi * u ** 0.8) ** 1.5 - 14.0 * u
+    env = rampa(n, 0.06) * (0.45 + 0.55 * np.sin(np.pi * u ** 0.8)) * salida(n, 0.25)
+    poner(y, gemido(n, g, f, ronco=2.4) * env, 0.0, 0.8)
+    poner(y, gemido(n, g, 2.0 * f, ronco=1.6) * env, 0.0, 0.30)  # la octava: se oye en altavoces pequeños
+    # rechinar: un tono estrecho de piedra contra piedra que pega y resbala
+    wr = fase_de(520.0 * (1.0 + 0.35 * np.sin(np.pi * u) ** 2) * (1.0 + 0.03 * lento(n, g, 8, 40)))
+    rech = (np.sin(wr) + 0.5 * np.sin(2.0 * wr + 1.0) + 0.3 * np.sin(3.1 * wr)) * tirones(n, g, 20, 80, 2.2)
+    rech += 0.6 * ruido(n, g, 400, 1800, orden=3) * tirones(n, g, 25, 90, 2.0)
+    poner(y, rech * rampa(n, 0.10) * np.sin(np.pi * u) ** 1.5, 0.0, 0.48)
+    poner(y, ruido(n, g, 40, 150, color=2.0) * env, 0.0, 0.25)
+    poner(y, chasquido(g, 0.35, grave=120.0), 0.0)  # arranque
+    return reverb(y, g, t60=0.5, mezcla=0.12)
+
+
+def guardian_ataque():
+    """Golpe del guardián: el brazo de piedra corta el aire y descarga el mazazo (a los 0.13 s), con cascotes.
+
+    `enemigo_golpe` es solo el impacto; este lleva delante el vuelo del brazo.
+    """
+    g = gen("guardian_ataque")
+    y = np.zeros(n_(0.5))
+    n = n_(0.14)
+    u = np.arange(n) / n
+    aire = ruido_barrido(n, g, 180.0 * (650.0 / 180.0) ** u, ancho=0.8, color=1.5, f_min=80.0, f_max=3000.0)
+    poner(y, aire * rampa(n, 0.006) * (0.15 + 0.85 * u ** 1.5) * salida(n, 0.012), 0.0, 0.45)
+    ti = 0.13
+    poner(y, impacto_piedra(g, 0.36, 128, 46, tau=0.085, brillo=1.0), ti, 1.0)
+    poner(y, modos(((270, 0.5, 0.05), (431, 0.4, 0.04), (695, 0.3, 0.028), (1210, 0.15, 0.016)), 0.2), ti, 0.9)
+    escombros(y, g, ti + 0.05, 0.47, 8, lo=600, hi=2400, gan=0.3, graves=0.2)
+    return saturar(y, 1.8)
+
+
+def criatura_llamada():
+    """Llamada de la criatura corrompida: castañeteo hueco que se acelera y un chirrido fino por debajo."""
+    g = gen("criatura_llamada")
+    y = np.zeros(n_(0.6))
+    # castañeteo: chasquidos huecos de 16 a 34 por segundo; uno de cada tres salta un tritono
+    t0 = 0.0
+    i = 0
+    while t0 < 0.50:
+        u = t0 / 0.50
+        f = 1150.0 * (1.0 + 0.25 * np.sin(np.pi * u)) * (2.0 ** 0.5 if i % 3 == 2 else 1.0) * g.uniform(0.97, 1.03)
+        grano = modos(((f, 1.0, 0.007), (1.52 * f, 0.5, 0.005), (0.5 * f, 0.4, 0.009)), 0.04)
+        poner(grano, rafaga(0.008, g, 1500, 4500, tau=0.0015, ataque=0.0004), 0.0, 0.4)
+        poner(y, grano, t0, (0.6 + 0.4 * np.sin(np.pi * u ** 0.7)) * g.uniform(0.75, 1.0))
+        t0 += g.uniform(0.9, 1.1) / (16.0 + 18.0 * u)
+        i += 1
+    n = n_(0.55)
+    t = t_(n)
+    v = np.arange(n) / n
+    w = fase_de(640.0 * (1.0 + 0.3 * np.sin(np.pi * v) ** 1.5) * (1.0 + 0.02 * np.sin(DOS_PI * 31.0 * t)))
+    chirrido = (np.sin(w) + 0.5 * np.sin(2.0 ** 0.5 * w) + 0.3 * np.sin(2 * w)) * (0.55 + 0.45 * np.sin(DOS_PI * 41.0 * t))
+    poner(y, chirrido * np.sin(np.pi * v ** 0.8) ** 1.5, 0.02, 0.30)
+    poner(y, ruido(n, g, 150, 600, color=1.5) * np.sin(np.pi * v) ** 1.5, 0.0, 0.20)  # cuerpo
+    return reverb(y, g, t60=0.35, mezcla=0.12)
+
+
+def criatura_ataque():
+    """Ataque de la criatura: dos arañazos muy rápidos y el chasquido de la mordida."""
+    g = gen("criatura_ataque")
+    y = np.zeros(n_(0.25))
+    for t0, fa, fb, gan in ((0.0, 3600, 1500, 0.8), (0.035, 4100, 1700, 0.9)):
+        n = n_(0.06)
+        u = np.arange(n) / n
+        poner(y, ruido_barrido(n, g, fa * (fb / fa) ** u, ancho=0.4, color=1.5) * env_perc(n, 0.016, 0.003), t0, gan)
+    tm = 0.085  # mordida
+    poner(y, modos(((720, 1.0, 0.016), (1130, 0.6, 0.011), (1870, 0.35, 0.007)), 0.08), tm, 1.0)
+    poner(y, rafaga(0.02, g, 1200, 5000, tau=0.003, ataque=0.0004), tm, 0.8)
+    poner(y, glis(210, 110, 0.08) * env_perc(n_(0.08), 0.02), tm, 0.6)
+    n = n_(0.14)
+    v = np.arange(n) / n
+    z = zumbido(n, g, 311.0 * (220.0 / 311.0) ** v, trem=(34.0, 20.0), hondo=0.6, brillo=0.5)
+    poner(y, z * env_perc(n, 0.045, 0.004), tm, 0.35)  # resto oscuro
+    return y
+
+
+# --------------------------------------------------------------------------------------
+# Alpha 0.3.1: Nojoch Tuunich
+# --------------------------------------------------------------------------------------
+
+def _soplo_piedra(g, seg, f_a, f_b, forma):
+    """Aire que entra o sale por una cavidad de roca (una media respiración del coloso)."""
+    n = n_(seg)
+    u = np.arange(n) / n
+    fc = f_a * (f_b / f_a) ** u
+    aire = ruido_barrido(n, g, fc, ancho=0.7, color=1.5, f_min=60.0, f_max=2500.0, bandas=12)
+    hondo = ruido(n, g, 40, 140, color=2.0)
+    roce = ruido(n, g, 500, 1800, color=1.0) * tirones(n, g, 6, 30, 2.0)  # granos de piedra que rozan
+    w = fase_de(0.25 * fc)  # la cavidad resuena dos octavas por debajo del soplo
+    tono = np.sin(w) + 0.4 * np.sin(2 * w + 1.0)
+    return (aire + 0.5 * hondo + 0.10 * roce + 0.35 * tono) * np.sin(np.pi * u ** forma) ** 1.6
+
+
+def jefe_respira():
+    """Respiración del coloso dormido: un pulmón de piedra. Inspira (1.35 s), pausa y espira (1.5 s)."""
+    g = gen("jefe_respira")
+    y = np.zeros(n_(3.0))
+    poner(y, _soplo_piedra(g, 1.35, 150.0, 330.0, 0.75), 0.0, 0.8)  # inspira: el soplo sube
+    poner(y, _soplo_piedra(g, 1.50, 300.0, 110.0, 0.68), 1.45, 1.0)  # espira: baja y dura más
+    poner(y, crujidos(0.5, g, 5, banda=(400.0, 1500.0)), 1.10, 0.10)  # la piedra cede al llenarse
+    return reverb(y, g, t60=0.9, mezcla=0.2)
+
+
+def jefe_fase():
+    """Cambio de fase: trompa grave (Re) y un crujido que recorre la piedra de abajo arriba hasta partirla."""
+    g = gen("jefe_fase")
+    y = np.zeros(n_(1.8))
+    f = midi(38)  # Re2
+    poner(y, cuerno(f, 1.7, g), 0.0, 1.2)
+    poner(y, cuerno(f * 1.006, 1.7, g), 0.0, 0.7)
+    poner(y, cuerno(2.0 * f, 1.7, g), 0.0, 1.1)  # Re3: lo que se oye en altavoces pequeños
+    poner(y, cuerno(1.5 * f, 1.6, g), 0.05, 0.3)  # quinta
+    poner(y, tambor(58, 0.6, g, tau=0.20, barrido=1.0, piel=0.5, banda=(150, 1500), tau_piel=0.03), 0.0, 1.4)
+    m = n_(1.0)
+    v = np.arange(m) / m
+    grieta = ruido_barrido(m, g, 350.0 * (3800.0 / 350.0) ** (v ** 1.2), ancho=0.6, f_min=150.0, f_max=6000.0)
+    poner(y, grieta * tirones(m, g, 25, 110, 3.0) * (0.2 + 0.8 * v ** 1.5), 0.30, 0.55)
+    poner(y, crujidos(1.0, g, 46, banda=(500.0, 3500.0), crece=1.0), 0.30, 0.6)
+    tq = 1.30  # la grieta llega arriba y parte la piedra
+    poner(y, chasquido(g, 2.6, grave=150.0), tq)
+    poner(y, impacto_piedra(g, 0.45, 110, 42, tau=0.11, brillo=1.0), tq + 0.01, 2.2)
+    escombros(y, g, tq + 0.05, 1.75, 14, gan=0.45, graves=0.25)
+    return saturar(reverb(y, g, t60=0.8, mezcla=0.15), 2.6)
+
+
+def jefe_cae():
+    """El coloso cae de rodillas: dos impactos enormes (una rodilla y la otra), quejido de roca que se hunde y escombros."""
+    g = gen("jefe_cae")
+    y = np.zeros(n_(1.4))
+    poner(y, impacto_piedra(g, 0.9, 112, 32, tau=0.22, brillo=0.9), 0.0, 1.0)
+    poner(y, glis(58, 28, 0.8) * env_perc(n_(0.8), 0.28, 0.004), 0.0, 0.6)
+    poner(y, impacto_piedra(g, 0.8, 96, 30, tau=0.20, brillo=0.7), 0.24, 0.85)
+    poner(y, glis(52, 27, 0.7) * env_perc(n_(0.7), 0.25, 0.004), 0.24, 0.5)
+    poner(y, rafaga(0.5, g, 150, 700, tau=0.11, color=1.5), 0.0, 0.6)
+    m = n_(0.9)
+    v = np.arange(m) / m
+    poner(y, gemido(m, g, 84.0 * (46.0 / 84.0) ** (v ** 0.7)) * rampa(m, 0.05) * (1.0 - v) ** 0.8, 0.30, 0.30)
+    escombros(y, g, 0.08, 1.32, 34, lo=450, hi=2600, gan=0.8, graves=0.3)
+    poner(y, ruido(n_(1.2), g, 900, 4000, color=1.0) * env_perc(n_(1.2), 0.35, 0.06), 0.05, 0.12)  # polvo
+    return saturar(reverb(y, g, t60=0.8, mezcla=0.14))
+
+
+def pilar_rompe():
+    """Una columna se hace pedazos: chasquido seco que la parte, los tambores de piedra que caen y polvo."""
+    g = gen("pilar_rompe")
+    y = np.zeros(n_(1.0))
+    poner(y, rafaga(0.14, g, 700, 6000, tau=0.018, ataque=0.0005), 0.0, 1.0)
+    poner(y, modos(((455, 0.6, 0.06), (742, 0.5, 0.045), (1180, 0.35, 0.03), (1960, 0.2, 0.02)), 0.3), 0.0, 1.0)
+    poner(y, glis(170, 70, 0.25) * env_perc(n_(0.25), 0.06, 0.002), 0.0, 0.8)
+    poner(y, crujidos(0.3, g, 14, banda=(800.0, 4000.0), crece=-0.6), 0.0, 0.6)
+    for i in range(7):  # los trozos grandes caen cada vez más espaciados
+        t0 = 0.10 + 0.72 * (i / 7) ** 1.25 + g.uniform(-0.015, 0.015)
+        f0 = g.uniform(95.0, 165.0)
+        poner(y, impacto_piedra(g, 0.3, f0, 0.5 * f0, tau=0.055, brillo=0.5), t0,
+              0.75 * (1.0 - 0.6 * i / 7) * g.uniform(0.8, 1.0))
+    escombros(y, g, 0.05, 0.93, 40, lo=500, hi=3200, gan=0.8, graves=0.15)
+    poner(y, ruido(n_(0.9), g, 900, 4000, color=1.0) * env_perc(n_(0.9), 0.28, 0.05), 0.04, 0.14)  # polvo
+    return saturar(reverb(y, g, t60=0.6, mezcla=0.12))
+
+
+def ritual_pulso():
+    """Pulso de Silencio: hinchazón invertida (un eco oscuro que suena al revés) que acaba en un golpe sordo."""
+    g = gen("ritual_pulso")
+    y = np.zeros(n_(1.2))
+    tg = 0.88  # instante del golpe
+    m = n_(tg)
+    tm = t_(m)
+    # Se construye como un sonido que decae (zumbido, parciales de tritono, soplo y sala) y se le da la vuelta
+    dec = zumbido(m, g, midi(50), trem=(11.0, 4.0), brillo=0.7) * np.exp(-tm / 0.30)
+    for razon, amp in ((2.0, 0.5), (2.0 * 2.0 ** 0.5, 0.35), (4.0, 0.25)):
+        dec += amp * np.sin(DOS_PI * midi(50) * razon * tm + razon) * np.exp(-tm / 0.22)
+    dec += 0.35 * ruido(m, g, 300, 2500, color=1.5) * np.exp(-tm / 0.20)
+    dec = reverb(dec, g, t60=0.6, mezcla=0.4)[:m]
+    poner(y, dec[::-1] * rampa(m, 0.04), 0.0, 0.55)
+    # Golpe sordo: se traga el sonido
+    poner(y, glis(96, 36, 0.30) * env_perc(n_(0.30), 0.085, 0.003), tg, 1.3)
+    poner(y, rafaga(0.12, g, 120, 700, tau=0.03, ataque=0.002, color=1.5), tg, 0.9)
+    poner(y, rafaga(0.30, g, 35, 150, tau=0.12, ataque=0.01, color=2.0), tg, 0.5)
+    k = n_(0.30)
+    poner(y, zumbido(k, g, midi(38), trem=(6.0, 3.0)) * env_perc(k, 0.09, 0.01), tg + 0.01, 0.2)  # resto oscuro
+    return y
+
+
+# --------------------------------------------------------------------------------------
+# Alpha 0.3.1: interfaz
+# --------------------------------------------------------------------------------------
+
+def ui_mover():
+    """Mover la selección: tic mínimo de madera."""
+    g = gen("ui_mover")
+    y = np.zeros(n_(0.05))
+    poner(y, modos(((1320, 1.0, 0.007), (2890, 0.4, 0.004)), 0.045), 0.0, 1.0)
+    poner(y, rafaga(0.01, g, 2500, 9000, tau=0.0012, ataque=0.0003), 0.0, 0.25)
+    return y
+
+
+def ui_confirmar():
+    """Confirmar: toque de madera y dos notas de kalimba que suben una quinta (Re, La)."""
+    g = gen("ui_confirmar")
+    y = np.zeros(n_(0.22))
+    poner(y, madera(880.0, g, 0.05, hueco=0.5, seco=0.5), 0.0, 0.4)
+    poner(y, apagar(lengueta(midi(74), 0.20, g, brillo=0.8), 0.06), 0.0, 0.8)
+    poner(y, apagar(lengueta(midi(81), 0.16, g, brillo=0.8), 0.07), 0.055, 1.0)
+    poner(y, campana_clara(midi(93), 0.14, tau=0.04, ataque=0.002), 0.058, 0.15)
+    return y
+
+
+def ui_cancelar():
+    """Cancelar o volver: dos notas apagadas de kalimba que bajan (La, Re) sobre un toque hueco."""
+    g = gen("ui_cancelar")
+    y = np.zeros(n_(0.2))
+    poner(y, madera(520.0, g, 0.06, hueco=1.0, seco=0.7), 0.0, 0.5)
+    poner(y, apagar(kalimba(midi(69), 0.15, g, brillo=0.35), 0.05), 0.0, 1.0)
+    poner(y, apagar(kalimba(midi(62), 0.14, g, brillo=0.25), 0.07), 0.05, 0.9)
+    return y
+
+
+def ui_cerrar():
+    """Cerrar un panel: la ola de `ui_abrir` al revés (baja de tono) y un toque hueco al posarse."""
+    g = gen("ui_cerrar")
+    n = n_(0.2)
+    u = np.arange(n) / n
+    env = np.sin(np.pi * u ** 0.6) ** 2
+    y = (glis(600, 520, 0.2) + 0.6 * glis(900, 780, 0.2)) * env
+    y += 0.25 * ruido_barrido(n, g, 2450.0 * (700.0 / 2450.0) ** u, ancho=0.7) * env
+    poner(y, madera(330.0, g, 0.07, hueco=1.0, seco=0.8), 0.105, 0.30)
+    return y
+
+
+def ui_error():
+    """Acción no válida: dos toques graves y apagados de madera hueca (el segundo, más bajo)."""
+    g = gen("ui_error")
+    y = np.zeros(n_(0.25))
+    for t0, f, gan in ((0.0, 233.0, 1.0), (0.105, 196.0, 0.9)):
+        poner(y, madera(f, g, 0.13, hueco=1.2, seco=1.3), t0, gan)
+        m = n_(0.11)
+        poner(y, np.sin(DOS_PI * f * t_(m)) * env_perc(m, 0.035, 0.004), t0, 0.5)
+    return y
+
+
+def ui_recompensa():
+    """Recompensa: arpegio brillante de Fa mayor pentatónica que sube y se abre en un acorde con destellos."""
+    g = gen("ui_recompensa")
+    y = np.zeros(n_(1.2))
+    for t0, m, vel in ((0.00, 65, 0.80), (0.07, 69, 0.80), (0.14, 72, 0.85),
+                       (0.21, 77, 0.90), (0.28, 81, 0.95), (0.37, 84, 1.00)):
+        poner(y, lengueta(midi(m), 0.9, g), t0, vel)
+        poner(y, campana_clara(midi(m + 12), 0.5, tau=0.14, ataque=0.003), t0 + 0.005, 0.3 * vel)
+    ta = 0.50  # acorde que se abre
+    for i, (m, gan) in enumerate(((77, 0.8), (81, 0.7), (84, 0.8), (89, 0.5))):
+        poner(y, campana_clara(midi(m), 1.18 - ta, tau=0.30, ataque=0.004), ta + 0.012 * i, gan)
+    for m in (53, 60, 65):
+        poner(y, colchon(midi(m), 0.68, 0.08, 0.40), ta, 0.16)
+    k = n_(0.6)
+    v = np.arange(k) / k
+    poner(y, ruido_barrido(k, g, 2000.0 * 4.0 ** v, ancho=0.5, f_max=14000.0) * np.sin(np.pi * v) ** 2, 0.2, 0.08)
+    _destellos(y, g, 0.50, 1.05, 12, 5000, 13000, 0.14, tau=0.008)
+    return reverb(y, g, t60=0.9, mezcla=0.22)
+
+
+def ui_jugador(entra):
+    """Un jugador se conecta (La → Re, sube) o se va (Re → La, baja): dos notas suaves de kalimba y flauta."""
+    g = gen("ui_jugador_entra" if entra else "ui_jugador_sale")
+    y = np.zeros(n_(0.4))
+    notas = ((0.0, 69, 0.85), (0.13, 74, 1.0)) if entra else ((0.0, 74, 1.0), (0.13, 69, 0.8))
+    for t0, m, vel in notas:
+        poner(y, apagar(lengueta(midi(m), 0.3, g, brillo=0.6 if entra else 0.4), 0.16), t0, 0.8 * vel)
+        poner(y, flauta(midi(m), 0.22, g, vib=0.0, aire=0.05, ataque=0.02, rel=0.12), t0, 0.35 * vel)
+    if entra:
+        poner(y, campana_clara(midi(86), 0.25, tau=0.08, ataque=0.003), 0.135, 0.18)
+    return reverb(y, g, t60=0.35, mezcla=0.12)
+
+
+def ui_invitacion():
+    """Invitación o aviso social: llamada corta de tres notas (La, Fa, Do), corta-corta-larga."""
+    g = gen("ui_invitacion")
+    y = np.zeros(n_(0.5))
+    for t0, m, vel, d in ((0.0, 81, 0.9, 0.2), (0.10, 77, 0.8, 0.2), (0.20, 84, 1.0, 0.29)):
+        poner(y, apagar(lengueta(midi(m), 0.3, g, brillo=0.8), 0.14), t0, 0.8 * vel)
+        poner(y, campana_clara(midi(m), d, tau=0.5 * d, ataque=0.003), t0, 0.5 * vel)
+    return reverb(y, g, t60=0.4, mezcla=0.15)
+
+
+def ui_sala_creada():
+    """Sala lista: acorde corto de Fa que se abre de abajo arriba (kalimba y campana) sobre un toque de madera."""
+    g = gen("ui_sala_creada")
+    y = np.zeros(n_(0.7))
+    poner(y, madera(349.0, g, 0.08, hueco=1.0), 0.0, 0.35)
+    for i, m in enumerate((65, 72, 77, 81, 84)):
+        t0 = 0.028 * i
+        poner(y, lengueta(midi(m), 0.65, g, brillo=0.8), t0, 0.70 + 0.05 * i)
+        poner(y, campana_clara(midi(m), 0.66 - t0, tau=0.22, ataque=0.004), t0, 0.35)
+    _destellos(y, g, 0.16, 0.50, 5, 5500, 12500, 0.11, tau=0.007)
+    return reverb(y, g, t60=0.6, mezcla=0.18)
+
+
+def ui_prueba():
+    """Sonido de prueba del menú: tres notas claras (Re, La, Re) de kalimba y campana.
+
+    Casi toda la energía queda entre 500 y 2500 Hz (se oye en altavoces de portátil y de
+    móvil): por eso la kalimba va con poco brillo y la campana solo lleva tres parciales.
+    """
+    g = gen("ui_prueba")
+    y = np.zeros(n_(1.0))
+    for t0, m, vel in ((0.0, 74, 0.90), (0.24, 81, 0.95), (0.48, 86, 1.00)):
+        poner(y, lengueta(midi(m), 0.5, g, brillo=0.5, aire=0.5), t0, vel)
+        poner(y, campana_clara(midi(m), 0.98 - t0, tau=0.22, ataque=0.003,
+                               parciales=((1.0, 1.0, 1.0), (2.0, 0.30, 0.6), (3.01, 0.10, 0.4))), t0, 0.7 * vel)
+    return reverb(y, g, t60=0.5, mezcla=0.12)
+
+
+def punto_control():
+    """Punto de control: nota larga y cálida (Re) con su quinta, toque de kalimba y un destello a media nota."""
+    g = gen("punto_control")
+    y = np.zeros(n_(0.9))
+    n = n_(0.88)
+    t = t_(n)
+    calor = np.zeros(n)
+    for m, gan in ((62, 1.0), (69, 0.55), (74, 0.6)):
+        w = DOS_PI * midi(m) * t
+        calor += gan * (np.sin(w + m) + 0.3 * np.sin(2 * w) + 0.1 * np.sin(3 * w)) * (1.0 + 0.03 * np.sin(DOS_PI * 4.5 * t + m))
+    poner(y, calor * rampa(n, 0.03) * np.exp(-t / 0.45) * salida(n, 0.30), 0.0, 0.5)
+    poner(y, lengueta(midi(74), 0.8, g, brillo=0.8), 0.0, 0.8)
+    poner(y, campana_clara(midi(74), 0.85, tau=0.35, ataque=0.004), 0.0, 0.5)
+    poner(y, campana_clara(midi(81), 0.50, tau=0.20, ataque=0.004), 0.28, 0.30)  # destello
+    poner(y, campana_clara(midi(93), 0.35, tau=0.10, ataque=0.004), 0.30, 0.12)
+    _destellos(y, g, 0.30, 0.70, 6, 4500, 8500, 0.08, tau=0.007)
+    return reverb(y, g, t60=0.8, mezcla=0.22)
+
+
+# --------------------------------------------------------------------------------------
 # Catálogo
 # --------------------------------------------------------------------------------------
 # Bucles: (nombre, función(arg), arg normal, arg compacto, RMS objetivo en dBFS, corte agudo, descripción)
@@ -1922,9 +2808,86 @@ EFECTOS_JEFE = (
     ("cine_cenote", cine_cenote, 4.00, -11.0, 6000.0, 0.50, "Cinemática: calma, viento y destello de agua"),
 )
 
+
+
+def _var(fn, k):
+    """Fila de catálogo para la variante k de un sonido (conserva el nombre de la función para el manifiesto)."""
+    def variante():
+        return fn(k)
+    variante.__name__ = f"{fn.__name__}({k})"
+    return variante
+
+
+# Alpha 0.3.1: (nombre, función, duración, pico en dBFS, corte agudo, fundido final, descripción,
+# frecuencia de muestreo, familia). El pico va por familias para que la mezcla salga equilibrada
+# sin tocar volúmenes en el juego: pasos −20 · interfaz −12 (`ui_prueba` −3 y `ui_recompensa` −4)
+# · alux −8 · Balam −5 · enemigos −8 · jefe −3 · avisos de compañeros −6. Excepciones (README):
+# las variantes de `chispa` y `garras` copian el pico de su original y `jefe_respira` va a −10.
+EFECTOS_031 = (
+    ("paso_hierba_1", _var(paso_hierba, 0), 0.18, -20.0, 7500.0, 0.05, "Paso sobre hierba y hojas: roce suave (variante 1)", SR, "pasos"),
+    ("paso_hierba_2", _var(paso_hierba, 1), 0.18, -20.0, 7500.0, 0.05, "Paso sobre hierba (variante 2, más aguda y crujiente)", SR, "pasos"),
+    ("paso_hierba_3", _var(paso_hierba, 2), 0.18, -20.0, 7500.0, 0.05, "Paso sobre hierba (variante 3, más grave y lenta)", SR, "pasos"),
+    ("paso_piedra_1", _var(paso_piedra, 0), 0.08, -20.0, 6000.0, 0.02, "Paso sobre losa de piedra: toque seco (variante 1)", SR, "pasos"),
+    ("paso_piedra_2", _var(paso_piedra, 1), 0.08, -20.0, 6000.0, 0.02, "Paso sobre losa (variante 2, más aguda y seca)", SR, "pasos"),
+    ("paso_piedra_3", _var(paso_piedra, 2), 0.08, -20.0, 6000.0, 0.02, "Paso sobre losa (variante 3, más grave)", SR, "pasos"),
+    ("paso_agua_1", _var(paso_agua, 0), 0.30, -20.0, 7000.0, 0.06, "Paso en agua somera: plof, salpicadura y burbujas (variante 1)", SR, "pasos"),
+    ("paso_agua_2", _var(paso_agua, 1), 0.30, -20.0, 7000.0, 0.06, "Paso en agua somera (variante 2, más grave y con más rocío)", SR, "pasos"),
+    ("recoger", recoger, 0.35, -10.0, 14000.0, 0.08, "Recoger un objeto: pulsación brillante con destello", SR_ALTO, "personaje"),
+    ("interactuar", interactuar, 0.30, -10.0, 6000.0, 0.06, "Tocar o activar algo: madera hueca y una nota", SR, "personaje"),
+    ("dano_fuerte", dano_fuerte, 0.55, -5.0, 5000.0, 0.10, "Golpe fuerte recibido: más grave y largo que `dano`", SR, "personaje"),
+    ("aliado_caido", aliado_caido, 0.80, -6.0, 6500.0, 0.15, "Un compañero cae: dos notas que bajan", SR, "compañeros"),
+    ("aliado_revive", aliado_revive, 0.80, -6.0, 14000.0, 0.15, "Un compañero vuelve: dos notas que suben con brillo", SR_ALTO, "compañeros"),
+    ("chispa_2", _var(chispa_variante, 0), 0.30, -7.0, 7500.0, 0.05, "Chispa de jade, variante 2 (más aguda)", SR, "alux"),
+    ("chispa_3", _var(chispa_variante, 1), 0.30, -7.0, 7500.0, 0.05, "Chispa de jade, variante 3 (más grave)", SR, "alux"),
+    ("luz_alux", luz_alux, 0.60, -8.0, 14000.0, 0.10, "Estallido de luz: campana cálida que se hincha", SR_ALTO, "alux"),
+    ("escudo_alux", escudo_alux, 0.70, -8.0, 14000.0, 0.12, "Escudo que se levanta: soplido, cúpula vítrea y tono sostenido", SR_ALTO, "alux"),
+    ("escudo_golpe", escudo_golpe, 0.40, -8.0, 8000.0, 0.08, "El escudo absorbe un golpe: «dong» vítreo amortiguado", SR, "alux"),
+    ("apoyo_alux", apoyo_alux, 0.80, -8.0, 14000.0, 0.15, "Apoyo a un compañero: tres notas de kalimba con destellos", SR_ALTO, "alux"),
+    ("balam_rugido", balam_rugido, 1.00, -5.0, 4500.0, 0.20, "Rugido de Balam: gruñido con formantes, grave", SR, "balam"),
+    ("balam_grunido", balam_grunido, 0.45, -5.0, 4000.0, 0.08, "Gruñido corto de Balam (al transformarse)", SR, "balam"),
+    ("garras_2", _var(garras_variante, 0), 0.25, -6.0, 7500.0, 0.04, "Garras, variante 2", SR, "balam"),
+    ("garras_3", _var(garras_variante, 1), 0.25, -6.0, 7500.0, 0.04, "Garras, variante 3", SR, "balam"),
+    ("balam_golpe", balam_golpe, 0.35, -5.0, 6500.0, 0.08, "La garra impacta: golpe con cuerpo y rasgadura", SR, "balam"),
+    ("balam_especial", balam_especial, 0.90, -5.0, 6000.0, 0.20, "Ataque especial: rugido corto y onda de choque", SR, "balam"),
+    ("enemigo_aparece", enemigo_aparece, 0.80, -8.0, 6000.0, 0.08, "Un enemigo surge de la piedra corrompida", SR, "enemigos"),
+    ("enemigo_dano", enemigo_dano, 0.20, -8.0, 6000.0, 0.04, "Un enemigo recibe daño: lasca y quejido oscuro", SR, "enemigos"),
+    ("enemigo_purificado", enemigo_purificado, 0.70, -8.0, 14000.0, 0.15, "Enemigo purificado: la corrupción se deshace en una campanilla", SR_ALTO, "enemigos"),
+    ("enemigo_paso", enemigo_paso, 0.25, -8.0, 4500.0, 0.04, "Movimiento de un enemigo: arrastre corto de piedra", SR, "enemigos"),
+    ("guardian_llamada", guardian_llamada, 0.90, -8.0, 5000.0, 0.20, "Llamada del guardián de piedra: gemido grave que rechina", SR, "enemigos"),
+    ("guardian_ataque", guardian_ataque, 0.50, -8.0, 6000.0, 0.10, "Golpe del guardián: vuelo del brazo y mazazo de piedra", SR, "enemigos"),
+    ("criatura_llamada", criatura_llamada, 0.60, -8.0, 5000.0, 0.08, "Llamada de la criatura corrompida: chirrido castañeteante", SR, "enemigos"),
+    ("criatura_ataque", criatura_ataque, 0.25, -8.0, 6000.0, 0.05, "Ataque de la criatura: arañazos y mordida", SR, "enemigos"),
+    ("jefe_respira", jefe_respira, 3.00, -10.0, 3500.0, 0.40, "Respiración del coloso dormido: un pulmón de piedra", SR, "jefe"),
+    ("jefe_fase", jefe_fase, 1.80, -3.0, 6000.0, 0.30, "Cambio de fase: trompa grave y crujido que recorre la piedra", SR, "jefe"),
+    ("jefe_cae", jefe_cae, 1.40, -3.0, 6500.0, 0.30, "El coloso cae de rodillas: doble impacto y escombros", SR, "jefe"),
+    ("pilar_rompe", pilar_rompe, 1.00, -3.0, 6500.0, 0.25, "Una columna se hace pedazos", SR, "jefe"),
+    ("ritual_pulso", ritual_pulso, 1.20, -3.0, 5000.0, 0.15, "Pulso de Silencio: hinchazón invertida y golpe sordo", SR, "jefe"),
+    ("ui_mover", ui_mover, 0.05, -12.0, 12000.0, 0.012, "Mover la selección: tic mínimo de madera", SR_ALTO, "interfaz"),
+    ("ui_confirmar", ui_confirmar, 0.22, -12.0, 14000.0, 0.06, "Confirmar: dos notas de kalimba que suben", SR_ALTO, "interfaz"),
+    ("ui_cancelar", ui_cancelar, 0.20, -12.0, 4500.0, 0.05, "Cancelar o volver: dos notas apagadas que bajan", SR, "interfaz"),
+    ("ui_cerrar", ui_cerrar, 0.20, -12.0, 5000.0, 0.04, "Cerrar un panel: la ola de `ui_abrir` al revés", SR, "interfaz"),
+    ("ui_error", ui_error, 0.25, -12.0, 2200.0, 0.05, "Acción no válida: dos toques graves apagados", SR, "interfaz"),
+    ("ui_recompensa", ui_recompensa, 1.20, -4.0, 14000.0, 0.30, "Recompensa: arpegio brillante y acorde", SR_ALTO, "interfaz"),
+    ("ui_jugador_entra", _var(ui_jugador, True), 0.40, -12.0, 8000.0, 0.10, "Un jugador se conecta: dos notas suaves que suben", SR, "interfaz"),
+    ("ui_jugador_sale", _var(ui_jugador, False), 0.40, -12.0, 8000.0, 0.10, "Un jugador se va: dos notas suaves que bajan", SR, "interfaz"),
+    ("ui_invitacion", ui_invitacion, 0.50, -12.0, 14000.0, 0.12, "Invitación o aviso social: llamada de tres notas", SR_ALTO, "interfaz"),
+    ("ui_sala_creada", ui_sala_creada, 0.70, -12.0, 14000.0, 0.20, "Sala lista: acorde corto que se abre", SR_ALTO, "interfaz"),
+    ("ui_prueba", ui_prueba, 1.00, -3.0, 8000.0, 0.20, "Sonido de prueba del menú: tres notas claras, 500–2500 Hz", SR, "interfaz"),
+    ("punto_control", punto_control, 0.90, -12.0, 9000.0, 0.30, "Punto de control: nota larga cálida con destello", SR, "interfaz"),
+)
+
 NOMBRES_JEFE = frozenset(x[0] for x in BUCLES_JEFE + EFECTOS_JEFE)
+NOMBRES_031 = frozenset(x[0] for x in EFECTOS_031)
+HZ = {x[0]: x[7] for x in EFECTOS_031}  # frecuencia de muestreo de cada sonido; lo que no está aquí va a SR
+FAMILIA = {x[0]: x[8] for x in EFECTOS_031}
 BUCLES = BUCLES + BUCLES_JEFE
-EFECTOS = EFECTOS + EFECTOS_JEFE
+EFECTOS = EFECTOS + EFECTOS_JEFE + tuple(x[:7] for x in EFECTOS_031)
+PICO = {x[0]: x[3] for x in EFECTOS}  # pico pedido de cada efecto (dBFS)
+
+# Lo que usa el manifiesto: quién suena por el bus UI (igual que `UI_SOUNDS` en audio.gd) y qué
+# función genera las tres filas antiguas que usan `lambda`
+SONIDOS_UI = frozenset(("objetivo", "sin_energia", "aliado_caido", "aliado_revive", "punto_control"))
+FUNCION = {"paso_1": "paso(0)", "paso_2": "paso(1)", "paso_3": "paso(2)"}
 
 # Segundos por compás de cada música (su argumento en BUCLES es el número de compases)
 SEG_COMPAS = {"mus_claro": 4 * 60.0 / 75.0, "mus_emboscada": 4 * 60.0 / 150.0,
@@ -1946,10 +2909,14 @@ def acabar_bucle(x, rms_db, agudos):
     return x * (techo / pico) if pico > techo else x
 
 
-def acabar_efecto(x, seg, pico_db, agudos, fundido):
-    """Recorta a la duración, filtra, funde los extremos y ajusta el pico."""
+def acabar_efecto(x, seg, pico_db, agudos, fundido, previo=0.0):
+    """Recorta a la duración, filtra, funde los extremos y ajusta el pico.
+
+    `previo` deja unos milisegundos de silencio delante: la entrada de 2 ms que evita el
+    chasquido inicial no se come entonces el ataque del sonido. Solo lo usa la capa 0.3.1.
+    """
     n = n_(seg)
-    x = np.concatenate([x, np.zeros(max(0, n - len(x)))])[:n]
+    x = np.concatenate([np.zeros(n_(previo)), x, np.zeros(max(0, n - len(x)))])[:n]
     x = filtrar(x, 30.0, None, orden=2)
     x = filtrar(x, None, agudos, orden=4)
     ventana = rampa(n, 0.002) * salida(n, fundido)
@@ -1960,6 +2927,7 @@ def acabar_efecto(x, seg, pico_db, agudos, fundido):
 
 
 def escribir(ruta: Path, x: np.ndarray) -> None:
+    """Escribe un WAV mono de 16 bits a la frecuencia de muestreo vigente (ver `con_sr`)."""
     datos = np.round(np.clip(x, -1.0, 1.0) * 32767.0).astype("<i2")
     with wave.open(str(ruta), "wb") as w:
         w.setnchannels(1)
@@ -1968,10 +2936,12 @@ def escribir(ruta: Path, x: np.ndarray) -> None:
         w.writeframes(datos.tobytes())
 
 
-def leer(ruta: Path) -> np.ndarray:
+def leer(ruta: Path) -> tuple:
+    """Lee un WAV mono de 16 bits. Devuelve (muestras en ±1, frecuencia de muestreo)."""
     with wave.open(str(ruta), "rb") as w:
-        assert (w.getnchannels(), w.getsampwidth(), w.getframerate()) == (1, 2, SR), ruta.name
-        return np.frombuffer(w.readframes(w.getnframes()), dtype="<i2").astype(np.float64) / 32768.0
+        assert (w.getnchannels(), w.getsampwidth()) == (1, 2), ruta.name
+        hz = w.getframerate()
+        return np.frombuffer(w.readframes(w.getnframes()), dtype="<i2").astype(np.float64) / 32768.0, hz
 
 
 def duraciones(compacto: bool) -> dict:
@@ -1985,24 +2955,63 @@ def duraciones(compacto: bool) -> dict:
     return d
 
 
-def generar(compacto: bool) -> None:
+def seleccion(solo) -> set:
+    """Nombres elegidos con `--solo`: patrones separados por comas o una capa (`base`, `jefe`, `alfa031`)."""
+    todos = [b[0] for b in BUCLES] + [e[0] for e in EFECTOS]
+    if not solo:
+        return set(todos)
+    capas = {"alfa031": NOMBRES_031, "jefe": NOMBRES_JEFE,
+             "base": frozenset(todos) - NOMBRES_JEFE - NOMBRES_031}
+    elegidos = set()
+    for patron in (p.strip() for p in solo.split(",")):
+        encontrados = capas[patron] if patron in capas else {x for x in todos if fnmatch.fnmatchcase(x, patron)}
+        if not encontrados:
+            raise SystemExit(f"--solo: «{patron}» no coincide con ningún sonido")
+        elegidos |= set(encontrados)
+    return elegidos
+
+
+def generar(compacto: bool, solo=None) -> None:
+    elegidos = seleccion(solo)
     SALIDA.mkdir(parents=True, exist_ok=True)
     for nombre, fn, normal, corto, rms_db, agudos, _desc in BUCLES:
-        escribir(SALIDA / f"{nombre}.wav", acabar_bucle(fn(corto if compacto else normal), rms_db, agudos))
+        if nombre in elegidos:
+            escribir(SALIDA / f"{nombre}.wav", acabar_bucle(fn(corto if compacto else normal), rms_db, agudos))
     for nombre, fn, seg, pico_db, agudos, fundido, _desc in EFECTOS:
-        escribir(SALIDA / f"{nombre}.wav", acabar_efecto(fn(), seg, pico_db, agudos, fundido))
+        if nombre in elegidos:
+            with con_sr(HZ.get(nombre, SR)):
+                previo = PREVIO_031 if nombre in NOMBRES_031 else 0.0
+                escribir(SALIDA / f"{nombre}.wav", acabar_efecto(fn(), seg, pico_db, agudos, fundido, previo))
 
 
-def comprobar(compacto: bool) -> int:
+def _rms50(x: np.ndarray) -> float:
+    """RMS máximo en ventanas de 50 ms (aproxima la sonoridad del momento más fuerte)."""
+    v = n_(0.05)
+    if len(x) < v:
+        return rms(x)
+    ac = np.concatenate([[0.0], np.cumsum(x ** 2)])
+    return float(np.sqrt(np.max(ac[v:] - ac[:-v]) / v))
+
+
+# Umbral de estridencia para los efectos de la 0.3.1: nivel del tramo más fuerte (50 ms) de la
+# banda de 2 a 5 kHz. `chispa` y `garras`, que viven en esa banda, miden −19.0 y −19.6 dBFS.
+ESTRIDENTE_DB = -17.0
+
+
+def comprobar(compacto: bool, solo=None) -> int:
     """Mide cada archivo y avisa de lo que huela mal. Devuelve el número de avisos."""
     esperada = duraciones(compacto)
+    elegidos = seleccion(solo)
     bucles = {b[0] for b in BUCLES}
     total = 0
     total_jefe = 0
+    total_031 = 0
     avisos_tot = 0
-    print(f"{'archivo':<20}{'dur s':>7}{'bucle':>6}{'pico':>7}{'RMS':>7}{'RMS50':>7}{'DC':>9}"
-          f"{'<200':>6}{'200-2k':>7}{'2-6k':>6}{'>6k':>5}  {'sha256':<10} avisos")
+    print(f"{'archivo':<20}{'dur s':>7}{'kHz':>6}{'bucle':>6}{'pico':>7}{'RMS':>7}{'RMS50':>7}{'DC':>9}"
+          f"{'<200':>6}{'200-2k':>7}{'2-6k':>6}{'>6k':>5}{'n2-5k':>7}  {'sha256':<10} avisos")
     for nombre in [b[0] for b in BUCLES] + [e[0] for e in EFECTOS]:
+        if nombre not in elegidos:
+            continue
         ruta = SALIDA / f"{nombre}.wav"
         if not ruta.exists():
             print(f"{nombre:<20} FALTA")
@@ -2011,61 +3020,120 @@ def comprobar(compacto: bool) -> int:
         total += ruta.stat().st_size
         if nombre in NOMBRES_JEFE:
             total_jefe += ruta.stat().st_size
-        x = leer(ruta)
+        if nombre in NOMBRES_031:
+            total_031 += ruta.stat().st_size
+        x, hz = leer(ruta)
         n = len(x)
-        pico = float(np.max(np.abs(x)))
-        dc = float(np.mean(x))
-        # RMS máximo en ventanas de 50 ms (aproxima la sonoridad del momento más fuerte)
-        v = n_(0.05)
-        if n >= v:
-            ac = np.concatenate([[0.0], np.cumsum(x ** 2)])
-            rms50 = float(np.sqrt(np.max(ac[v:] - ac[:-v]) / v))
-        else:
-            rms50 = rms(x)
-        pot = np.abs(np.fft.rfft(x)) ** 2
-        f = np.fft.rfftfreq(n, 1.0 / SR)
-        tot = float(np.sum(pot)) + 1e-20
-        b = [float(np.sum(pot[(f >= a) & (f < c)])) / tot * 100.0
-             for a, c in ((0, 200), (200, 2000), (2000, 6000), (6000, 1e9))]
         avisos = []
-        if abs(n / SR - esperada[nombre]) > 0.002:
-            avisos.append(f"duración≠{esperada[nombre]:.2f}")
-        if db(pico) > -1.0:
-            avisos.append("pico>-1dB")
-        if db(rms(x)) < -45.0:
-            avisos.append("casi silencio")
-        if abs(dc) > 1e-3:
-            avisos.append("continua")
-        if b[3] > 25.0:
-            avisos.append("mucho >6k")
-        dif = np.abs(np.diff(x))
-        extra = ""
-        if nombre in bucles:
-            costura = abs(x[0] - x[-1])
-            p50, p99, p999, dmax = (float(np.percentile(dif, q)) for q in (50, 99, 99.9, 100))
-            extra = f" costura Δ={costura:.5f} (típico {p50:.5f}, p99 {p99:.5f}, máx {dmax:.5f})"
-            if costura > p999:
-                avisos.append("salto en la costura")
-        else:
-            if abs(x[0]) > 2 / 32768 or abs(x[-1]) > 2 / 32768:
-                avisos.append("extremos≠0")
-            fuerte = np.nonzero(np.abs(x) > pico * 10.0 ** (-50.0 / 20.0))[0]
-            cola = (n - 1 - fuerte[-1]) / SR
-            if cola > 0.3 * n / SR:
-                avisos.append(f"silencio final {cola:.2f}s")
-            if fuerte[0] / SR > 0.02:
-                avisos.append(f"silencio inicial {fuerte[0] / SR:.3f}s")
+        if hz != HZ.get(nombre, SR):
+            avisos.append(f"frecuencia≠{HZ.get(nombre, SR)}")
+        with con_sr(hz):  # todo lo que se mide a continuación usa la frecuencia del archivo
+            pico = float(np.max(np.abs(x)))
+            dc = float(np.mean(x))
+            rms50 = _rms50(x)
+            esp = np.fft.rfft(x)
+            pot = np.abs(esp) ** 2
+            f = np.fft.rfftfreq(n, 1.0 / SR)
+            tot = float(np.sum(pot)) + 1e-20
+            b = [float(np.sum(pot[(f >= a) & (f < c)])) / tot * 100.0
+                 for a, c in ((0, 200), (200, 2000), (2000, 6000), (6000, 1e9))]
+            # nivel de la banda de 2 a 5 kHz (donde un sonido resulta estridente), en su tramo más fuerte
+            n25 = db(_rms50(np.fft.irfft(np.where((f >= 2000) & (f < 5000), esp, 0.0), n)))
+            if abs(n / SR - esperada[nombre]) > 0.002:
+                avisos.append(f"duración≠{esperada[nombre]:.2f}")
+            if db(pico) > -1.0:
+                avisos.append("pico>-1dB")
+            if nombre in PICO and abs(db(pico) - PICO[nombre]) > 0.15:
+                avisos.append(f"pico≠{PICO[nombre]:.0f}")
+            if db(rms(x)) < -45.0:
+                avisos.append("casi silencio")
+            if abs(dc) > 1e-3:
+                avisos.append("continua")
+            if b[3] > 25.0:
+                avisos.append("mucho >6k")
+            dif = np.abs(np.diff(x))
+            extra = ""
+            if nombre in bucles:
+                costura = abs(x[0] - x[-1])
+                p50, p99, p999, dmax = (float(np.percentile(dif, q)) for q in (50, 99, 99.9, 100))
+                extra = f" costura Δ={costura:.5f} (típico {p50:.5f}, p99 {p99:.5f}, máx {dmax:.5f})"
+                if costura > p999:
+                    avisos.append("salto en la costura")
+            else:
+                if abs(x[0]) > 2 / 32768 or abs(x[-1]) > 2 / 32768:
+                    avisos.append("extremos≠0")
+                fuerte = np.nonzero(np.abs(x) > pico * 10.0 ** (-50.0 / 20.0))[0]
+                cola = (n - 1 - fuerte[-1]) / SR
+                if cola > 0.3 * n / SR:
+                    avisos.append(f"silencio final {cola:.2f}s")
+                if fuerte[0] / SR > 0.02:
+                    avisos.append(f"silencio inicial {fuerte[0] / SR:.3f}s")
+            if nombre in NOMBRES_031:  # comprobaciones propias de la capa 0.3.1
+                if n25 > ESTRIDENTE_DB:
+                    avisos.append(f"estridente 2-5k ({n25:.1f})")
+                if db(rms50) - db(pico) < -22.0:
+                    avisos.append("sin cuerpo (RMS50 muy por debajo del pico)")
+                if nombre == "ui_mover" and n / SR > 0.06:
+                    avisos.append("ui_mover>0.06s")
+                if nombre == "ui_prueba":
+                    centro = float(np.sum(pot[(f >= 500) & (f < 2500)])) / tot * 100.0
+                    extra += f" 500-2500 Hz: {centro:.0f} %"
+                    if centro < 80.0:
+                        avisos.append("ui_prueba: poca energía en 500-2500 Hz")
         avisos_tot += len(avisos)
         sha = hashlib.sha256(ruta.read_bytes()).hexdigest()[:8]
-        print(f"{nombre:<20}{n / SR:>7.3f}{'sí' if nombre in bucles else 'no':>6}{db(pico):>7.1f}"
+        print(f"{nombre:<20}{n / hz:>7.3f}{hz / 1000:>6.1f}{'sí' if nombre in bucles else 'no':>6}{db(pico):>7.1f}"
               f"{db(rms(x)):>7.1f}{db(rms50):>7.1f}{dc:>9.5f}{b[0]:>6.0f}{b[1]:>7.0f}{b[2]:>6.0f}{b[3]:>5.0f}"
-              f"  {sha:<10} {', '.join(avisos) if avisos else 'ok'}{extra}")
-    print(f"\nTotal: {total} bytes = {total / 1e6:.3f} MB ({total / 2 ** 20:.3f} MiB)")
-    print(f"  primera capa: {(total - total_jefe) / 1e6:.3f} MB (presupuesto {LIMITE_BYTES / 1e6:.1f} MB); "
-          f"jefe: {total_jefe / 1e6:.3f} MB (objetivo {LIMITE_JEFE / 1e6:.1f} MB)")
-    if total - total_jefe > LIMITE_BYTES or total_jefe > LIMITE_JEFE:
+              f"{n25:>7.1f}  {sha:<10} {', '.join(avisos) if avisos else 'ok'}{extra}")
+    print(f"\nTotal: {total} bytes = {total / 1e6:.3f} MB ({total / 2 ** 20:.3f} MiB)"
+          + (f"  [solo: {solo}]" if solo else ""))
+    print(f"  primera capa: {(total - total_jefe - total_031) / 1e6:.3f} MB (presupuesto {LIMITE_BYTES / 1e6:.1f} MB); "
+          f"jefe: {total_jefe / 1e6:.3f} MB (objetivo {LIMITE_JEFE / 1e6:.1f} MB); "
+          f"alfa 0.3.1: {total_031 / 1e6:.3f} MB (presupuesto {LIMITE_031 / 1e6:.1f} MB)")
+    if total - total_jefe - total_031 > LIMITE_BYTES or total_jefe > LIMITE_JEFE:
         print("AVISO: se supera el presupuesto en bruto (ver README: perfil --compacto o compresión al importar).")
+    if total_031 > LIMITE_031:  # este presupuesto es firme: cuenta como error
+        print("ERROR: los efectos de la Alpha 0.3.1 superan su presupuesto de 2.5 MB.")
+        avisos_tot += 1
     return avisos_tot
+
+
+def escribir_manifiesto(ruta: Path) -> int:
+    """Escribe el manifiesto de procedencia: una entrada por archivo de las tablas, con lo medido en disco."""
+    entradas = []
+    for nombre, fn in [(b[0], b[1]) for b in BUCLES] + [(e[0], e[1]) for e in EFECTOS]:
+        archivo = SALIDA / f"{nombre}.wav"
+        if not archivo.exists():
+            print(f"manifiesto: falta {archivo.name}")
+            return 1
+        with wave.open(str(archivo), "rb") as w:
+            hz, muestras = w.getframerate(), w.getnframes()
+        if nombre.startswith("mus_"):
+            tipo, bus = "música provisional", "Music"
+        elif nombre.startswith("amb_"):
+            tipo, bus = "ambiente provisional", "Ambience"
+        elif nombre.startswith("cine_"):
+            tipo, bus = "efecto", "Cinematics"
+        elif nombre.startswith("ui_") or nombre in SONIDOS_UI:
+            tipo, bus = "efecto", "UI"
+        else:
+            tipo, bus = "efecto", "SFX"
+        entradas.append({
+            "id": nombre,
+            "archivo": f"game/assets/audio/{nombre}.wav",
+            "tipo": tipo,
+            "bus": bus,
+            "duracion_s": round(muestras / hz, 3),
+            "hz": hz,
+            "bytes": archivo.stat().st_size,
+            "origen": f"síntesis propia: art/audio/gen_audio.py, función {FUNCION.get(nombre, fn.__name__)}",
+            "licencia": "original del proyecto ALUX, sin material de terceros",
+            # numpy.random.default_rng([semilla base, CRC-32 del nombre]); ver `gen`
+            "semilla": [SEMILLA, zlib.crc32(nombre.encode("utf-8"))],
+        })
+    ruta.write_text(json.dumps(entradas, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"Manifiesto: {len(entradas)} entradas en {ruta}")
+    return 0
 
 
 def main() -> int:
@@ -2075,13 +3143,21 @@ def main() -> int:
                     help="bucles más cortos (música con menos compases, selva 6.5 s, brasero 2.4 s)")
     ap.add_argument("--salida", type=Path, default=None,
                     help="carpeta de salida (por defecto game/assets/audio)")
+    ap.add_argument("--solo", default=None, metavar="PATRONES",
+                    help="generar y comprobar solo estos sonidos: nombres o patrones separados por comas "
+                         "(«ui_*,chispa_?») o una capa (base, jefe, alfa031)")
+    ap.add_argument("--manifiesto", nargs="?", type=Path, const=MANIFIESTO, default=None, metavar="RUTA",
+                    help="escribir además el manifiesto de procedencia (por defecto art/audio/manifiesto_efectos.json)")
     a = ap.parse_args()
     if a.salida is not None:
         global SALIDA
         SALIDA = a.salida.resolve()
     if not a.check:
-        generar(a.compacto)
-    return 1 if comprobar(a.compacto) else 0
+        generar(a.compacto, a.solo)
+    fallos = comprobar(a.compacto, a.solo)
+    if a.manifiesto is not None:
+        fallos += escribir_manifiesto(a.manifiesto.resolve())
+    return 1 if fallos else 0
 
 
 if __name__ == "__main__":
