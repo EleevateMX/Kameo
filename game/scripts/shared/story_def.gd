@@ -133,8 +133,8 @@ const CUTSCENES := {
 			{"dur": 4.0, "from": [Vector3(29.6, 3.5, -1.1), Vector3(31.7, 3.25, 0.0)], "to": [Vector3(29.9, 3.5, -0.7), Vector3(31.6, 3.5, 0.0)],
 				"text": "Nojoch Tuunich abre los ojos… y no reconoce a nadie.", "sound": "cine_ojos", "video": "despertar_3",
 				"boss": {"anim": "Awaken", "at": 0.2, "speed": 0.325, "look": 0, "look_to": 1, "look_at": 0.5, "glow": [2.4, 1.8]}},
-			# 4. En pie: contrapicado desde el portal; acaba erguido, de cara al grupo
-			{"dur": 4.0, "from": [Vector3(25.4, 0.9, -2.4), Vector3(31.4, 2.4, 0.2)], "to": [Vector3(26.2, 1.1, -1.6), Vector3(31.6, 3.2, 0.0)],
+			# 4. En pie: desde el portal, la cámara del combate; acaba erguido, de cara al grupo
+			{"dur": 4.0, "from": [Vector3(22.7, 1.9, 0.0), Vector3(31.6, 2.3, 0.0)], "to": [Vector3(23.3, 2.0, 0.0), Vector3(31.6, 2.6, 0.0)],
 				"title": "Nojoch Tuunich  ·  El Guardián Dormido", "text": "", "sound": "cine_en_pie", "video": "despertar_4",
 				"boss": {"anim": "Awaken", "at": 1.5, "speed": 0.625, "look": 1, "glow": [1.8, 1.7]}},
 		],

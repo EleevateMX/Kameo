@@ -32,7 +32,7 @@ navegador en un `<video>` colocado encima del lienzo, y el juego lo dirige por u
 
 | Pieza | Archivo | Qué hace |
 | --- | --- | --- |
-| Guiones | `game/scripts/shared/story_def.gd` (`CUTSCENES`) | Planos: duración, cámara, texto, sonido y, si lo hay, `video` |
+| Guiones | `game/scripts/shared/story_def.gd` (`CUTSCENES`) | Planos: duración, cámara, texto, sonido y, si lo hay, `video`. En las del jefe, además, la pose y el aspecto del guardián (`boss`), las motas del Silencio (`motes`) y la pluma (`feather`) |
 | Reproductor | `game/scripts/client/cinematics/cutscene.gd` | Mueve la cámara plano a plano; si el plano tiene vídeo listo lo pone encima y vigila que avance. Mide la escena con el reloj real: un navegador lento no se retrasa respecto al servidor |
 | Puente (juego) | `game/scripts/client/cinematics/video_bridge.gd` | Órdenes y consultas al navegador; fuera de la web responde «no hay vídeo» |
 | Puente (navegador) | `game/web/static/cine-video.js` | Manifiesto, precarga, `<video>` sobre el juego, subtítulos, registro de fallos |
@@ -60,7 +60,7 @@ juego. `v` es la versión: va en la dirección, así el navegador puede guardar 
 
 | Tema | Cómo se resuelve |
 | --- | --- |
-| Formatos | MP4 (H.264) y WebM (VP9), 720p. Se descarga sólo el que el navegador reproduce. «El sello cede» pesa 2.63 MB en MP4 o 2.03 MB en WebM. |
+| Formatos | MP4 (H.264) y WebM (VP9), 720p. Se descarga sólo el que el navegador reproduce. «El sello cede» pesa 2.63 MB en MP4 o 2.03 MB en WebM; «El despertar», 2.00 o 1.08; «La liberación», 1.72 o 1.09. En total 6.35 MB o 4.20 MB. |
 | Precarga | En dos etapas. **Descarga** al entrar a la partida, con prioridad baja y de uno en uno: el archivo se baja entero, así no hay cortes por red a mitad. **Decodificación** sólo justo antes de la escena (durante la preparación) y se libera al terminar. Se midió por qué: con los decodificadores abiertos toda la partida, cuatro navegadores sin tarjeta gráfica en un mismo equipo dejaban de poder jugar. |
 | Caché | Vídeos con versión en la dirección y caché de un año; el manifiesto se revalida en cada visita. |
 | Sonido | Por defecto en silencio (suena el audio del juego, con los volúmenes del jugador). Un vídeo marcado `audio` suena sólo si el usuario ya interactuó con la página; si el navegador lo bloquea, se reproduce mudo. |
@@ -120,7 +120,7 @@ pantalla, y usan el mismo reproductor y los mismos vídeos.
 | 7 | Prompts por plano | Este documento |
 | 8 | **Presupuesto aprobado** → enriquecer los cuadros clave (imagen a imagen), generar y evaluar tomas | Kling |
 | 9 | Corregir inconsistencias (repetir, recortar, descartar) | Kling + montaje |
-| 10 | Convertir a MP4 y WebM 720p, añadir al manifiesto, probar | `ffmpeg`, `npm run test:cine`, `npm run test:cine-coop` |
+| 10 | Convertir a MP4 y WebM 720p, añadir al manifiesto, probar | `scripts/encode-cine.py <original> <id> <segundos>`, `npm run test:cine`, `npm run test:boss` |
 
 **Hojas de personaje** (sin textos: Kling copia lo que lee):
 
@@ -134,18 +134,24 @@ sombrero de palma, que en el juego atraviesa la cinta. Está anotado en [pendien
 
 | Dato | Valor | Origen |
 | --- | --- | --- |
-| Saldo | **2 375 créditos** | Consultado el 12 nov 2026, tras producir «El sello cede» |
-| Cuadro clave enriquecido (`gemini-3-pro-image`, 2K) | **20 créditos** | 5 generaciones |
-| Vídeo `kling-video-v3_0`, 1080p, sin audio, con o sin último cuadro | **8 créditos por segundo** | 7 generaciones |
+| Saldo | **1 887 créditos** | Consultado el 12 nov 2026, tras producir las dos cinemáticas del jefe |
+| Cuadro clave enriquecido (`gemini-3-pro-image`, 2K) | **20 créditos** | 16 generaciones |
+| Vídeo `kling-video-v3_0`, 1080p, sin audio, con o sin último cuadro | **8 créditos por segundo** | 16 generaciones |
 | Vídeo `kling-video-v3_0_turbo`, 1080p, sólo primer cuadro | 10 créditos por segundo | La toma de prueba del vínculo |
 | Tomas aprobadas a la primera, sin personajes | 6 de 7 | «El sello cede» |
+| Tomas aprobadas a la primera, con un personaje | 7 de 9 vídeos y 9 de 11 cuadros | Las dos del jefe. Los descartes: ojos con pupila, un puño cerrado donde tocaba serenidad, un cuadro con otro estilo y un encuadre que se aprovechó |
 | Peso para web | 2.6 MB por 10 s (MP4, 720p) | «El sello cede» |
 
 Lo que da el salto visual es **enriquecer el cuadro clave antes de animarlo**: el vídeo hereda el
 aspecto de su primer cuadro. Registro completo, con cada prompt, costo y veredicto:
 [art/cinematicas/sello/kling/PRODUCCION.md](../art/cinematicas/sello/kling/PRODUCCION.md).
 
-Sin medir: planos con personajes (se espera más repeticiones), sonido generado, 720p y 4K.
+Con personaje, lo que funcionó: enriquecer primero **un** cuadro del personaje y usarlo como
+referencia de todos los demás; sacar los cuadros de la misma cámara **editando** el anterior (sólo
+cambia la pose); y decir en el prompt lo que **no** debe pasar (pupilas, puños, enfado). Registro:
+[art/cinematicas/jefe/kling/PRODUCCION.md](../art/cinematicas/jefe/kling/PRODUCCION.md).
+
+Sin medir: sonido generado, 720p y 4K.
 
 ![Cuatro cuadros de la toma de prueba del vínculo](img/kling-prueba-vinculo.jpg)
 
@@ -157,14 +163,16 @@ retocar. Queda como referencia de movimiento.
 
 Con los precios medidos. Una pasada = todos los cuadros clave enriquecidos y una toma por plano.
 
-| | **C. El sello cede** | **A. El llamado de Chiich Yaxché** | **B. El vínculo de Balam** | **D. Despertar de Nojoch Tuunich** | **E. El guardián recuerda** |
+| | **C. El sello cede** | **A. El llamado de Chiich Yaxché** | **B. El vínculo de Balam** | **D. El despertar de Nojoch Tuunich** | **E. La liberación de Nojoch Tuunich** |
 | --- | --- | --- | --- | --- | --- |
 | Duración | 10 s | 13 s | 20–24 s | 16 s | 12 s |
 | Planos | 3 | 3 | 4 | 4 | 3 |
 | Una pasada | — | ~165 | ~270 | ~230 | ~180 |
-| **Máximo** | **500 aprobados · 284 usados** | 400 | 600 | 450 | 350 |
-| Estado | **Producida e integrada** | Sin aprobar | Sin aprobar | Sin aprobar; diseño del jefe en [BOSS.md](BOSS.md) | Sin aprobar |
-| Bloqueos | — | Storyboard y cuadros clave por hacer | Cabeza de Balam, luz de noche, storyboard por adaptar a la regla 6 | Modelo y mecánica del jefe sin aprobar | Lo mismo |
+| **Máximo** | **500 aprobados · 284 usados** | 400 | 600 | **450 aprobados · 280 usados** | **350 aprobados · 228 usados** |
+| Estado | **Producida e integrada** | Sin aprobar | Sin aprobar | **Producida e integrada** | **Producida e integrada** |
+| Bloqueos | — | Storyboard y cuadros clave por hacer | Cabeza de Balam, luz de noche, storyboard por adaptar a la regla 6 | — | — |
+
+(D y E juntas: 488 créditos según el saldo; la suma de lo declarado por cada generación da 508.)
 
 Los máximos de A y B bajan respecto a la primera estimación porque el precio real resultó menor,
 pero conservan margen: los planos con personaje fallan más que un escenario.
@@ -176,8 +184,8 @@ pero conservan margen: los planos con personaje fallan más que un escenario.
 | `llamado` | El llamado | Local | Al entrar por primera vez; se repite desde el menú | Versión del motor hecha (4 planos, 19 s). Componente Kling: cinemática A, sin presupuesto aprobado |
 | `sello` | El sello cede | Compartida | La primera vez que el grupo abre el santuario | **Producida con Kling e integrada** (3 planos, 10 s), con la versión del motor debajo. En la rama de trabajo; sin publicar |
 | `vinculo_balam` | El vínculo de Balam | Compartida o local, por decidir | Tras hablar con Chiich Yaxché | Storyboard aprobado, por adaptar a la regla 6; una toma de prueba; producción en 0.4 |
-| `guardian_despierta` | Despertar de Nojoch Tuunich | Compartida | Al entrar al patio del santuario | Guion en [BOSS.md](BOSS.md); bloqueada hasta aprobar modelo y mecánica del jefe |
-| `guardian_recuerda` | El guardián recuerda | Compartida | Al vencer al jefe; entrega la Pluma de Jade | Guion en [BOSS.md](BOSS.md); misma condición |
+| `despertar` | El despertar de Nojoch Tuunich | Compartida | La primera vez que el grupo entra al patio con la emboscada superada | **Producida con Kling e integrada** (4 planos, 16 s), con la versión del motor debajo. Termina donde empieza el combate. Detalle en [BOSS.md](BOSS.md) |
+| `liberacion` | La liberación de Nojoch Tuunich | Compartida | Al completarse el ritual de la fase 3; entrega la Pluma de Jade | **Producida con Kling e integrada** (3 planos, 12 s), con la versión del motor debajo. Sin ningún alux en cuadro |
 
 ## «El llamado» (hecha)
 

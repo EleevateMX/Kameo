@@ -25,7 +25,7 @@ No existe ningún mensaje para fijar posición, hacer daño, curarse, abrir puer
 | `welcome` | Tu id, lugar (0–3), sala, formas, tu estado y vida, lista de jugadores, estado del mundo, enemigos, `rejoin`. |
 | `roster` | Lista de jugadores (nombre, color, accesorio, conectado). |
 | `snap` | 15 por segundo: `p` jugadores, `e` enemigos, `w` mundo, `ev` eventos de combate desde el estado anterior. |
-| `event` | `gate_open` (quiénes lo abrieron), `reward` (recompensa, si se guardó y si era nueva), `defeat` (todo el grupo cayó), `restart` (empieza otra ronda), `story` (avanzó la historia: qué, con qué personaje y quién), `cine_prep` (la sala se pausa para una cinemática compartida: id y espera máxima), `cine` (orden de inicio: id, duración y `at`, los segundos ya transcurridos para quien se engancha a mitad) o `cine_end` (terminó, y si fue por votos). |
+| `event` | `gate_open` (quiénes lo abrieron), `reward` (recompensa, si se guardó y si era nueva), `defeat` (todo el grupo cayó), `restart` (empieza otra ronda), `story` (avanzó la historia: `talked` con un personaje, `freed` al liberar al guardián o `clue` al recibir la pista del Cenote, y quién), `cine_prep` (la sala se pausa para una cinemática compartida: id y espera máxima), `cine` (orden de inicio: id, duración y `at`, los segundos ya transcurridos para quien se engancha a mitad) o `cine_end` (terminó, y si fue por votos). |
 | `pong` | Eco de `c`. |
 | `error` | `code` y mensaje. Tras un error el servidor cierra la conexión. |
 
@@ -50,14 +50,31 @@ descarga por HTTP. Detalle y motivos: [CINEMATICS.md](CINEMATICS.md).
 Estado de Nojoch Tuunich ([BOSS.md](BOSS.md)); también viaja en `welcome`. Lo decide todo el servidor
 y no existe ningún mensaje del cliente que lo toque:
 
-`[fase, x, z, giro, estado, segundosDelEstado, silencio, glifos, glifosNecesarios, slotObjetivo, golpeX, golpeZ, giroDelBarrido, escombros]`
+`[fase, x, z, giro, estado, segundosDelEstado, silencio, glifos, glifosNecesarios, slotObjetivo, golpeX, golpeZ, giroDelBarridoOEmbestida, escombros, anclasActivas, anclasNecesarias, columnas, corazón, corazonesLiberados, glifosDelSuelo, glifosDelSueloNecesarios, contacto, quiénesLoTocan, cuántosDebenTocarlo]`
 
 - Fase: 0 dormido · 1 olvido · 2 furia · 3 recuerdo · 4 liberado. Silencio: de 100 a 0.
-- Estado: `sleep`, `rise`, `idle`, `walk`, `slam_w`, `sweep_w`, `summon_w`, `recover`, `kneel`, `freed`.
-- Escombros: lista de `[x, z, radio, segundosQueQuedan]`.
+- Estado: `sleep`, `rise`, `idle`, `walk`, `slam_w`, `sweep_w`, `summon_w`, `recover`, `kneel`, `freed`,
+  `transit` (camina a la explanada), `rain_w`, `rain`, `charge_w`, `charge`, `stunned`, `bound`
+  (sujeto por las cadenas, corazón expuesto) y `ritual`.
+- Escombros: lista de `[x, z, radio, segundosQueQuedan]`. Columnas: lista de `[zócalo, segundosQueQuedan]`.
+- `anclasActivas` y `quiénesLoTocan` son máscaras de bits (de anclas y de slots de jugador).
+  `corazón` y `contacto` van de 0 a 100.
 
-Sus eventos van con los de combate: `["boss", "awake"|"tele"|"slam"|"sweep"|"summon"|"glyph"|"far"|"phase"|"fail", …]`.
-`tele` avisa de un ataque antes de que caiga (cuál, cuánto falta y dónde).
+Sus eventos van con los de combate (`["boss", tipo, …]`):
+
+| Fase | Eventos |
+| --- | --- |
+| 1 | `awake` (fase, glifos) · `tele` (ataque, segundos, dónde) · `slam` · `sweep` · `summon` · `glyph` · `far` · `phase` (fase nueva, silencio) · `fail` |
+| 2 | `transit` · `arena` · `pillar` (zócalo, quién) · `pillar_max` · `pillar_down` · `rain` · `charge` · `charge_end` · `crash` (zócalo, segundos aturdido) · `shake` · `anchor` (cuál, activa) · `bound` · `unbound` · `clang` (golpe sin efecto) · `heart_hit` (quién, daño, corazón) · `heart` (liberados, total, silencio, quién) |
+| 3 | `ritual` · `lit` (encendidos, necesarios, quién) · `contact` · `pulse` · `freed` |
+
+`tele` avisa de un ataque antes de que caiga (cuál, cuánto falta y dónde): `slam`, `sweep`, `summon`,
+`rain`, `charge` y `pulse`.
+
+Lo que el cliente manda y cuenta para el jefe es sólo su entrada de siempre: moverse (pisar un
+ancla), el botón especial del alux (tocar una criatura o el glifo de una columna; **mantenerlo**
+junto al guardián es el contacto del ritual) y los ataques de Balam (contra el corazón expuesto).
+`talk` con `n: "nojoch"` sólo cuenta con el guardián liberado y estando a su lado.
 
 ### `snap.p` — jugadores
 
@@ -75,7 +92,7 @@ Tipos: 0 guardián de piedra · 1 criatura corrompida. Estados: `idle, chase, wi
 ### `snap.w` — mundo
 
 `[santuarioAbierto, máscaraDeAltares, altaresNecesarios, emboscada, enemigosRestantes, puntoDeReaparición, braseroListo, votosOtraRonda, conectados, esperaDeAltares, historia]`
-`historia` son banderas del progreso narrativo de la sala (1 = alguien habló con Chiich Yaxché).
+`historia` son banderas del progreso narrativo de la sala (1 = alguien habló con Chiich Yaxché · 2 = Nojoch Tuunich liberado · 4 = el guardián dio la pista del Cenote).
 Al final van dos valores más: los segundos que le quedan a la cinemática compartida en curso (0 si no
 hay; mientras sea mayor que 0 la sala está en pausa) y los votos para omitirla.
 Emboscada: 0 pendiente · 1 en curso · 2 superada · 3 fallida (vuelve sola a 0 tras la espera).

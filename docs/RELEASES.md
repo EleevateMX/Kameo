@@ -10,7 +10,7 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 
 | **Closed Alpha 0.2.1** | **Publicada** el 12 nov 2026 en <https://alux-beta.onrender.com> (commit `94bb9c8`) | La 0.2 más las cinemáticas híbridas, **«El sello cede» producida con Kling** y los modelos de los personajes corregidos |
 
-| Alpha 0.3 (en desarrollo) | En la rama de trabajo, **sin publicar** | Secuelas del sello en el santuario; jefe Nojoch Tuunich con modelo propuesto y fase 1 jugable |
+| Alpha 0.3 (candidata) | Rama `release/alpha-0.3-rc1`, **sin publicar** | Jefe Nojoch Tuunich completo (tres fases, modelo definitivo, cinemáticas de despertar y liberación), Pluma de Jade y pista del Cenote |
 
 ## Publicación en la rama `beta`
 
@@ -20,29 +20,59 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
 
-## Alpha 0.3 — El Guardián Dormido (en desarrollo, sin publicar)
+## Alpha 0.3 — El Guardián Dormido (candidata, sin publicar)
+
+Rama candidata: `release/alpha-0.3-rc1`. **No está en `beta`**: se publica sólo con tu visto bueno.
+Diseño completo del jefe: [BOSS.md](BOSS.md).
 
 | Novedad | Detalle |
 | --- | --- |
-| Secuelas de «El sello cede» | El santuario conserva lo que mostró el vídeo: enredaderas y grietas fijas (en la misma malla de piedra) y, al romperse el sello, glifos y sol encendidos de más que se asientan, marcas magenta que se apagan, restos del sello que tardan en irse y motas de jade y oro que se quedan. Sin luces nuevas. |
-| Nojoch Tuunich, fase 1 | El jefe duerme al fondo del patio y despierta cuando el grupo entra con la emboscada superada. Golpe de losa con escombros, barrido y llamada de criaturas, todos con aviso. Purificar criaturas cerca de él enciende sus glifos (2, 3, 4 y 4 para 1 a 4 jugadores). Derrota y reintento desde la fase. |
-| Barra de Silencio | No es vida: se explica en la barra, en el objetivo y con un aviso al despertar. Los golpes de los jugadores no le hacen nada. |
-| Modelo propuesto | Coloso de sillares de caliza, 8 765 triángulos, 26 huesos, 11 animaciones; las fases se distinguen por ojos, vetas y glifos. Provisional hasta su revisión. |
-| Cinemáticas del jefe | Despertar (16 s) y liberación (12 s): storyboards, cuadros clave, prompts y presupuesto, sin producir. |
+| Nojoch Tuunich, combate completo | Tres fases cooperativas decididas por el servidor. **Olvido** (patio): purificar criaturas junto a él enciende los glifos del pecho. **Furia** (explanada): columnas que despierta el alux, lluvia de piedra, embestida que se corta contra una columna, anclas, cadenas de jade y corazón expuesto a las garras de Balam. **Recuerdo**: glifos de memoria y contacto de todos a la vez |
+| Transición de fase | El guardián cruza el portal andando; nadie se teletransporta. Punto de control en cada fase: una derrota retoma la fase alcanzada |
+| Modelo definitivo | Caliza cálida, rostro con tres expresiones (triste, dolor contenido, serena), grietas que cambian con el Silencio, glifos que se encienden; animaciones revisadas en movimiento. 11 006 triángulos, 30 huesos |
+| Pluma de Jade | Objeto ancestral persistente: sale en la liberación, la entrega el servidor una vez por jugador, aparece en el perfil y abre la pista del Cenote hablando con el guardián liberado. No desbloquea transformaciones |
+| Cinemáticas del jefe | «El despertar» (16 s) y «La liberación» (12 s), compartidas, con voto para omitir, versión del motor de respaldo y vídeos de Kling |
+| Presentación | Escenario del combate (anclas, columnas, cadenas, lluvia, carril de embestida, glifos, haces de contacto), barra con segunda barra, objetivos y pistas por momento, 31 sonidos, música por fase, sacudida de cámara regulable (en cero si el sistema pide menos movimiento) |
+| Secuelas de «El sello cede» | El santuario conserva lo que mostró el vídeo: enredaderas, grietas y marcas que se asientan |
+| Otros | Enter en un panel de victoria sigue la aventura (otra ronda se pide con su botón); al liberar al guardián, las criaturas corrompidas cercanas también recuerdan |
 
-![Las secuelas del sello: a los 3 s por fuera y por dentro, y ya asentado](img/secuelas-sello.jpg)
+![Las fases 2 y 3 y el guardián liberado, en el juego](img/jefe-fases.jpg)
 
-Protocolo: cada instantánea y la bienvenida llevan el estado del jefe (`b`) y hay eventos de combate
-`boss`. Compatible: un cliente anterior los ignora. Sin migraciones.
+Protocolo: el estado del jefe (`b`) crece de 14 a 24 campos y hay eventos `boss` nuevos; la historia
+de la sala gana dos banderas; llegan los avisos `story` `freed` y `clue`. Compatible hacia atrás: un
+cliente anterior ignora lo que no conoce. Recompensa nueva en el catálogo (`pluma_de_jade`).
+**Sin migraciones de base de datos**: usa las tablas de recompensas y misiones que ya existían.
 
-| Comprobación (en local) | Resultado |
+### Comprobado (en local)
+
+| Comprobación | Resultado |
 | --- | --- |
-| API y simulación | 10 de 10 · sin violaciones |
-| Servidor con bots | 17 de 17. Nuevas, para 1, 2 y 4 jugadores: el jefe duerme hasta que alguien entra al patio, los mensajes inventados se ignoran, nadie recibe daño mientras se levanta, la fase se completa con los glifos justos, todos ven lo mismo y, con un jugador, derrota y reintento |
-| Navegador | Flujo completo (15 pasos, con el nuevo: el jefe duerme en el patio y despierta para todos cuando entra un compañero, con su modelo, su barra y su objetivo), vídeos reales de Kling y cuatro navegadores: pasan |
+| API | @@API@@ |
+| Simulación compartida | @@SIM@@ |
+| Servidor con bots | @@PROTO@@ |
+| Navegador, combate completo (`npm run test:boss`) | Una jugadora en un navegador real y tres compañeros: las tres fases, las dos cinemáticas, panel «Capítulo I completado», Pluma de Jade guardada en el perfil y pista del Cenote. La jugadora toca al guardián manteniendo F |
+| Navegador, resto | @@NAV@@ |
+| Vídeos | @@VID@@ |
 
-**Sin comprobar:** el jefe con personas y con tarjeta gráfica; su costo en navegador y en la memoria
-del servidor; las fases 2 y 3, que no existen todavía.
+### Rendimiento medido
+
+| Qué | Medida |
+| --- | --- |
+| Servidor de juego durante el combate | 107 MB de memoria residente y 4 % de CPU de media (13 % de pico) con **tres salas a la vez** (1, 2 y 4 jugadores) peleando las tres fases. Sin crecimiento durante la prueba |
+| Coste del jefe en el motor (calidad alta, con sombras) | El modelo: unas 27 llamadas de dibujo y 33 000 triángulos dibujados más (11 006 por pasada). El escenario del combate: otras 20–25 llamadas en la fase 2 y unas 10 en la 3. La pluma: 30 |
+| Escenas completas (calidad alta) | Fase 1: 270 llamadas · fase 2: 295–304 · fase 3: 282 · liberado: 88 |
+| Navegador de pruebas (render por software, calidad mínima, cuatro jugadores) | 309 llamadas de dibujo al final del combate; 1–3 FPS, como el resto del juego en este entorno: **no es representativo** de un equipo con tarjeta gráfica |
+| Carga del juego en el navegador de pruebas | 8–12 s hasta estar jugando |
+| Descarga | @@DESCARGA@@ |
+
+### Rollback
+
+Volver a la 0.2.1: publicar en `beta` el commit `94bb9c8`. Los datos son compatibles en los dos
+sentidos (no hay migraciones); quien ya tenga la Pluma de Jade la conserva en la base de datos
+aunque la 0.2.1 no la muestre.
+
+**Sin comprobar:** el combate con personas (ritmo, dificultad, si las pistas bastan); con tarjeta
+gráfica, en Safari o Firefox; la imagen de despliegue de esta versión @@IMAGEN@@.
 
 ## ALUX Closed Alpha 0.2.1
 

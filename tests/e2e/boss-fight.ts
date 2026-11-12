@@ -90,6 +90,12 @@ const p1 = Promise.all(cast.map((a, i) => bossPhase1(a, i, () => phase() >= 2, 4
 await waitFor('el guardián despierta', async () => (await st(page)).boss[0] === 1, 120_000);
 await waitFor('«El despertar» en pantalla', async () => (await st(page)).cine === 'despertar', 60_000);
 assert.equal((await st(page)).frozen, true, 'la sala está en pausa durante el despertar');
+// Con sus vídeos descargados, la escena se ve como vídeo (si faltan, con el motor: también vale)
+const clips = (await st(page)).video?.clips ?? {};
+const have = (id: string) => ['fetched', 'ready', 'playing', 'ended'].includes(clips[id]?.s);
+const despertarVideo = [1, 2, 3, 4].every((i) => have(`despertar_${i}`));
+if (despertarVideo) await waitFor('«El despertar» como vídeo', async () => (await st(page)).cine_video === true || (await st(page)).cine !== 'despertar', 30_000);
+const sawDespertarVideo = (await st(page)).cine_video === true;
 await sleep(2500);
 await shot(page, '01-cinematica-despertar.png');
 cast.forEach((a) => { a.ws.send(JSON.stringify({ t: 'skip' })); a.autoSkip = true; });
@@ -98,7 +104,8 @@ await waitFor('barra de Silencio', async () => (await st(page)).boss_bar === tru
 s = await st(page);
 assert.match(s.ui.objective, /glifos del guardián/);
 assert.equal(s.music, 'mus_jefe', 'música propia del guardián');
-ok(`Fase 1 «Olvido»: despierta para todos con su cinemática, barra de Silencio y música propia (glifos ${s.boss[7]}/${s.boss[8]})`);
+if (despertarVideo) assert.equal(sawDespertarVideo, true, 'con los vídeos descargados, «El despertar» se ve como vídeo');
+ok(`Fase 1 «Olvido»: despierta para todos con su cinemática (${sawDespertarVideo ? 'vídeo de Kling' : 'versión del motor'}), barra de Silencio y música propia (glifos ${s.boss[7]}/${s.boss[8]})`);
 assert.ok((await p1).every(Boolean), 'los compañeros completan la fase 1');
 await toWatch;
 
@@ -172,6 +179,9 @@ ok('Fase 3 «Recuerdo»: glifos del suelo encendidos y contacto de los cuatro, l
 
 // 6) Liberación: cinemática, Pluma de Jade guardada y panel de capítulo
 await waitFor('«La liberación» en pantalla', async () => (await st(page)).cine === 'liberacion', 60_000);
+const liberacionVideo = [1, 2, 3].every((i) => have(`liberacion_${i}`));
+if (liberacionVideo) await waitFor('«La liberación» como vídeo', async () => (await st(page)).cine_video === true || (await st(page)).cine !== 'liberacion', 30_000);
+const sawLiberacionVideo = (await st(page)).cine_video === true;
 await sleep(2500);
 await shot(page, '07-cinematica-liberacion.png');
 cast.forEach((a) => a.ws.send(JSON.stringify({ t: 'skip' })));
@@ -184,7 +194,10 @@ await shot(page, '08-capitulo-completado.png');
 const profile = await page.evaluate(async () => (await fetch('/api/v1/me')).json());
 assert.deepEqual(profile.rewards.filter((r: string) => r === 'pluma_de_jade'), ['pluma_de_jade'], 'la Pluma de Jade queda en el perfil, una sola');
 assert.equal(profile.quests.cap1_guardian, 'completed');
-ok('Liberación: cinemática compartida, panel «Capítulo I completado» y Pluma de Jade guardada en el perfil');
+if (liberacionVideo) assert.equal(sawLiberacionVideo, true, 'con los vídeos descargados, «La liberación» se ve como vídeo');
+assert.equal(s.cine_stats.fallbacks, 0, 'ningún vídeo falló a mitad');
+assert.equal(await page.evaluate(() => (window as any).ALUX_VIDEO?.visible?.() ?? false), false, 'ningún vídeo tapa el juego al terminar');
+ok(`Liberación: cinemática compartida (${sawLiberacionVideo ? 'vídeo de Kling' : 'versión del motor'}), panel «Capítulo I completado» y Pluma de Jade guardada en el perfil`);
 
 // 7) La pista del Cenote: hablar con el guardián liberado
 await page.keyboard.press('Enter');

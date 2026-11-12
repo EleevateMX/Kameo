@@ -230,6 +230,9 @@ func _process(delta: float) -> bool:
 		av.animate(delta, true, false)
 	for v in foes:
 		v.update_view(time, delta)
+	if OS.get_environment("PREVIEW_SIN_JEFE") == "1":
+		boss.visible = false
+		arena.visible = false
 	if arena:
 		arena.update_view(0.5 if wait > 0 else delta, boss.position, {0: Vector3(13.2, 0.2, 2.6), 1: Vector3(13.4, 0.2, -2.6), 2: Vector3(17.9, 0.0, 2.6)})
 	if npc:
@@ -240,7 +243,9 @@ func _process(delta: float) -> bool:
 		if wait == 0:
 			var s: Array = shots[idx]
 			get_root().get_texture().get_image().save_png(out + s[0] + ".png")
-			print("captura: ", s[0])
+			# Coste de la toma: llamadas de dibujo y triángulos del último cuadro (PREVIEW_SIN_JEFE=1 lo oculta para comparar)
+			print("captura: ", s[0], " · dibujos=", RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
+				" · triángulos=", RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME))
 		return false
 	idx += 1
 	while idx < shots.size() and not only.is_empty() and not only.has(shots[idx][0]):

@@ -27,6 +27,69 @@
       "dur": 3.0,
       "audio": false,
       "v": "7d29903285"
+    },
+    "despertar_1": {
+      "src": {
+        "mp4": "despertar_1.mp4",
+        "webm": "despertar_1.webm"
+      },
+      "dur": 4.0,
+      "audio": false,
+      "v": "3c4f310401"
+    },
+    "despertar_2": {
+      "src": {
+        "mp4": "despertar_2.mp4",
+        "webm": "despertar_2.webm"
+      },
+      "dur": 4.0,
+      "audio": false,
+      "v": "b9415585f2"
+    },
+    "despertar_3": {
+      "src": {
+        "mp4": "despertar_3.mp4",
+        "webm": "despertar_3.webm"
+      },
+      "dur": 4.0,
+      "audio": false,
+      "v": "cff55f0553"
+    },
+    "despertar_4": {
+      "src": {
+        "mp4": "despertar_4.mp4",
+        "webm": "despertar_4.webm"
+      },
+      "dur": 4.0,
+      "audio": false,
+      "v": "6d076b3d0d"
+    },
+    "liberacion_1": {
+      "src": {
+        "mp4": "liberacion_1.mp4",
+        "webm": "liberacion_1.webm"
+      },
+      "dur": 4.0,
+      "audio": false,
+      "v": "ab46ecf8c2"
+    },
+    "liberacion_2": {
+      "src": {
+        "mp4": "liberacion_2.mp4",
+        "webm": "liberacion_2.webm"
+      },
+      "dur": 4.0,
+      "audio": false,
+      "v": "1f5aebd793"
+    },
+    "liberacion_3": {
+      "src": {
+        "mp4": "liberacion_3.mp4",
+        "webm": "liberacion_3.webm"
+      },
+      "dur": 4.0,
+      "audio": false,
+      "v": "8bb6d9d58a"
     }
   }
 }
