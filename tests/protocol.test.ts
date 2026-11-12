@@ -43,6 +43,8 @@ class Bot {
   slot = -1;
   /** Respuesta a la preparación de una cinemática: true «tengo el vídeo», false «veré la del motor», null no contesta. */
   autoReady: boolean | null = false;
+  /** Vota omitir cualquier cinemática compartida en cuanto empieza (para pruebas que no tratan de ellas). */
+  autoSkip = false;
 
   constructor(public id: string, public name: string) {}
 
@@ -67,6 +69,7 @@ class Bot {
         else if (m.t === 'event') {
           this.events.push(m);
           if (m.e === 'cine_prep' && this.autoReady !== null) this.send({ t: 'cine_ready', id: m.id, v: this.autoReady ? 1 : 0 });
+          if (m.e === 'cine' && this.autoSkip) this.send({ t: 'skip' });
         }
         else if (m.t === 'error') { this.error = m; resolve(); }
       };
@@ -843,6 +846,145 @@ test('cinemática compartida: quien se va no bloquea, quien vuelve o llega se en
   p.close();
   q.close();
 });
+
+// ───────────────────────── Jefe: Nojoch Tuunich ─────────────────────────
+const B = { phase: 0, x: 1, z: 2, state: 4, silence: 6, glyphs: 7, needed: 8, aimX: 10, aimZ: 11, rubble: 13 } as const;
+const BOSS_STATE = ['sleep', 'rise', 'idle', 'walk', 'slam_w', 'sweep_w', 'summon_w', 'recover', 'kneel', 'freed'];
+const inCourt = (x: number, z: number) => x > 22.9 && x < 33.1 && Math.abs(z) < 5.1;
+const bossEv = (bot: Bot, kind: string) => bot.combat.filter((e) => e[0] === 'boss' && e[1] === kind);
+
+/** Abre el santuario con todos los bots y vence la emboscada (como Balam). Deja a todos fuera del patio. */
+async function clearAmbush(bots: Bot[]) {
+  const plates = [[17.5, -5], [0, -15.5], [-11, 7], [8, 16]];
+  bots.forEach((b) => { b.autoReady = true; b.autoSkip = true; });
+  // (el último en llegar pisa su altar ya con la sala en pausa: llega cuando termina la escena)
+  await Promise.all(bots.map((b, i) => b.walkTo(plates[i][0], plates[i][1], 30)));
+  await until('emboscada en curso', () => bots[0].snap!.w[3] === 1, 20_000);
+  const nearest = (b: Bot) => {
+    const m = b.me()!;
+    return b.foes().filter((f) => Math.hypot(f.x - 15, f.z) < 26 && !inCourt(f.x, f.z))
+      .sort((p, q) => Math.hypot(p.x - m[4], p.z - m[6]) - Math.hypot(q.x - m[4], q.z - m[6]))[0];
+  };
+  for (let tries = 0; tries < 5 && bots[0].snap!.w[3] !== 2; tries++) {
+    await Promise.all(bots.map((b) => b.fight(nearest, () => b.snap!.w[3] === 2 || b.snap!.w[3] === 3, 120, { form: 'balam' })));
+    if (bots[0].snap!.w[3] === 3) {
+      // cayó todo el grupo: se reagrupan y vuelven a abrir
+      await Promise.all(bots.map((b) => b.fight(() => undefined, () => !b.dead() && b.snap!.w[3] === 0 && b.snap!.w[9] === 0, 20)));
+      await Promise.all(bots.map((b, i) => b.walkTo(plates[i][0], plates[i][1], 30)));
+      await until('emboscada de nuevo', () => bots[0].snap!.w[3] === 1, 20_000);
+    }
+  }
+  assert.equal(bots[0].snap!.w[3], 2, 'el grupo supera la emboscada');
+}
+
+/**
+ * Un bot pelea la fase 1 como lo haría un jugador que la entiende: entra al patio, se aparta del
+ * golpe de losa, debilita a una criatura con chispas (sin romperla) y la toca cerca del guardián.
+ */
+async function bossPhase1(bot: Bot, index: number, done: () => boolean, maxSeconds: number) {
+  const end = Date.now() + maxSeconds * 1000;
+  while (Date.now() < end && !done()) {
+    const m = bot.me(), b = bot.snap?.b;
+    if (!m || !b || bot.dead()) { bot.input(0, 0, { f: 'alux' }); await sleep(33); continue; }
+    const me = { x: m[4], z: m[6] };
+    const go = (x: number, z: number, extra: { a?: number; r?: number } = {}) => {
+      const dx = x - me.x, dz = z - me.z, d = Math.hypot(dx, dz) || 1;
+      bot.input(d > 0.25 ? dx / d : 0, d > 0.25 ? dz / d : 0, { f: 'alux', ...extra });
+    };
+    if (!inCourt(me.x, me.z)) {
+      // por el portal: primero delante de él, luego dentro
+      if (me.x < 21 && Math.abs(me.z) > 1.2) go(19.5, 0); else go(25.5, index % 2 ? 1.5 : -1.5);
+    } else if (BOSS_STATE[b[B.state]] === 'slam_w' && Math.hypot(me.x - b[B.aimX], me.z - b[B.aimZ]) < 4.4) {
+      // aviso de golpe de losa: fuera del círculo, sin salir del patio
+      const ax = me.x - b[B.aimX], az = me.z - b[B.aimZ], d = Math.hypot(ax, az) || 1;
+      const tx = Math.min(32, Math.max(23.6, me.x + (ax / d) * 4)), tz = Math.min(4.4, Math.max(-4.4, me.z + (az / d || (index % 2 ? 1 : -1)) * 4));
+      go(tx, tz);
+    } else {
+      const foes = bot.foes().filter((f) => f.kind === 1 && inCourt(f.x, f.z)).sort((p, q) => p.id - q.id);
+      const foe = foes.length ? foes[index % foes.length] : undefined;
+      if (!foe) {
+        go(26.5, index % 2 ? 2.5 : -2.5);   // espera a la siguiente llamada, a distancia media del guardián
+      } else {
+        const dx = foe.x - me.x, dz = foe.z - me.z, d = Math.hypot(dx, dz), r = Math.atan2(dx, dz);
+        const nearBoss = Math.hypot(foe.x - b[B.x], foe.z - b[B.z]) <= 5.4;
+        if (foe.hp > foe.maxHp * 0.4) {
+          // chispas desde media distancia: la tercera la rompería, así que se para al 40 %
+          if (d > 5) go(foe.x, foe.z, { a: 1, r }); else bot.input(0, 0, { f: 'alux', a: 1, r });
+        } else if (!nearBoss) {
+          go(b[B.x] - 3.2, b[B.z] + (index % 2 ? 1.2 : -1.2));   // la criatura lo sigue hasta el guardián
+        } else if (d > 1.9) {
+          go(foe.x, foe.z);
+        } else {
+          bot.input(0, 0, { f: 'alux', a: 4, r });   // tocar: purifica
+        }
+      }
+    }
+    await sleep(33);
+  }
+  return done();
+}
+
+for (const n of [1, 2, 4]) {
+  test(`jefe, fase 1 con ${n} ${n === 1 ? 'jugador' : 'jugadores'}: despierta al entrar, sólo lo decide el servidor y los glifos se encienden purificando cerca de él`, async () => {
+    const room = `JEFE0${n}`;
+    const bots = Array.from({ length: n }, (_, i) => new Bot(randomUUID(), `Memoria${i + 1}`));
+    for (const b of bots) await b.connect(ticket({ id: b.id, room, name: b.name }));
+    await sleep(300);
+    const a = bots[0];
+    assert.equal(a.welcome!.b![B.phase], 0, 'al entrar a la sala, el guardián duerme');
+    await clearAmbush(bots);
+    await sleep(600);
+    assert.equal(a.snap!.b![B.phase], 0, 'superar la emboscada no lo despierta: hay que entrar al patio');
+    assert.equal(BOSS_STATE[a.snap!.b![B.state]], 'sleep');
+    assert.equal(a.foes().some((f) => inCourt(f.x, f.z)), false, 'el patio está vacío');
+
+    // Un cliente no puede despertarlo, encender glifos ni cambiar de fase con mensajes
+    for (const fake of [{ t: 'boss', phase: 3 }, { t: 'glyph', n: 4 }, { t: 'purify', id: 1 }, { t: 'silence', v: 0 }]) a.send(fake);
+    await sleep(400);
+    assert.deepEqual([a.snap!.b![B.phase], a.snap!.b![B.glyphs], a.snap!.b![B.silence]], [0, 0, 100], 'los mensajes inventados se ignoran');
+
+    // Entra uno: despierta para todos, con los glifos que tocan a este grupo
+    const need = [2, 3, 4, 4][n - 1];
+    void bossPhase1(a, 0, () => a.snap!.b![B.phase] !== 0, 30);
+    await until('el guardián despierta', () => bots.every((b) => b.snap!.b![B.phase] === 1), 30_000);
+    assert.equal(bossEv(a, 'awake').length, 1);
+    assert.deepEqual([a.snap!.b![B.needed], a.snap!.b![B.glyphs], a.snap!.b![B.silence]], [need, 0, 100]);
+    assert.equal(BOSS_STATE[a.snap!.b![B.state]], 'rise', 'primero se pone en pie');
+    const hpAtRise = a.hp();
+    await until('termina de levantarse', () => BOSS_STATE[a.snap!.b![B.state]] !== 'rise', 6_000);
+    assert.ok(a.hp() >= hpAtRise, 'mientras se levanta nadie recibe daño');
+
+    if (n === 1) {
+      // Derrota: si cae el único jugador, vuelve a dormirse y se reintenta desde esta fase
+      await a.fight(() => undefined, () => a.snap!.b![B.phase] === 0, 120);
+      assert.equal(a.snap!.b![B.phase], 0, 'sin nadie en pie, el guardián vuelve a dormirse');
+      assert.equal(bossEv(a, 'fail').length, 1);
+      assert.equal(a.foes().some((f) => inCourt(f.x, f.z)), false, 'sus criaturas se van con él');
+      assert.deepEqual(a.snap!.b![B.rubble], [], 'y los escombros');
+      assert.equal(a.snap!.w[3], 2, 'la emboscada sigue superada: no hay que volver a abrir');
+      await a.fight(() => undefined, () => !a.dead(), 15);
+      assert.ok(!inCourt(a.pos().x, a.pos().z), 'reaparece fuera del patio');
+    }
+
+    // El grupo completa la fase: tantos glifos como le tocan, ni uno más
+    const done = () => a.snap!.b![B.phase] === 2;
+    const results = await Promise.all(bots.map((b, i) => bossPhase1(b, i, done, 300)));
+    assert.ok(results.every(Boolean), `la fase 1 se completa (glifos ${a.snap!.b![B.glyphs]}/${a.snap!.b![B.needed]}, fase ${a.snap!.b![B.phase]})`);
+    await sleep(500);
+    const glyphEvents = bossEv(a, 'glyph');
+    assert.equal(glyphEvents[glyphEvents.length - 1][2], need, 'se encendieron los glifos necesarios');
+    assert.ok(bossEv(a, 'summon').length >= 1, 'las criaturas las llamó él');
+    assert.ok(bossEv(a, 'tele').length >= 1, 'cada ataque avisó antes');
+    const phaseEv = bossEv(a, 'phase');
+    assert.deepEqual([phaseEv.length, phaseEv[0][2], phaseEv[0][3]], [1, 2, 66], 'pasa a la fase 2 una sola vez, con un tercio menos de Silencio');
+    for (const b of bots) {
+      assert.deepEqual([b.snap!.b![B.phase], b.snap!.b![B.silence], BOSS_STATE[b.snap!.b![B.state]]], [2, 66, 'kneel'], 'todos ven lo mismo');
+      assert.equal(b.foes().some((f) => inCourt(f.x, f.z)), false, 'las criaturas que quedaban se deshacen');
+    }
+    assert.ok(a.combat.filter((e) => e[0] === 'hit' && e[1] === 'e' && e[2] === 0).length === 0, 'el guardián no recibe golpes: no tiene vida que quitar');
+    bots.forEach((b) => b.close());
+  });
+}
 
 test('una conexión que deja de enviar se libera sola y el jugador puede volver', async () => {
   const room = 'MUDA01';

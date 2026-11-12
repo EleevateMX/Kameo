@@ -67,6 +67,15 @@ export type WorldStateArray = number[];
 /** [id, tipo(0 piedra, 1 corrupta), x, y, z, giro, vida, vidaMáx, estado, slotObjetivo] */
 export type SnapshotEnemy = number[];
 export const ENEMY_KINDS = ['piedra', 'corrupta'] as const;
+/**
+ * Nojoch Tuunich, el jefe del Capítulo I (docs/BOSS.md). Lo decide todo el servidor:
+ * [fase(0 dormido, 1 olvido, 2 furia, 3 recuerdo, 4 liberado), x, z, giro, estado, segundosDelEstado,
+ *  silencio(0–100), glifosEncendidos, glifosNecesarios, slotObjetivo, golpeX, golpeZ, giroDelBarrido,
+ *  escombros[[x, z, radio, segundos]]]
+ * Eventos de combate propios: ['boss', 'awake'|'tele'|'slam'|'sweep'|'summon'|'glyph'|'far'|'phase'|'fail', ...].
+ */
+export type BossStateArray = [number, number, number, number, number, number, number, number, number, number, number, number, number, number[][]];
+export const BOSS_STATES = ['sleep', 'rise', 'idle', 'walk', 'slam_w', 'sweep_w', 'summon_w', 'recover', 'kneel', 'freed'] as const;
 export const ENEMY_STATES = ['idle', 'chase', 'windup', 'strike', 'recover', 'stun', 'dead', 'return'] as const;
 
 /**
@@ -92,9 +101,9 @@ export interface RosterEntry {
 
 // Servidor → cliente
 export type ServerMessage =
-  | { t: 'welcome'; v: number; id: string; slot: number; room: string; rejoin: boolean; unlocked: FormId[]; me: PlayerStateArray; hp: number; players: RosterEntry[]; w: WorldStateArray; e: SnapshotEnemy[]; tick_rate: number }
+  | { t: 'welcome'; v: number; id: string; slot: number; room: string; rejoin: boolean; unlocked: FormId[]; me: PlayerStateArray; hp: number; players: RosterEntry[]; w: WorldStateArray; e: SnapshotEnemy[]; b?: BossStateArray; tick_rate: number }
   | { t: 'roster'; players: RosterEntry[] }
-  | { t: 'snap'; k: number; w: WorldStateArray; p: SnapshotPlayer[]; e: SnapshotEnemy[]; ev: CombatEvent[] }
+  | { t: 'snap'; k: number; w: WorldStateArray; p: SnapshotPlayer[]; e: SnapshotEnemy[]; ev: CombatEvent[]; b?: BossStateArray }
   | { t: 'event'; e: 'gate_open'; by: string[] }
   | { t: 'event'; e: 'reward'; reward: string; saved: boolean; new: boolean }
   /** defeat: todo el grupo cayó y el santuario se vuelve a sellar · restart: nueva ronda pedida por el grupo */

@@ -426,7 +426,7 @@ func _handle_hello(c: Conn, msg: Dictionary) -> void:
 	_send(c, {
 		"t": "welcome", "v": PROTOCOL, "id": pid, "slot": p.slot, "room": code,
 		"rejoin": rejoin, "unlocked": p.unlocked, "me": p.state.to_array(), "hp": int(ceil(p.hp)),
-		"players": _roster(room), "w": _world_state(room), "e": room.combat.snapshot(), "tick_rate": Sim.TICK_RATE,
+		"players": _roster(room), "w": _world_state(room), "e": room.combat.snapshot(), "b": room.combat.boss.snapshot(), "tick_rate": Sim.TICK_RATE,
 	})
 	_broadcast_roster(room)
 	_send_cine_state(room, c)
@@ -592,7 +592,7 @@ func _tick_room(room: Room) -> void:
 			ps.append([p.slot, p.last_seq, 1 if p.conn_id != 0 else 0, int(ceil(p.hp))] + a)
 		_broadcast(room, {
 			"t": "snap", "k": room.tick, "w": _world_state(room), "p": ps,
-			"e": room.combat.snapshot(), "ev": room.combat.events,
+			"e": room.combat.snapshot(), "ev": room.combat.events, "b": room.combat.boss.snapshot(),
 		})
 		room.combat.events = []
 

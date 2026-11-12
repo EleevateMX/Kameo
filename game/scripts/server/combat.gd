@@ -6,6 +6,7 @@ extends RefCounted
 const Sim := preload("res://scripts/shared/sim.gd")
 const World := preload("res://scripts/shared/world_def.gd")
 const Defs := preload("res://scripts/shared/combat_def.gd")
+const BossAI := preload("res://scripts/server/boss.gd")
 
 const DT := Sim.DT
 
@@ -34,6 +35,7 @@ class Enemy:
 	var side_t := 0.0
 	var wake := 0.0              # segundos que le quedan "despertando" (no persigue ni ataca)
 	var dmg_scale := 1.0         # los de la emboscada pegan menos a grupos pequeños
+	var summoned := false        # la llamó el guardián: no reaparece sola y cuenta para sus glifos
 
 
 var enemies: Array = []
@@ -47,9 +49,12 @@ var _time := 0.0
 var _gate_open := false
 var _respawns: Array = []        # [tiempo, tipo, x, z] de enemigos ambientales por reaparecer
 var _rng := RandomNumberGenerator.new()
+## Nojoch Tuunich, el jefe del capítulo (server/boss.gd). Duerme hasta que se supera la emboscada.
+var boss: BossAI
 
 
 func _init() -> void:
+	boss = BossAI.new(self)
 	_rng.randomize()
 	for a in Defs.AMBIENT:
 		_spawn(a[0], a[1], a[2], 1.0, false)
@@ -220,8 +225,10 @@ func _kill(e: Enemy, by: Variant, purified: bool) -> void:
 	e.state = "dead"
 	e.t = 1.6
 	events.append(["die", "e", e.id, 1 if purified else 0, by.slot if by != null else -1])
-	if not e.wave:
+	if not e.wave and not e.summoned:
 		_respawns.append([_time + Defs.AMBIENT_RESPAWN, e.kind, e.home.x, e.home.y])
+	if purified and by != null:
+		boss.on_purified(e, by)
 
 
 func damage_player(p: Variant, amount: float, from: Vector2, knock: float) -> void:
@@ -245,7 +252,7 @@ func damage_player(p: Variant, amount: float, from: Vector2, knock: float) -> vo
 		s.charge_t = 0
 		s.dash_t = 0
 		s.pounce = false
-		p.respawn_t = Defs.RESPAWN_TIME_ENCOUNTER if encounter == 1 else Defs.RESPAWN_TIME
+		p.respawn_t = Defs.RESPAWN_TIME_ENCOUNTER if encounter == 1 or boss.active() else Defs.RESPAWN_TIME
 		events.append(["die", "p", p.slot, 0, -1])
 
 
@@ -275,6 +282,7 @@ func tick(players: Array, gate_open: bool) -> int:
 	for e in enemies:
 		_tick_enemy(e, players)
 	_separate()
+	boss.tick(players)
 
 	# Retirar cadáveres y reaparecer enemigos ambientales
 	enemies = enemies.filter(func(e: Enemy) -> bool: return e.state != "dead" or e.t > 0.0)
@@ -338,6 +346,7 @@ func restart(players: Array) -> void:
 	enemies = enemies.filter(func(e: Enemy) -> bool: return not e.wave)
 	bolts.clear()
 	brazier_cd = 0.0
+	boss.reset(true)
 	for p in players:
 		_respawn(p, p.conn_id != 0)
 
