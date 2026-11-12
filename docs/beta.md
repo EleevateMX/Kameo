@@ -310,6 +310,6 @@ puedes borrar `BETA_INVITES` y poner `BETA_ACCESS=off`.
   el servicio a `1c-2g`. El uso de CPU con jugadores reales no está medido.
 - Las salas viven en memoria: un despliegue o un reinicio las vacía (el progreso no).
 - Las invitaciones se administran editando una variable; no hay panel de administración.
-- El límite de intentos de código es por proceso (8 por IP cada 10 minutos); los códigos tienen
-  100 bits de azar, así que adivinar uno no es viable.
+- El límite de intentos de código cuenta sólo los fallos (8 por IP cada 10 minutos, en memoria del
+  proceso); los códigos tienen 100 bits de azar, así que adivinar uno no es viable.
 - Sin dominio propio la URL es `*.onrender.com`.

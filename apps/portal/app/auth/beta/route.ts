@@ -12,17 +12,25 @@ const MAX_PER_IP = 8;
 const MAX_GLOBAL = 120;
 const attempts = new Map<string, { n: number; reset: number }>();
 
-/** Cuenta un intento. Devuelve false si esa clave ya agotó su cupo en la ventana. */
-function allow(key: string, max: number): boolean {
+// Sólo cuentan los intentos FALLIDOS: varios testers detrás de una misma IP (una casa, una
+// oficina) no se bloquean entre sí al entrar bien, pero quien prueba códigos al azar sí.
+
+/** ¿Agotó esa clave su cupo de fallos en la ventana actual? */
+function blocked(key: string, max: number): boolean {
+  const a = attempts.get(key);
+  return a !== undefined && a.reset >= Date.now() && a.n >= max;
+}
+
+/** Anota un intento fallido. */
+function fail(key: string) {
   const now = Date.now();
   const a = attempts.get(key);
   if (!a || a.reset < now) {
     attempts.set(key, { n: 1, reset: now + WINDOW_MS });
     if (attempts.size > 5000) for (const [k, v] of attempts) if (v.reset < now) attempts.delete(k);
-    return true;
+  } else {
+    a.n++;
   }
-  a.n++;
-  return a.n <= max;
 }
 
 export async function POST(req: NextRequest) {
@@ -34,11 +42,15 @@ export async function POST(req: NextRequest) {
   const next = safeNext(form.get('next'));
   // Detrás del proxy, la IP del visitante llega en x-forwarded-for
   const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'desconocida';
-  if (!allow(`ip:${ip}`, MAX_PER_IP) || !allow('global', MAX_GLOBAL)) return back('beta_intentos', next);
+  if (blocked(`ip:${ip}`, MAX_PER_IP) || blocked('global', MAX_GLOBAL)) return back('beta_intentos', next);
 
   const code = form.get('code');
   const invite = typeof code === 'string' ? findInvite(betaInvites, code) : null;
-  if (!invite) return back('beta_codigo', next);
+  if (!invite) {
+    fail(`ip:${ip}`);
+    fail('global');
+    return back('beta_codigo', next);
+  }
 
   try {
     const playerId = await upsertPlayer({

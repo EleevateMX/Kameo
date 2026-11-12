@@ -90,4 +90,16 @@ run_app
 wait_up
 docker logs alux-beta-app 2>&1 | grep -E "migraciones" | tail -3
 check --code "${CODES[0]}" --expect "Persiste"
+
+echo "== Límite de intentos: códigos inventados seguidos desde la misma IP =="
+tries=""
+for i in 1 2 3 4 5 6 7 8 9; do
+  loc="$(curl -ks --noproxy localhost -o /dev/null -w '%{redirect_url}' -X POST -d "code=ALUX-AAAAA-AAAAA-AAAAA-AAAA$i" "https://localhost:${PORT_PUBLIC}/auth/beta")"
+  tries="$tries $(printf '%s' "$loc" | sed -E 's/.*error=([a-z_]+).*/\1/')"
+done
+echo "$tries"
+case "$tries" in *beta_codigo*beta_intentos) ;; *) echo "El límite de intentos no saltó"; exit 1 ;; esac
+# Con la IP bloqueada, ni un código válido entra hasta que pase la ventana
+loc="$(curl -ks --noproxy localhost -o /dev/null -w '%{redirect_url}' -X POST -d "code=${CODES[1]}" "https://localhost:${PORT_PUBLIC}/auth/beta")"
+case "$loc" in *beta_intentos*) echo "IP bloqueada temporalmente, también para códigos válidos" ;; *) echo "La IP bloqueada pudo entrar"; exit 1 ;; esac
 echo "== Imagen de la beta verificada =="

@@ -203,7 +203,7 @@ step('Invitaciones individuales: sólo entra el código vigente de cada tester',
   assert.equal(betaAccessEnabled({ BETA_INVITES: raw }), false, 'sin BETA_ACCESS=invite no entra nadie');
   const route = read('apps/portal/app/auth/beta/route.ts');
   assert.match(route, /if \(!betaLoginEnabled\) return back\('beta_desactivada'\)/);
-  assert.match(route, /MAX_PER_IP/, 'la ruta debe limitar los intentos');
+  assert.match(route, /blocked\(`ip:\$\{ip\}`, MAX_PER_IP\)/, 'la ruta debe limitar los intentos fallidos por IP');
   assert.match(read('apps/api/src/app.ts'), /claims\.inv !== undefined && !\(config\.betaEnabled && inviteActive/, 'la API debe rechazar sesiones de invitaciones retiradas');
   return 'códigos únicos de 100 bits, el servidor sólo guarda huellas, vencen, se pueden retirar y se apagan con Discord';
 });
