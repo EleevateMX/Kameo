@@ -68,10 +68,15 @@ await page.keyboard.press('Enter');
 await waitFor('bienvenida cerrada', async () => (await ui(page)).intro === false, 30_000);
 await shot(page, '02-explorar.png');
 ok('Enter cierra la bienvenida');
+// Audio: no basta con que el juego diga que reproduce; el mezclador mide lo que sale por la salida
+await waitFor('ambiente y música sonando', async () => {
+  const m = ((await state(page)) as any).snd;
+  return m?.music === 'mus_claro' && (m.loops || []).includes('amb_selva') && m.rms > 0.0005;
+}, 30_000);
 s = await state(page);
-assert.ok(s.audio.includes('amb_selva') && s.audio.includes('mus_claro'), `ambiente y música cargados (${s.audio.join(', ')})`);
 assert.equal(s.music, 'mus_claro');
-ok(`Audio: ${s.audio.length} sonidos cargados, música de exploración sonando`);
+assert.deepEqual(s.snd.errors, [], 'sin errores de carga de audio');
+ok(`Audio: música «${s.snd.music}» y ${s.snd.loops.length} capas de ambiente sonando; nivel medido en la salida ${(20 * Math.log10(s.snd.rms)).toFixed(0)} dBFS`);
 
 // 3b) Primer objetivo narrativo: hablar con la abuela del claro
 assert.equal(s.story, 0, 'nadie ha hablado todavía con ella');

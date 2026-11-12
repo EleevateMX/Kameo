@@ -163,8 +163,13 @@ export function createApp(store: Store, config: Config) {
         rejoins: num(b.rejoins, 0, 10_000), wins: num(b.wins, 0, 10_000), losses: num(b.losses, 0, 10_000),
         falls: num(b.falls, 0, 100_000), players: num(b.players, 0, 8),
         viewport: text(b.viewport, 16), dpr: num(b.dpr, 0, 16), renderer: text(b.renderer, 160),
+        // Audio: volúmenes elegidos, estado del contexto del navegador y lo que de verdad salió
+        // (pico máximo medido en la salida, 0–1; 0 = el jugador no oyó nada en toda la sesión)
         audio: { master: num(audio.master, 0, 1), music: num(audio.music, 0, 1), sfx: num(audio.sfx, 0, 1), amb: num(audio.amb, 0, 1),
-          context: text(audio.context, 16) },
+          ui: num(audio.ui, 0, 1), cine: num(audio.cine, 0, 1),
+          context: text(audio.context, 16), peak: num(audio.peak, 0, 4), unlockMs: num(audio.unlockMs, -1, 86_400_000),
+          tracks: num(audio.tracks, 0, 1000),
+          errors: Array.isArray(audio.errors) ? audio.errors.slice(0, 4).map((e) => text(e, 100)) : [] },
         // Cinemáticas: cuántas se vieron como vídeo o con el motor, y qué falló al cargar o reproducir
         cine: { video: num(cine.video, 0, 1000), engine: num(cine.engine, 0, 1000), fallbacks: num(cine.fallbacks, 0, 1000),
           bytes: num(cine.bytes, 0, 1e9), preloadMs: num(cine.preloadMs, 0, 3_600_000),

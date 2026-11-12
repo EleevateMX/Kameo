@@ -45,9 +45,13 @@ ok(`Cliente Godot cargado y dentro de la sala en ${((Date.now() - t0) / 1000).to
 await page.keyboard.press('Enter');
 await waitFor('bienvenida cerrada', async () => (await ui(page)).intro === false, 60_000);
 s = await state(page);
-assert.ok(s.audio.includes('amb_selva') && s.audio.includes('mus_claro'), `audio cargado: ${s.audio.join(', ')}`);
-const audioState = await page.evaluate(() => (window as any).ALUX_AUDIO?.state ?? 'sin contexto');
-ok(`Audio: ${s.audio.length} sonidos cargados, música «${s.music}», contexto de audio del navegador: ${audioState}`);
+// Audio: el mezclador mide lo que sale por la salida del navegador (desde la Alpha 0.3.1)
+await waitFor('ambiente y música sonando', async () => {
+  const m = ((await state(page)) as any).snd;
+  return m?.music === 'mus_claro' && (m.loops || []).includes('amb_selva') && m.rms > 0.0005;
+}, 30_000);
+s = await state(page);
+ok(`Audio: música «${s.snd.music}», ${s.snd.loops.length} capas de ambiente, contexto «${s.snd.ctx}», nivel en la salida ${(20 * Math.log10(s.snd.rms)).toFixed(0)} dBFS`);
 
 await page.keyboard.press('Escape');
 await waitFor('menú abierto', async () => (await ui(page)).menu === true, 60_000);

@@ -117,7 +117,12 @@ var _fps_time := 0.0
 
 # Partida: estado, resultado y ayudas
 var _audio: Audio
-var _settings := {"sens": 0.5, "vol_master": 0.8, "vol_music": 0.55, "vol_sfx": 0.9, "vol_amb": 0.7, "shake": 0.6}
+var _settings := {"sens": 0.5, "vol_master": 0.8, "vol_music": 0.55, "vol_sfx": 0.9, "vol_amb": 0.7,
+	"vol_ui": 0.8, "vol_cine": 0.9, "shake": 0.6}
+var _amb_in := 0.0          # cuenta atrás hasta la siguiente revisión de ambientes y música
+var _danger_until := 0.0    # hasta cuándo se considera que hay peligro cerca (música de tensión)
+var _far_from_claro := false
+var _sound_test_in := 0.0   # cuenta atrás hasta medir el resultado de «Probar sonido»
 var _welcomed := false        # ya se entró alguna vez a la sala (distingue cargar de reconectar)
 var _votes := 0               # votos para otra ronda
 var _connected := 1
@@ -401,14 +406,18 @@ func _apply_settings() -> void:
 	_audio.set_volume("Music", float(_settings.vol_music))
 	_audio.set_volume("SFX", float(_settings.vol_sfx))
 	_audio.set_volume("Ambience", float(_settings.vol_amb))
+	_audio.set_volume("UI", float(_settings.vol_ui))
+	_audio.set_volume("Cinematics", float(_settings.vol_cine))
 
 
 func _on_setting(key: String, value: float) -> void:
 	_settings[key] = clampf(value, 0.0, 1.0)
 	_apply_settings()
 	_save_settings()
-	if key == "vol_sfx" or key == "vol_master":
+	if key == "vol_sfx" or key == "vol_master" or key == "vol_ui":
 		Audio.play("ui_click")
+	if key.begins_with("vol_"):
+		_hud.set_menu_audio(_audio_status())
 
 
 func _again_text() -> String:
@@ -426,6 +435,7 @@ func _open_menu() -> void:
 	_mouse_r = false
 	_hud.hide_result()
 	_hud.show_menu(_settings, QUALITY_NAMES[_quality], _again_text())
+	_hud.set_menu_audio(_audio_status())
 	Audio.play("ui_abrir")
 
 
@@ -572,10 +582,15 @@ func _play_cutscene(id: String, start_at := 0.0) -> void:
 	var names := {}
 	for npc in Story.NPCS:
 		names[npc] = Story.NPCS[npc].name
+	# Banda sonora de la escena: una sola, se vea como vídeo o con el motor. Si no la hay (o no
+	# hay mezclador), cada plano dispara su efecto como antes; nunca las dos cosas.
+	_cine.soundtrack = _audio.cine_start(id, start_at)
 	_cine.play(id, Story.CUTSCENES[id], _cam, _hud, names, start_at)
 
 
-func _on_cine_finished(id: String, _skipped: bool) -> void:
+func _on_cine_finished(id: String, skipped: bool) -> void:
+	# Omitida: la banda sonora se funde enseguida. Terminada: se deja respirar la cola.
+	_audio.cine_stop(0.25 if skipped and not _cine.near_end() else 1.6)
 	_mark_seen(id)
 	_cine_stats["video" if _cine.video_shots > 0 else "engine"] += 1
 	_cine_stats.fallbacks += _cine.fallbacks
@@ -641,6 +656,11 @@ func _on_action(id: String) -> void:
 			_close_menu(true)
 		"quality":
 			_cycle_quality()
+		"sound_test":
+			# Suena la prueba y, cuando ha tenido tiempo de salir, se mide lo que llegó a la salida
+			_audio.test()
+			_sound_test_in = 0.9
+			_hud.set_menu_audio("Probando…")
 		"again":
 			# Voto para otra ronda: el servidor reinicia cuando votan todos los conectados
 			if _encounter == 2 and _ws != null and _net == Net.PLAYING:
@@ -844,8 +864,7 @@ func _on_message(m: Dictionary) -> void:
 					_play_cutscene("llamado")
 				else:
 					_hud.show_intro()
-				_audio.loop("amb_selva", "Ambience", -4.0)
-				_audio.loop("amb_brasero", "Ambience", -60.0)
+				_amb_in = 0.0   # el ambiente de la zona entra en el siguiente cuadro
 			_refresh_music()
 			_net = Net.PLAYING
 		"roster":
@@ -1380,7 +1399,10 @@ func _on_combat_event(ev: Array) -> void:
 					_tip("balam", "Pulsa 2 para ser Balam y pelear cuerpo a cuerpo  ·  1 vuelve a alux", 7.0)
 				"clear":
 					_hud.banner("¡Emboscada superada!", GOLD, 3.0)
-					Audio.play("victoria", null, 0.0, 0.0)
+					if _audio.has("mus_victoria") and _audio.has_mixer():
+						_audio.sting("mus_victoria")
+					else:
+						Audio.play("victoria", null, 0.0, 0.0)
 				"fail":
 					_respawn_at = minf(_respawn_at, _time + Defs.RESPAWN_TIME_DEFEAT)
 					_hud.banner("El grupo ha caído", Color(1.0, 0.5, 0.5), 3.0)
@@ -1412,7 +1434,11 @@ func _bump(amount: float) -> void:
 	_shake = maxf(_shake, amount)
 
 
-## Música según lo que está pasando: emboscada, cada fase del guardián o la calma del claro.
+## Música según lo que está pasando: emboscada, cada fase del guardián, tensión si hay
+## criaturas encima, exploración lejos del centro o la calma del claro.
+const MUSIC_FALLBACK := {"mus_exploracion": "mus_claro", "mus_peligro": "mus_claro", "mus_liberacion": "mus_recuerdo",
+	"mus_jefe": "mus_emboscada", "mus_jefe_furia": "mus_emboscada", "mus_recuerdo": "mus_claro"}
+
 func _refresh_music() -> void:
 	var want := "mus_claro"
 	if _encounter == 1:
@@ -1426,10 +1452,84 @@ func _refresh_music() -> void:
 			BossDef.RECUERDO:
 				want = "mus_recuerdo"
 			BossDef.FREED:
-				want = "mus_recuerdo" if (_story & Story.F_CLUE) == 0 else "mus_claro"
-	if not _audio.has(want):
-		want = "mus_emboscada" if want.begins_with("mus_jefe") else "mus_claro"
+				want = "mus_liberacion" if (_story & Story.F_CLUE) == 0 else "mus_claro"
+			_:
+				want = "mus_peligro" if _time < _danger_until else "mus_claro"
+	elif _time < _danger_until:
+		want = "mus_peligro"
+	elif _far_from_claro:
+		want = "mus_exploracion"
+	for _i in 3:
+		if _audio.has(want) or not MUSIC_FALLBACK.has(want):
+			break
+		want = MUSIC_FALLBACK[want]
 	_audio.set_music(want)
+
+
+## Paisaje sonoro de donde está el jugador: capas de ambiente por zona (selva, cenote, ruinas,
+## santuario) y música de tensión o de exploración. Se revisa unas pocas veces por segundo.
+func _update_soundscape(delta: float, at: Vector3) -> void:
+	_amb_in -= delta
+	if _amb_in > 0.0:
+		return
+	_amb_in = 0.4
+	var here := Vector2(at.x, at.z)
+	var cenote := clampf(1.0 - (here.distance_to(World.CENOTE) - World.CENOTE_R) / 14.0, 0.0, 1.0)
+	var ruins := clampf(1.0 - (here.distance_to(World.SANCTUARY) - 8.0) / 8.0, 0.0, 1.0)
+	var pyramid := clampf(1.0 - (here.distance_to(World.PYRAMID) - 6.0) / 12.0, 0.0, 1.0)
+	var fight := _encounter == 1 or (_encounter == 2 and _boss_phase() in [BossDef.OLVIDO, BossDef.FURIA, BossDef.RECUERDO])
+	var ritual := _encounter == 2 and _boss_phase() == BossDef.RECUERDO
+	var mix := {
+		"amb_selva": 0.75 * (1.0 - 0.6 * ruins),
+		"amb_aves": (0.2 if fight else 0.5) * (1.0 - 0.8 * ruins),
+		"amb_insectos": 0.3 * (1.0 - 0.5 * ruins),
+		"amb_viento": 0.2 + 0.3 * pyramid + (0.2 if fight else 0.0),
+		"amb_agua": 0.6 * cenote,
+		"amb_cenote": 0.45 * cenote,
+		"amb_ruinas": maxf(0.7 * ruins, 0.4 * pyramid),
+		"amb_energia": 0.3 * ruins + (0.35 if ritual else 0.0),
+		"amb_brasero": 0.0,
+	}
+	for key in mix.keys():
+		mix[key] = snappedf(float(mix[key]), 0.05)
+		if float(mix[key]) <= 0.0 and key != "amb_brasero":
+			mix.erase(key)
+	# el brasero lo lleva set_layer_distance cuadro a cuadro: aquí sólo se conserva su valor
+	mix["amb_brasero"] = _audio.layer("amb_brasero")
+	_audio.ambience(mix)
+	# Tensión: alguna criatura persiguiendo o atacando cerca (se mantiene unos segundos al perderla)
+	for id in _enemies:
+		var view: EnemyView = _enemies[id]
+		if view.state in ["chase", "windup", "strike"] and view.global_position.distance_to(at) < 14.0:
+			_danger_until = _time + 5.0
+			break
+	# Exploración: lejos del centro del claro (con margen para no ir cambiando en la frontera)
+	var out := here.length()
+	if out > 27.0 and ruins <= 0.0:
+		_far_from_claro = true
+	elif out < 21.0 or ruins > 0.0:
+		_far_from_claro = false
+	_refresh_music()
+
+
+## Estado del audio para el menú, con lo que de verdad está saliendo por el navegador.
+func _audio_status(tested := false) -> String:
+	var info := _audio.info()
+	var ctx := str(info.get("ctx", ""))
+	if not bool(info.get("ok", false)):
+		return "Audio: sin mezclador del navegador"
+	if ctx != "running":
+		return "Audio bloqueado por el navegador: haz clic en el juego o pulsa una tecla"
+	if float(_settings.vol_master) <= 0.001:
+		return "Volumen general a cero: no se oirá nada"
+	var peak := float(info.get("peak", 0.0))
+	if tested:
+		if peak > 0.01:
+			return "Prueba correcta: sale sonido (pico %d dB)" % int(round(linear_to_db(peak)))
+		return "No llegó señal a la salida. Revisa el volumen del sistema y de la pestaña"
+	if not (info.get("errors", []) as Array).is_empty():
+		return "Audio en marcha, con %d aviso(s) de carga" % (info.get("errors", []) as Array).size()
+	return "Audio en marcha a %d Hz" % int(info.get("rate", 0))
 
 
 ## Estado del jefe que manda el servidor: lo dibuja y actualiza su barra. El cliente no decide nada.
@@ -1856,6 +1956,10 @@ func _can_touch_something() -> bool:
 func _process(delta: float) -> void:
 	_time += delta
 	_poll_net(delta)
+	if _sound_test_in > 0.0:
+		_sound_test_in -= delta
+		if _sound_test_in <= 0.0:
+			_hud.set_menu_audio(_audio_status(true))
 
 	# Esc en el navegador suelta el ratón sin avisar al juego: se toma como "abrir el menú"
 	# (sólo si la captura llegó a durar: si el navegador la rechaza, no se abre nada)
@@ -1899,6 +2003,12 @@ func _process(delta: float) -> void:
 		if not act.is_empty():
 			_js("window.ALUX_ACTION = ''")
 			_on_action(act)   # (pruebas) pulsa un botón de la interfaz por su id
+		var setting := str(_js("window.ALUX_SETTING || ''"))
+		if ":" in setting:
+			_js("window.ALUX_SETTING = ''")
+			var parts := setting.split(":")
+			if _settings.has(parts[0]) and parts[1].is_valid_float():
+				_on_setting(parts[0], parts[1].to_float())   # (pruebas) mueve un ajuste: "vol_master:0"
 		var q := str(_js("window.ALUX_SET_QUALITY || ''"))
 		if q == "low" or q == "high" or q == "min":
 			_js("window.ALUX_SET_QUALITY = ''")
@@ -1939,7 +2049,8 @@ func _process(delta: float) -> void:
 		_talk_npc = _npc.npc_id if by_yaxche else ("nojoch" if by_nojoch else "")
 		_npc.update_view(delta, by_yaxche, me.global_position, _hud.dialogue_open())
 		_audio.listener = me.global_position
-		_audio.set_loop_distance("amb_brasero", Vector3(0, 1.2, 0), -3.0)
+		_audio.set_layer_distance("amb_brasero", Vector3(0, 1.2, 0), 0.8)
+		_update_soundscape(delta, me.global_position)
 		_update_onboarding(delta, captured)
 
 	# Los demás: interpolados un poco en el pasado entre estados del servidor
@@ -2187,12 +2298,16 @@ func _metrics_send(final: bool) -> void:
 		"heapMb": _perf_stats().heap, "memMb": _perf_stats().mem,
 		"rejoins": _rejoins, "wins": _m.wins, "losses": _m.losses, "falls": _m.falls, "players": _connected,
 		"renderer": _m.renderer, "build": Hud.BUILD, "final": final,
-		"audio": {"master": _settings.vol_master, "music": _settings.vol_music, "sfx": _settings.vol_sfx, "amb": _settings.vol_amb},
+		"audio": {"master": _settings.vol_master, "music": _settings.vol_music, "sfx": _settings.vol_sfx, "amb": _settings.vol_amb,
+			"ui": _settings.vol_ui, "cine": _settings.vol_cine},
 		"cine": _cine_metrics(),
 	}
 	# El navegador añade resolución y estado del audio; keepalive deja terminar el envío al salir de la página
 	_js("(function(b){try{b.viewport=innerWidth+'x'+innerHeight;b.dpr=devicePixelRatio||1;" +
-		"b.audio.context=(window.ALUX_AUDIO&&ALUX_AUDIO.state)||'';" +
+"b.audio.context=(window.ALUX_AUDIO&&ALUX_AUDIO.state)||'';" +
+		# lo que de verdad salió por la salida de audio durante la sesión (pico máximo, 0–1)
+		"if(window.ALUX_SND&&ALUX_SND.ok){b.audio.peak=+ALUX_SND.peakMax.toFixed(4);b.audio.unlockMs=ALUX_SND.unlockMs;" +
+		"b.audio.errors=ALUX_SND.errors.slice(-4);b.audio.tracks=Object.keys(ALUX_SND.loaded).length}" +
 		"fetch('/api/v1/telemetry',{method:'POST',keepalive:true,credentials:'same-origin'," +
 		"headers:{'content-type':'application/json','x-alux-csrf':'1'},body:JSON.stringify(b)}).catch(function(){})}catch(e){}})(%s)" % JSON.stringify(body))
 
@@ -2263,7 +2378,7 @@ func _debug_export(delta: float) -> void:
 			"dialog": _hud.dialogue_open(), "cine": _hud.cine_open(),
 			"objective": _hud.objective_text(), "captured": Input.mouse_mode == Input.MOUSE_MODE_CAPTURED},
 		"votes": _votes, "connected": _connected, "lock": _lock, "voted": _voted,
-		"stats": _stats, "audio": _audio.loaded(), "music": _audio.music(), "settings": _settings,
+		"stats": _stats, "audio": _audio.loaded(), "music": _audio.music(), "snd": _audio.info(), "audio_status": _hud.menu_audio_text(), "settings": _settings,
 		"metrics": {"sid": _m.sid, "seconds": _m.seconds, "samples": (_m.fps as Array).size(), "loadMs": _m.load_ms},
 	}
 	_js("window.__aluxState = %s" % JSON.stringify(state))

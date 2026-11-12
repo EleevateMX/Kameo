@@ -34,6 +34,8 @@ var _fov_before := 62.0
 ## Puente de vídeo (video_bridge.gd) y volumen con el que suenan los vídeos que traen sonido.
 var video: RefCounted
 var volume := 1.0
+## La escena tiene banda sonora propia (la pone quien la lanza): no se dispara el efecto de cada plano
+var soundtrack := false
 ## Para las métricas: planos que se vieron como vídeo y veces que hubo que volver al motor.
 var video_shots := 0
 var fallbacks := 0
@@ -111,7 +113,7 @@ func _next(offset := 0.0) -> void:
 	if video != null:
 		video.caption(speaker, text)
 		video.title(title)
-	if shot.has("sound") and offset < 0.5:
+	if shot.has("sound") and offset < 0.5 and not soundtrack:
 		Audio.play(str(shot.sound), null, -6.0, 0.0)
 	_apply(clampf(_t / dur, 0.0, 1.0))
 
@@ -136,6 +138,14 @@ func shot_time() -> float:
 
 func shot_k() -> float:
 	return clampf(_t / _dur(_i), 0.0, 1.0) if active else 0.0
+
+
+## ¿Estaba la escena en su último medio segundo? (para dejar sonar la cola al terminar)
+func near_end() -> bool:
+	var total := 0.0
+	for i in _shots.size():
+		total += _dur(i)
+	return _shot_from + _t >= total - 0.6
 
 
 ## Plano en curso ({} si no hay ninguno).

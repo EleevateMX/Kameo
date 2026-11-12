@@ -6,7 +6,7 @@ extends CanvasLayer
 signal form_requested(form: String)
 ## Botones de menús y paneles: start, resume, help, recenter, quality, again, retry, reload, exit, menu
 signal action(id: String)
-## Ajustes del menú: sens, vol_master, vol_music, vol_sfx, vol_amb (0–1)
+## Ajustes del menú: sens, shake, vol_master, vol_music, vol_amb, vol_sfx, vol_ui, vol_cine (0–1)
 signal setting_changed(key: String, value: float)
 ## El jugador terminó de leer un diálogo (completed = llegó hasta el final).
 signal dialogue_done(completed: bool)
@@ -320,6 +320,7 @@ var _result_buttons: HBoxContainer
 var _menu: Plaque
 var _menu_again: Button
 var _menu_quality: Button
+var _menu_audio: Label        # estado real del audio (contexto del navegador y nivel de salida)
 var _sliders := {}            # clave -> HSlider
 var _overlay_buttons: HBoxContainer
 var _shade: ColorRect
@@ -738,20 +739,32 @@ func _build_panels(root: Control) -> void:
 	sg.add_theme_constant_override("h_separation", 14)
 	sg.add_theme_constant_override("v_separation", 6)
 	mv.add_child(sg)
-	for def in [["sens", "Sensibilidad del ratón"], ["vol_master", "Volumen general"], ["vol_music", "Música"],
-			["vol_sfx", "Efectos"], ["vol_amb", "Ambiente"], ["shake", "Sacudida de cámara"]]:
+	for def in [["sens", "Sensibilidad del ratón"], ["shake", "Sacudida de cámara"], ["vol_master", "Volumen general"],
+			["vol_music", "Música"], ["vol_amb", "Ambiente"], ["vol_sfx", "Efectos"], ["vol_ui", "Interfaz"],
+			["vol_cine", "Cinemáticas"]]:
 		sg.add_child(Kit.label(def[1], 14, Kit.LIME))
 		var sl := HSlider.new()
 		sl.min_value = 0.0
 		sl.max_value = 1.0
 		sl.step = 0.05
-		sl.custom_minimum_size = Vector2(220, 22)
+		sl.custom_minimum_size = Vector2(220, 18)
 		sl.focus_mode = Control.FOCUS_NONE
 		sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		var key: String = def[0]
 		sl.value_changed.connect(func(v: float) -> void: setting_changed.emit(key, v))
 		sg.add_child(sl)
 		_sliders[key] = sl
+	# Prueba de sonido: suena un aviso y se muestra lo que de verdad llegó a la salida del navegador
+	var snd := HBoxContainer.new()
+	snd.add_theme_constant_override("separation", 10)
+	mv.add_child(snd)
+	snd.add_child(_button("Probar sonido", "sound_test"))
+	_menu_audio = Kit.label("", 12, Color(1, 1, 1, 0.75))
+	_menu_audio.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_menu_audio.custom_minimum_size = Vector2(250, 0)
+	_menu_audio.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_menu_audio.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	snd.add_child(_menu_audio)
 	mv.add_child(_button("Salir al portal", "exit"))
 	var build := Kit.label(BUILD, 11, Color(1, 1, 1, 0.4))
 	build.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1478,6 +1491,15 @@ func show_menu(settings: Dictionary, quality_name: String, again := "") -> void:
 	_help.visible = false
 	_menu.visible = true
 	_sync_shade()
+
+
+## Estado del audio bajo el botón «Probar sonido».
+func set_menu_audio(text: String) -> void:
+	_menu_audio.text = text
+
+
+func menu_audio_text() -> String:
+	return _menu_audio.text
 
 
 func update_menu(quality_name: String, again := "") -> void:

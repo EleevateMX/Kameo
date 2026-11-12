@@ -34,7 +34,10 @@ if (process.argv.includes('--json')) {
       'FPS med': n(r.fpsAvg), 'FPS p5': n(r.fpsMin), 'ping ms': n(r.pingAvg), 'ping máx': n(r.pingMax),
       'carga s': r.loadMs === null ? '—' : (r.loadMs / 1000).toFixed(1), 'min jugados': (r.seconds / 60).toFixed(1),
       'JS MB': n(d.heapMb ?? null), reconex: d.rejoins ?? 0, 'G/P': `${d.wins ?? 0}/${d.losses ?? 0}`,
-      audio: d.audio?.context || '—', pantalla: d.viewport || '—', gráfica: String(d.renderer || '—').slice(0, 44),
+      audio: d.audio?.context || '—',
+      // ¿llegó a sonar? pico máximo medido en la salida del navegador durante la sesión
+      'sonó': typeof d.audio?.peak === 'number' ? (d.audio.peak > 0.001 ? `sí (${(20 * Math.log10(d.audio.peak)).toFixed(0)} dB)` : 'NO') : '—',
+      pantalla: d.viewport || '—', gráfica: String(d.renderer || '—').slice(0, 44),
     };
   }));
   console.log(`${rows.length} sesión(es). Navegador de cada una: añade --json para ver el detalle completo.`);
