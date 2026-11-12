@@ -106,7 +106,7 @@ Las vetas magenta se apagan, los glifos se encienden y el guardián recuerda.
 
 | Dónde | Qué dice |
 | --- | --- |
-| Barra superior | «NOJOCH TUUNICH · Olvido», barra magenta con la palabra SILENCIO y los glifos que faltan (◆ ◇ ◇) |
+| Barra superior | «NOJOCH TUUNICH · Olvido», barra magenta y debajo «SILENCIO · glifos 1/3 · No tiene vida: devuélvele la memoria» |
 | Al despertar, una vez | «Su barra no es vida: es Silencio. Purifica criaturas a su lado (F) y recordará» |
 | Objetivo | «Enciende los glifos del guardián (1/3) · Debilita a una criatura y tócala con F junto a él · los golpes no le hacen nada» |
 | Si se purifica lejos | «Demasiado lejos del guardián: purifícala a su lado para encender un glifo» |
@@ -114,6 +114,8 @@ Las vetas magenta se apagan, los glifos se encienden y el guardián recuerda.
 | Chiich Yaxché (pendiente) | Una línea nueva cuando el santuario esté libre: el guardián no es un enemigo, es alguien que olvidó |
 
 ![El jefe en el juego: dormido tras el cristal, en la fase 1 con su barra, y de cerca](img/jefe-en-juego.jpg)
+
+![En un navegador real, al despertar: barra, objetivo y el aviso que explica el Silencio (la captura es anterior a cambiar los rombos por un contador)](img/jefe-navegador.jpg)
 
 ## El modelo (propuesta para revisar)
 

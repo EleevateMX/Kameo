@@ -1131,10 +1131,13 @@ func set_boss(show: bool, phase_name := "", silence := 1.0, glyphs := 0, needed 
 		return
 	_boss_name.text = "NOJOCH TUUNICH  ·  %s" % phase_name
 	_boss_gauge.set_value(silence)
-	var pips := ""
-	for i in needed:
-		pips += "◆ " if i < glyphs else "◇ "
-	_boss_note.text = ("SILENCIO   %s  %s" % [pips.strip_edges(), note]).strip_edges()
+	# (la tipografía del juego no trae rombos ni círculos: los glifos se cuentan con números)
+	var parts := ["SILENCIO"]
+	if needed > 0:
+		parts.append("glifos %d/%d" % [glyphs, needed])
+	if not note.is_empty():
+		parts.append(note)
+	_boss_note.text = "  ·  ".join(parts)
 
 
 func boss_open() -> bool:
