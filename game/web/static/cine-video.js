@@ -8,6 +8,9 @@
 //  - Nada de lo que pasa aquí decide el juego: si un vídeo falta, falla o se atasca, el juego
 //    sigue con la misma escena hecha dentro del motor (que corre debajo).
 //  - Los vídeos se descargan enteros por adelantado (precarga) y se guardan en la caché del navegador.
+//    Descargar no es decodificar: el elemento <video> de cada plano se crea justo antes de su
+//    escena (prepare) y se suelta al terminar (release). Tener decodificadores abiertos sin usar
+//    le cuesta al equipo durante toda la partida, y en uno modesto se nota.
 //  - Suenan sólo si el manifiesto lo indica y el usuario ya interactuó con la página; si el
 //    navegador bloquea el sonido, se reproducen en silencio.
 //  - Sólo se cargan archivos del mismo sitio declarados en video/manifest.json.
@@ -24,7 +27,7 @@
   const base = new URL('video/', document.currentScript ? document.currentScript.src : location.href).href;
   const clips = new Map();          // id -> { s, el, bytes, ms, url, audio, dur, err }
   const log = [];                   // fallos pendientes de informar al juego (métricas)
-  const stats = { shown: 0, failed: 0, bytes: 0, preloadMs: 0 };
+  const stats = { shown: 0, failed: 0, bytes: 0, preloadMs: 0, prepareMs: 0 };
   let manifest = null;              // null: sin pedir · {}: pedido (vacío si no hay o falló)
   let manifestState = 'idle';       // idle · loading · ok · none
   let root = null, stage = null, capWho = null, capText = null, noteEl = null, titleEl = null;
@@ -131,6 +134,18 @@
       return;
     }
     clearTimeout(timer);
+    clip.s = 'fetched';
+    clip.ms = Math.round(performance.now() - t0);
+    stats.bytes += clip.bytes;
+    stats.preloadMs = Math.max(stats.preloadMs, clip.ms);
+  };
+
+  // Crea el <video> de un clip ya descargado y espera a que tenga su primer cuadro decodificado.
+  const prepareClip = (id) => {
+    const clip = clips.get(id);
+    if (!clip || clip.s !== 'fetched') return;
+    clip.s = 'preparing';
+    const t0 = performance.now();
     build();
     const el = document.createElement('video');
     el.muted = true;
@@ -139,38 +154,35 @@
     el.preload = 'auto';
     el.disablePictureInPicture = true;
     el.tabIndex = -1;
-    await new Promise((resolve) => {
-      const done = (ok, why) => {
-        el.removeEventListener('canplaythrough', onOk);
-        el.removeEventListener('loadeddata', onOk);
-        el.removeEventListener('error', onErr);
-        clearTimeout(guard);
-        if (ok) {
-          clip.s = 'ready';
-          clip.el = el;
-          if (!clip.dur && isFinite(el.duration)) clip.dur = el.duration;
-          clip.ms = Math.round(performance.now() - t0);
-          stats.bytes += clip.bytes;
-          stats.preloadMs = Math.max(stats.preloadMs, clip.ms);
-        } else {
-          clip.s = 'error';
-          clip.err = 'decodificar';
-          fail(id, 'decodificar', why);
-          el.remove();
-          URL.revokeObjectURL(clip.url);
-        }
-        resolve();
-      };
-      const onOk = () => done(true);
-      const onErr = () => done(false, el.error ? 'código ' + el.error.code : 'error');
-      const guard = setTimeout(() => done(false, 'tiempo agotado'), 12000);
-      el.addEventListener('canplaythrough', onOk);
-      el.addEventListener('loadeddata', onOk);
-      el.addEventListener('error', onErr);
-      el.src = clip.url;
-      stage.appendChild(el);
-      el.load();
-    });
+    const done = (ok, why) => {
+      el.removeEventListener('canplaythrough', onOk);
+      el.removeEventListener('loadeddata', onOk);
+      el.removeEventListener('error', onErr);
+      clearTimeout(guard);
+      if (clip.s !== 'preparing') return;   // se soltó mientras se preparaba
+      clip.pending = null;
+      if (ok) {
+        clip.s = 'ready';
+        clip.el = el;
+        if (!clip.dur && isFinite(el.duration)) clip.dur = el.duration;
+        stats.prepareMs = Math.max(stats.prepareMs, Math.round(performance.now() - t0));
+      } else {
+        clip.s = 'error';
+        clip.err = 'decodificar';
+        fail(id, 'decodificar', why);
+        el.remove();
+      }
+    };
+    const onOk = () => done(true);
+    const onErr = () => done(false, el.error ? 'código ' + el.error.code : 'error');
+    const guard = setTimeout(() => done(false, 'tiempo agotado'), 12000);
+    el.addEventListener('canplaythrough', onOk);
+    el.addEventListener('loadeddata', onOk);
+    el.addEventListener('error', onErr);
+    clip.pending = el;
+    el.src = clip.url;
+    stage.appendChild(el);
+    el.load();
   };
 
   const stopCurrent = () => {
@@ -183,7 +195,7 @@
   };
 
   const api = {
-    /** Pide el manifiesto y precarga los vídeos indicados que existan en él. */
+    /** Pide el manifiesto y descarga los vídeos indicados que existan en él (sin decodificarlos). */
     preload(ids) {
       const list = (Array.isArray(ids) ? ids : []).filter((id) => ID_RE.test(id));
       (async () => {
@@ -197,7 +209,28 @@
       })();
       return true;
     },
-    /** Estado de un vídeo: unknown · absent · loading · ready · playing · ended · error */
+    /** Deja listos para reproducir (decodificador creado) los vídeos indicados que ya estén descargados. */
+    prepare(ids) {
+      (Array.isArray(ids) ? ids : []).filter((id) => ID_RE.test(id)).forEach(prepareClip);
+      return true;
+    },
+    /** Suelta los decodificadores; los archivos descargados se conservan para la próxima vez. */
+    release() {
+      if (current) stopCurrent();
+      clips.forEach((clip) => {
+        const el = clip.el || clip.pending;
+        if (el) {
+          try { el.pause(); el.removeAttribute('src'); el.load(); } catch (e) { /* nada */ }
+          el.remove();
+        }
+        clip.el = null;
+        clip.pending = null;
+        if (clip.s === 'ready' || clip.s === 'preparing') clip.s = 'fetched';
+      });
+      if (root) root.style.display = 'none';
+      return true;
+    },
+    /** Estado de un vídeo: unknown · absent · loading · fetched · preparing · ready · playing · ended · error */
     status(id) {
       const clip = clips.get(id);
       if (!clip) return manifestState === 'none' ? 'absent' : 'unknown';

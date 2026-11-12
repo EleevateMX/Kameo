@@ -29,7 +29,19 @@ func preload_clips(ids: Array) -> void:
 		_call("preload", [fresh])
 
 
-## unknown · absent · loading · ready · playing · ended · error
+## Crea los decodificadores de los vídeos ya descargados (justo antes de su escena).
+func prepare(ids: Array) -> void:
+	if _ok and not ids.is_empty():
+		_call("prepare", [ids])
+
+
+## Suelta los decodificadores al terminar la escena; lo descargado se conserva.
+func release() -> void:
+	if _ok:
+		_call("release", [])
+
+
+## unknown · absent · loading · fetched · preparing · ready · playing · ended · error
 func status(id: String) -> String:
 	if not _ok:
 		return "absent"
@@ -39,6 +51,11 @@ func status(id: String) -> String:
 ## true si ya se sabe qué pasará con este vídeo (está listo, no existe o falló).
 func settled(id: String) -> bool:
 	return status(id) in ["ready", "absent", "error", "playing", "ended"]
+
+
+## true si el archivo ya está en este navegador (descargado o listo para reproducir).
+func downloaded(id: String) -> bool:
+	return status(id) in ["fetched", "preparing", "ready", "playing", "ended"]
 
 
 func show(id: String, volume: float, at := 0.0) -> bool:

@@ -40,6 +40,11 @@ var fallbacks := 0
 var ended_on_video := false
 var _video_on := false
 var _poll := 0.0
+## La escena se mide con el reloj real, no sumando cuadros: si el navegador va lento o se queda
+## parado un momento, la escena no se retrasa respecto al servidor ni a los demás jugadores.
+var _clock_ms := 0          # instante (ms) en que la escena estaría en su segundo cero
+var _shot_from := 0.0       # segundo de la escena en que empezó el plano en curso
+var _last_ms := 0
 
 
 ## names: id de personaje -> nombre que se muestra en los subtítulos.
@@ -62,12 +67,21 @@ func play(p_id: String, script: Dictionary, cam: Camera3D, hud: Node, names := {
 		finished.emit(id, false)
 		return
 	hud.set_cine(true, true)
+	_clock_ms = Time.get_ticks_msec() - int(maxf(start_at, 0.0) * 1000.0)
+	_last_ms = Time.get_ticks_msec()
+	_shot_from = 0.0
 	# Salta los planos que ya pasaron
 	var skip := maxf(start_at, 0.0)
 	while _i + 1 < _shots.size() - 1 and skip >= float(_shots[_i + 1].get("dur", 4.0)):
 		skip -= float(_shots[_i + 1].get("dur", 4.0))
+		_shot_from += float(_shots[_i + 1].get("dur", 4.0))
 		_i += 1
 	_next(skip)
+
+
+## Adelanta la escena `seconds` segundos (capturas y pruebas).
+func seek(seconds: float) -> void:
+	_clock_ms -= int(seconds * 1000.0)
 
 
 func _next(offset := 0.0) -> void:
@@ -115,13 +129,31 @@ func using_video() -> bool:
 	return _video_on
 
 
+## Plano en curso ({} si no hay ninguno).
+func current_shot() -> Dictionary:
+	return _shots[_i] if active and _i >= 0 and _i < _shots.size() else {}
+
+
 ## Avanza la cinemática. Devuelve true mientras siga controlando la cámara.
-func process(delta: float) -> bool:
+func process(_delta: float) -> bool:
 	if not active:
 		return false
-	var shot: Dictionary = _shots[_i]
-	_t += delta
-	var dur := maxf(0.1, float(shot.get("dur", 4.0)))
+	var now := Time.get_ticks_msec()
+	var delta := float(now - _last_ms) / 1000.0
+	_last_ms = now
+	var elapsed := float(now - _clock_ms) / 1000.0
+	if elapsed - _shot_from >= _dur(_i):
+		# Toca cambiar de plano; tras un parón se pasan de largo los que ya quedaron atrás
+		while _i < _shots.size() and elapsed - _shot_from >= _dur(_i):
+			_shot_from += _dur(_i)
+			_i += 1
+		if _i >= _shots.size():
+			_end(false)
+			return false
+		_i -= 1
+		_next(elapsed - _shot_from)
+		return active
+	_t = elapsed - _shot_from
 	if _video_on:
 		# El vídeo tiene que avanzar: si falla o se atasca, se sigue con el motor sin detener nada
 		_poll -= delta
@@ -130,10 +162,12 @@ func process(delta: float) -> bool:
 			if video.tick() < 0.0:
 				fallbacks += 1
 				_drop_video(true)
-	_apply(clampf(_t / dur, 0.0, 1.0))
-	if _t >= dur:
-		_next()
+	_apply(clampf(_t / _dur(_i), 0.0, 1.0))
 	return active
+
+
+func _dur(i: int) -> float:
+	return maxf(0.1, float(_shots[i].get("dur", 4.0))) if i >= 0 and i < _shots.size() else 0.1
 
 
 func _apply(k: float) -> void:

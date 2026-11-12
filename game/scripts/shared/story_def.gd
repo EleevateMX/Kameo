@@ -60,19 +60,25 @@ const DIALOGUES := {
 ##   who/text  subtítulo (opcional)
 ##   sound     efecto al empezar el plano (opcional)
 ##   title     rótulo grande (opcional)
+##   hold_gate el portal del santuario sigue sellado durante este plano (se abre en el siguiente)
 ##   video     id de un vídeo que sustituye al plano si el navegador lo tiene listo (opcional).
 ##             El plano del motor corre igual por debajo: es lo que se ve si el vídeo falta o falla.
 ##             Los archivos y su manifiesto están en game/web/static/video (docs/CINEMATICS.md).
 const CUTSCENES := {
 	## «El sello cede»: compartida. La empieza el servidor cuando el grupo abre el santuario por
-	## primera vez; mientras dura, la sala está en pausa. Se omite por mayoría.
+	## primera vez; mientras dura, la sala está en pausa. Se omite por mayoría. 10 s en tres planos.
 	"sello": {
 		"title": "El sello cede", "shared": true,
 		"shots": [
-			{"dur": 3.5, "from": [Vector3(15.5, 3.2, 4.0), Vector3(26, 3.2, 0)], "to": [Vector3(17.5, 2.6, 2.2), Vector3(27, 3.8, 0)],
-				"text": "Cada alux en su altar, y el sello cede…", "sound": "santuario_abre", "video": "sello_1"},
-			{"dur": 3.5, "from": [Vector3(14.5, 4.2, -5.5), Vector3(19.0, 0.8, 0.5)], "to": [Vector3(15.6, 2.6, -3.6), Vector3(17.8, 0.7, 0.6)],
-				"text": "…pero quienes lo cuidaban ya no recuerdan a quién. ¡Los Olvidados despiertan!", "video": "sello_2"},
+			# 1. La barrera reacciona: del altar hacia el portal sellado
+			{"dur": 3.0, "from": [Vector3(15.6, 0.9, -8.0), Vector3(22.5, 2.4, -0.4)], "to": [Vector3(16.4, 1.3, -4.2), Vector3(26.0, 2.8, 0.0)],
+				"text": "Cada alux en su altar…", "sound": "objetivo", "video": "sello_1", "hold_gate": true},
+			# 2. El sello se rompe: el portal se abre
+			{"dur": 4.0, "from": [Vector3(15.5, 3.2, 4.0), Vector3(26, 3.2, 0)], "to": [Vector3(17.5, 2.6, 2.2), Vector3(27, 3.8, 0)],
+				"text": "…y el sello cede.", "sound": "santuario_abre", "video": "sello_2"},
+			# 3. Algo despierta: hacia el cristal del interior
+			{"dur": 3.0, "from": [Vector3(20.4, 2.1, 0.0), Vector3(28.0, 1.5, 0.0)], "to": [Vector3(24.6, 1.8, 0.6), Vector3(28.0, 1.7, 0.0)],
+				"text": "Pero quienes lo cuidaban ya no recuerdan a quién. ¡Los Olvidados despiertan!", "sound": "enemigo_aviso", "video": "sello_3"},
 		],
 	},
 	## «El llamado»: introducción del Capítulo I. Local (cada jugador la ve al entrar; no detiene a nadie).

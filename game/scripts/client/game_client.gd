@@ -143,6 +143,7 @@ var _video := VideoBridge.new()   # vídeos de las cinemáticas (los reproduce e
 var _cine_phase := 0          # Story.CINE_*: fase de la cinemática compartida, según el servidor
 var _prep := {}               # preparación en curso: {id, t, wait, sent}
 var _cine_out := 0.0          # segundos hasta volver a descubrir el juego tras una cinemática
+var _video_release_in := 0.0  # segundos hasta soltar los decodificadores de vídeo
 var _cine_stats := {"video": 0, "engine": 0, "fallbacks": 0}
 
 # Métricas de la sesión (beta): se envían a la API cada minuto y al terminar una ronda
@@ -468,6 +469,8 @@ func _begin_shared_prep(id: String, wait: float) -> void:
 	_mouse_l = false
 	_mouse_r = false
 	_video.preload_clips(Story.cutscene_videos(id))
+	_video.prepare(Story.cutscene_videos(id))
+	_video_release_in = 0.0
 	_hud.set_cine(true, false)
 	_hud.fade_to(1.0, 0.45)
 	_cine_out = 0.0
@@ -493,6 +496,7 @@ func _start_shared(id: String, at: float) -> void:
 	_hud.hide_dialogue()
 	_hud.hide_menu()
 	_cine_out = 0.0
+	_video_release_in = 0.0
 	_play_cutscene(id, at)
 	_hud.fade_to(0.0, 0.4)
 
@@ -506,6 +510,8 @@ func _update_cine_flow(delta: float) -> void:
 		var have := not clips.is_empty()
 		for clip in clips:
 			var st: String = _video.status(clip)
+			if st == "fetched":
+				_video.prepare([clip])   # terminó de descargarse durante la espera
 			if st != "ready":
 				have = false
 			if not (st in ["ready", "absent", "error"]):
@@ -515,6 +521,10 @@ func _update_cine_flow(delta: float) -> void:
 		if float(_prep.t) >= 0.5 and (settled or float(_prep.t) >= float(_prep.wait) - 1.2):
 			_send_cine_ready(str(_prep.id), have)
 			_prep.sent = true
+	if _video_release_in > 0.0:
+		_video_release_in -= delta
+		if _video_release_in <= 0.0 and not _cine.active:
+			_video.release()
 	if _cine_out > 0.0:
 		_cine_out -= delta
 		if _cine_out <= 0.0:
@@ -539,6 +549,7 @@ func _play_cutscene(id: String, start_at := 0.0) -> void:
 	if _cine.active or not Story.CUTSCENES.has(id):
 		return
 	_cine.volume = clampf(float(_settings.vol_master) * float(_settings.vol_sfx), 0.0, 1.0)
+	_video.prepare(Story.cutscene_videos(id))   # por si no hubo fase de preparación (locales, enganche a mitad)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_mouse_l = false
 	_mouse_r = false
@@ -554,11 +565,14 @@ func _on_cine_finished(id: String, _skipped: bool) -> void:
 	_cine_stats["video" if _cine.video_shots > 0 else "engine"] += 1
 	_cine_stats.fallbacks += _cine.fallbacks
 	_video.note("")
+	_video_release_in = 1.2   # cuando el vídeo ya se fundió, se sueltan sus decodificadores
 	# Vuelta al juego: corte a negro (la cámara regresa detrás del personaje sin que se vea el
 	# salto) y fundido de entrada. En las compartidas la sala sigue en pausa mientras tanto.
 	if _cine.shared or _cine.ended_on_video:
 		_hud.fade_to(1.0, 0.0)
 		_cine_out = 0.35
+		if _gate_open:
+			_gate_anim = 1.0   # lo que la escena mostró abrirse ya está abierto al volver
 	if _intro_after_cine:
 		_intro_after_cine = false
 		_hud.show_intro()
@@ -1534,7 +1548,10 @@ func _process(delta: float) -> void:
 	_local_bolts = _local_bolts.filter(func(b: Dictionary) -> bool: return _advance_bolt(b, delta))
 
 	# Puerta y sello del santuario, glifo, fuego
-	if _gate_open and _gate_anim < 1.0:
+	# El portal se abre a la vista: espera mientras se prepara una escena y mientras dure un plano
+	# que lo quiere sellado; al volver de una escena ya está abierto del todo.
+	var gate_held := not _prep.is_empty() or bool(_cine.current_shot().get("hold_gate", false))
+	if _gate_open and _gate_anim < 1.0 and not gate_held:
 		_gate_anim = minf(1.0, _gate_anim + delta * 0.8)
 	_builder.update(_time, delta, _gate_anim)
 
