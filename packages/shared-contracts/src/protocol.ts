@@ -36,7 +36,9 @@ export type ClientMessage =
   | { t: 'in'; s: number; mx: number; mz: number; j: 0 | 1; f: FormId | ''; a?: number; r?: number }
   | { t: 'ping'; c: number }
   /** Voto para jugar otra ronda tras la victoria (v: 0 lo retira). Se reinicia cuando votan todos los conectados. */
-  | { t: 'again'; v?: 0 | 1 };
+  | { t: 'again'; v?: 0 | 1 }
+  /** El jugador terminó de hablar con un personaje (n = su id). El servidor comprueba que está a su lado. */
+  | { t: 'talk'; n: string };
 
 /**
  * Estado simulado del jugador (19 valores):
@@ -50,7 +52,8 @@ export const SNAP_SLOT = 0, SNAP_ACK = 1, SNAP_ON = 2, SNAP_HP = 3, SNAP_X = 4, 
   SNAP_FORM = 9, SNAP_FLAGS = 11, SNAP_ENERGY = 12;
 /**
  * [santuarioAbierto, altares, altaresNecesarios, emboscada(0 pendiente/1 en curso/2 superada/3 fallida),
- *  enemigosRestantes, puntoDeReaparición, braseroListo, votosOtraRonda, conectados, segundosDeEsperaDeLosAltares]
+ *  enemigosRestantes, puntoDeReaparición, braseroListo, votosOtraRonda, conectados, segundosDeEsperaDeLosAltares,
+ *  banderasDeHistoria(1 = alguien habló con Chiich Yaxché)]
  */
 export type WorldStateArray = number[];
 /** [id, tipo(0 piedra, 1 corrupta), x, y, z, giro, vida, vidaMáx, estado, slotObjetivo] */
@@ -88,6 +91,8 @@ export type ServerMessage =
   | { t: 'event'; e: 'reward'; reward: string; saved: boolean; new: boolean }
   /** defeat: todo el grupo cayó y el santuario se vuelve a sellar · restart: nueva ronda pedida por el grupo */
   | { t: 'event'; e: 'defeat' | 'restart' }
+  /** Avance de la historia de la sala: k = 'talked' (alguien habló con el personaje npc). */
+  | { t: 'event'; e: 'story'; k: string; npc: string; by: string }
   | { t: 'pong'; c: number }
   | { t: 'error'; code: string; msg: string };
 

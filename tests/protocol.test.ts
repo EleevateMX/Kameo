@@ -565,6 +565,44 @@ test('otra ronda: tras vencer, la sala se reinicia sólo cuando la piden todos l
   b.close();
 });
 
+test('historia: hablar con Chiich Yaxché sólo cuenta estando a su lado y lo sabe toda la sala', async () => {
+  const room = 'HISTO1';
+  const a = new Bot(randomUUID(), 'Uno');
+  const b = new Bot(randomUUID(), 'Dos');
+  await a.connect(ticket({ id: a.id, room, name: a.name }));
+  await b.connect(ticket({ id: b.id, room, name: b.name }));
+  await sleep(300);
+  assert.equal(a.snap!.w[10], 0, 'al empezar nadie ha hablado con ella');
+
+  // Desde lejos no cuenta, y un personaje que no existe se ignora
+  assert.ok(await a.walkTo(7, 9, 12));
+  a.send({ t: 'talk', n: 'yaxche' });
+  a.send({ t: 'talk', n: 'nadie' });
+  a.send({ t: 'talk' });
+  await sleep(400);
+  assert.equal(a.snap!.w[10], 0, 'hablar desde lejos no avanza la historia');
+  assert.equal(a.events.filter((e) => e.e === 'story').length, 0);
+
+  // A su lado sí: la bandera cambia para todos y llega el aviso con quién fue
+  assert.ok(await a.walkTo(-4.2, 1.8, 14));
+  a.send({ t: 'talk', n: 'yaxche' });
+  await sleep(400);
+  for (const bot of [a, b]) {
+    assert.equal(bot.snap!.w[10] & 1, 1, 'toda la sala ve que la historia avanzó');
+    const ev = bot.events.filter((e) => e.e === 'story');
+    assert.equal(ev.length, 1);
+    assert.deepEqual([ev[0].k, ev[0].npc, ev[0].by], ['talked', 'yaxche', 'Uno']);
+  }
+  // Repetirlo no vuelve a avisar, y los altares siguen funcionando igual
+  assert.ok(await b.walkTo(-4.2, 1.8, 14));
+  b.send({ t: 'talk', n: 'yaxche' });
+  await sleep(400);
+  assert.equal(a.events.filter((e) => e.e === 'story').length, 1, 'el aviso llega una sola vez');
+  assert.equal(a.snap!.w[3], 0);
+  a.close();
+  b.close();
+});
+
 test('una conexión que deja de enviar se libera sola y el jugador puede volver', async () => {
   const room = 'MUDA01';
   const id = randomUUID();

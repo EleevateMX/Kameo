@@ -19,6 +19,7 @@ const World := preload("res://scripts/shared/world_def.gd")
 const Ticket := preload("res://scripts/shared/ticket.gd")
 const Defs := preload("res://scripts/shared/combat_def.gd")
 const Combat := preload("res://scripts/server/combat.gd")
+const Story := preload("res://scripts/shared/story_def.gd")
 
 const PROTOCOL := 2
 const MAX_PLAYERS := 4
@@ -83,6 +84,7 @@ class Room:
 	var combat := Combat.new()
 	var lock_t := 0.0            # mientras sea > 0 los altares no responden (derrota o nueva ronda)
 	var again := {}              # pid -> true: quiere jugar otra ronda tras la victoria
+	var story := 0               # banderas del progreso narrativo (Story.F_*)
 
 
 var _tcp := TCPServer.new()
@@ -292,6 +294,19 @@ func _handle(c: Conn, msg: Dictionary) -> void:
 			p.queue.append(inp)
 		"ping":
 			_send(c, {"t": "pong", "c": _num(msg.get("c"))})
+		"talk":
+			# Un jugador terminó de hablar con un personaje. El texto lo muestra el cliente; aquí
+			# sólo se anota el avance de la historia, y sólo si de verdad está junto a él.
+			var npc: Variant = msg.get("n")
+			if typeof(npc) != TYPE_STRING or not Story.NPCS.has(npc) or p.state.dead:
+				return
+			var at: Vector2 = Story.npc_pos(npc)
+			if Vector2(p.state.pos.x - at.x, p.state.pos.z - at.y).length() > float(Story.NPCS[npc].range) + 1.0:
+				return
+			if npc == "yaxche" and (room.story & Story.F_TALKED) == 0:
+				room.story |= Story.F_TALKED
+				print("[alux] Sala %s: %s habló con %s" % [room.code, p.name, Story.NPCS[npc].name])
+				_broadcast(room, {"t": "event", "e": "story", "k": "talked", "npc": npc, "by": p.name})
 		"again":
 			# Voto para jugar otra ronda. Sólo cuenta con la emboscada superada; la sala
 			# se reinicia cuando votan todos los conectados (ver _tick_room).
@@ -426,9 +441,9 @@ func _world_state(room: Room) -> Array:
 			if room.again.has(p.id):
 				votes += 1
 	## [santuarioAbierto, altares, altaresNecesarios, emboscada(0/1/2/3), enemigosRestantes, puntoDeReaparición,
-	##  braseroListo, votosOtraRonda, conectados, segundosDeEsperaDeLosAltares]
+	##  braseroListo, votosOtraRonda, conectados, segundosDeEsperaDeLosAltares, banderasDeHistoria]
 	return [1 if room.gate_open else 0, mask, room.need, room.combat.encounter, room.combat.wave_alive(),
-		room.combat.checkpoint, 1 if room.combat.brazier_cd <= 0.0 else 0, votes, connected, int(ceil(room.lock_t))]
+		room.combat.checkpoint, 1 if room.combat.brazier_cd <= 0.0 else 0, votes, connected, int(ceil(room.lock_t)), room.story]
 
 
 # ───────────────────────── Simulación de sala ─────────────────────────
