@@ -91,7 +91,8 @@ const DIALOGUES := {
 ##   hold_gate el portal del santuario sigue sellado durante este plano (se abre en el siguiente)
 ##   boss      cómo se ve el guardián en este plano (sólo presentación; el servidor no se entera):
 ##             {anim, at (segundo de la animación en que empieza), speed, look (fase con la que se
-##             pinta: ojos, vetas y glifos), glow [de, a] (brillo de las vetas a lo largo del plano)}
+##             pinta: ojos, vetas y glifos; con look_to y look_at cambia a otra en esa fracción del
+##             plano), glow [de, a] (brillo de las vetas a lo largo del plano)}
 ##   feather   la Pluma de Jade se ve en este plano (true) o todavía no (false)
 ##   motes     color de las motas que se desprenden del guardián (el Silencio que se va)
 ##   video     id de un vídeo que sustituye al plano si el navegador lo tiene listo (opcional).
@@ -125,17 +126,17 @@ const CUTSCENES := {
 				"text": "Al fondo del patio, algo duerme desde antes que la selva.", "sound": "cine_patio_silencio", "video": "despertar_1",
 				"boss": {"anim": "Sleep", "at": 0.0, "speed": 1.0, "look": 0, "glow": [0.15, 0.3]}},
 			# 2. Las grietas: el Silencio le recorre el pecho
-			{"dur": 4.0, "from": [Vector3(29.0, 2.2, 1.2), Vector3(31.6, 2.3, 0.0)], "to": [Vector3(29.5, 2.5, 0.5), Vector3(31.6, 2.6, 0.0)],
+			{"dur": 4.0, "from": [Vector3(28.2, 2.0, 3.0), Vector3(32.2, 1.9, 0.0)], "to": [Vector3(28.8, 2.6, 2.4), Vector3(32.2, 2.5, 0.0)],
 				"text": "El Silencio se le metió en las grietas.", "sound": "cine_grietas", "video": "despertar_2",
 				"boss": {"anim": "Sleep", "at": 4.0, "speed": 1.0, "look": 0, "glow": [0.3, 2.4]}},
 			# 3. Los ojos: se encienden en magenta
 			{"dur": 4.0, "from": [Vector3(29.6, 3.5, -1.1), Vector3(31.7, 3.25, 0.0)], "to": [Vector3(29.9, 3.5, -0.7), Vector3(31.6, 3.5, 0.0)],
 				"text": "Nojoch Tuunich abre los ojos… y no reconoce a nadie.", "sound": "cine_ojos", "video": "despertar_3",
-				"boss": {"anim": "Awaken", "at": 0.0, "speed": 0.3, "look": 1, "glow": [1.8, 1.8]}},
+				"boss": {"anim": "Awaken", "at": 0.2, "speed": 0.325, "look": 0, "look_to": 1, "look_at": 0.5, "glow": [2.4, 1.8]}},
 			# 4. En pie: contrapicado desde el portal; acaba erguido, de cara al grupo
-			{"dur": 4.0, "from": [Vector3(23.4, 1.5, -2.6), Vector3(30.8, 2.6, 0.2)], "to": [Vector3(24.2, 1.7, -1.6), Vector3(31.4, 3.1, 0.0)],
+			{"dur": 4.0, "from": [Vector3(25.4, 0.9, -2.4), Vector3(31.4, 2.4, 0.2)], "to": [Vector3(26.2, 1.1, -1.6), Vector3(31.6, 3.2, 0.0)],
 				"title": "Nojoch Tuunich  ·  El Guardián Dormido", "text": "", "sound": "cine_en_pie", "video": "despertar_4",
-				"boss": {"anim": "Awaken", "at": 1.2, "speed": 0.55, "look": 1, "glow": [1.8, 1.7]}},
+				"boss": {"anim": "Awaken", "at": 1.5, "speed": 0.625, "look": 1, "glow": [1.8, 1.7]}},
 		],
 	},
 	## «La liberación de Nojoch Tuunich»: compartida. La empieza el servidor cuando el contacto

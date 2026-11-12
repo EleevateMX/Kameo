@@ -326,7 +326,8 @@ func _process(delta: float) -> bool:
 			var e := k * k * (3.0 - 2.0 * k)
 			cam.look_at_from_position((shot.from[0] as Vector3).lerp(shot.to[0], e), (shot.from[1] as Vector3).lerp(shot.to[1], e), Vector3.UP)
 			var pose: Dictionary = shot.boss
-			boss.cine_pose(str(pose.anim), float(pose.at) + k * float(shot.dur) * float(pose.speed), int(pose.look), lerpf(float(pose.glow[0]), float(pose.glow[1]), k))
+			var look := int(pose.look_to) if pose.has("look_to") and k >= float(pose.get("look_at", 0.5)) else int(pose.look)
+			boss.cine_pose(str(pose.anim), float(pose.at) + k * float(shot.dur) * float(pose.speed), look, lerpf(float(pose.glow[0]), float(pose.glow[1]), k))
 			if shot.has("feather"):
 				arena.cine_feather = 1 if bool(shot.feather) else 0
 				arena._feather_k = (1.0 if bool(shot.feather) else 0.0) * clampf(0.35 + k * 0.65, 0.0, 1.0)
@@ -344,6 +345,10 @@ func _process(delta: float) -> bool:
 			hud.cine_skip_text("Enter  ·  votar para omitir  (1/3)")
 		cine.seek(float(script.shots[0].dur) * 0.5)
 		cine.process(0.0)
+	boss._update_face(1.0)
+	boss._update_face(1.0)
+	if str(s[0]).begins_with("kf_"):
+		boss._label.visible = false
 	match str(s[0]):
 		"dialogo":
 			var lines := []

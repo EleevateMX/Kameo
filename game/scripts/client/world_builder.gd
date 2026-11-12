@@ -931,6 +931,8 @@ func _floating_glyph(root: Node3D, pos: Vector3) -> void:
 	light.light_color = JADE
 	light.light_energy = 2.0
 	light.omni_range = 9.0
+	# No tiñe al guardián (capa 2), que duerme pegado al cristal: su caliza es cálida, no verde
+	light.light_cull_mask = 0xFFFFF & ~2
 	glyph.add_child(light)
 	root.add_child(glyph)
 

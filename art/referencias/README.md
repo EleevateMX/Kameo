@@ -1,7 +1,7 @@
 # Referencias visuales de los personajes
 
-Hojas de personaje (turnaround) del alux, de Balam y de Chiich Yaxché, para mantener
-la continuidad al generar cinemáticas con Kling u otra herramienta de vídeo. Salen de
+Hojas de personaje (turnaround) del alux, de Balam, de Chiich Yaxché y de Nojoch Tuunich,
+para mantener la continuidad al generar cinemáticas con Kling u otra herramienta de vídeo. Salen de
 los mismos modelos del juego (`art/blender/build_*.py`), renderizados con Blender
 (`bpy`, Cycles en CPU); aquí no hay nada dibujado ni generado por IA.
 
@@ -13,8 +13,9 @@ los mismos modelos del juego (`art/blender/build_*.py`), renderizados con Blende
 | `<personaje>_espalda.png` | Por detrás. |
 | `<personaje>_hoja.png` | Las cuatro vistas en fila (frente, tres cuartos, lado, espalda), 1920×1080, a la misma escala y con el suelo a la misma altura. |
 | `balam_accion.png` | Balam en el vuelo del galope (`Run`, cuadro 4 de 12), cámara girada 60°. |
+| `nojoch_liberado_hoja.png` | La hoja de Nojoch Tuunich en estado «liberado» (ver su ficha). |
 
-`<personaje>` es `alux`, `balam` o `yaxche`. Ninguna imagen lleva textos, rótulos ni
+`<personaje>` es `alux`, `balam`, `yaxche` o `nojoch`. Ninguna imagen lleva textos, rótulos ni
 marcas: los generadores de vídeo copian lo que ven escrito.
 
 ## Cómo regenerarlas
@@ -29,6 +30,10 @@ Hace 13 renders y 3 hojas (32 muestras, 2 hilos): del orden de un cuarto de hora
 `render_referencias.py [alux|balam|yaxche|todos] [carpeta] [resolución] [muestras]`;
 por ejemplo, `... render_referencias.py yaxche` rehace solo las de la abuela y
 `... render_referencias.py todos /tmp/prueba 384 16` hace una prueba rápida en otra carpeta.
+
+Las de Nojoch Tuunich salen de su propio script, porque llevan estados de material y
+expresión: `.tools/blender-venv/bin/python art/blender/render_nojoch.py referencias`
+(8 renders y 2 hojas, 24 muestras: unos 6 minutos).
 
 ## Cómo están hechas
 
@@ -284,6 +289,92 @@ El modelo define además un naranja de bordado (`#f0822e`) que no usa ninguna pi
 
 ---
 
+## Nojoch Tuunich, el Guardián Dormido
+
+El primer jefe: un coloso de sillares de caliza que duerme sentado en el patio del
+santuario y que no es un enemigo, sino alguien que olvidó a quién cuida. Modelo:
+`build_nojoch.py`; diseño en `docs/BOSS.md`; medidas, materiales y animaciones en
+`art/propuestas/nojoch/README.md`.
+
+Las cuatro vistas y `nojoch_hoja.png` lo muestran en estado **«olvido»**, como aparece al
+despertar: ojos magenta, vetas del Silencio encendidas, glifos del pecho apagados y cara
+triste. `nojoch_liberado_hoja.png` es la misma hoja en estado **«liberado»**: sin vetas
+(quedan como cicatrices), ojos, glifos y corazón de jade encendidos y cara serena. La
+cámara está a 2.50 m de altura y a 10.34 m. A diferencia de los otros personajes, el
+color no es el hex del modelo, sino el que da la luz del juego (ver «Paleta»).
+
+**Proporciones.** 5.0 m de pie (casi cuatro alux) y 3.4 m sentado; 4.2 m de hombro a
+hombro. Tres cabezas de alto: la cabeza con su crestería mide 1.70 m y es tan ancha como
+el pecho, sin cuello. Tronco ancho y corto; brazos larguísimos y gruesos (2.86 m: las
+manos llegan a un palmo del suelo) con manos enormes de tres dedos y pulgar; piernas muy
+cortas (cadera a 1.40 m) con pies de más de un metro.
+
+**Piezas.**
+
+- Todo él son sillares de caliza encajados, con las aristas matadas y las juntas a la
+  vista; algún desportillado. Sin ropa.
+- Cabeza: caja ancha con orejeras cuadradas de disco tallado y pendientes; nariz en cuña;
+  dos cejas de piedra separadas, caídas hacia fuera (la izquierda algo más alta); ojos
+  almendrados hundidos que brillan; boca tallada como una ranura oscura con labio, de
+  comisuras bajas, sobre un morro más claro; mandíbula en losa.
+- Crestería: banda con cinco tachones y, encima, cornisas y pilares calados cada vez más
+  estrechos, con una placa escalonada al frente; le falta un pilar a su izquierda.
+- Pecho: una placa (pectoral) con cuatro glifos abstractos en fila —una espiral cuadrada,
+  una escalera con una cuenta, un marco con un rombo y dos cabrios sobre tres cuentas—,
+  cornisa encima y tres colgantes debajo. No son escritura.
+- Espalda: un marco de piedra (espaldar) que sube por detrás de la cabeza y guarda un
+  cristal de jade de seis caras, el corazón; debajo, una losa tallada con marco, tres
+  cabrios en la espina y dos cuadros con rombo.
+- Cinturón de tachones con un disco al frente y un faldón tallado.
+- Articulaciones: rótulas de piedra más oscura en hombros, muñecas, caderas y tobillos;
+  tambores con tapa en codos y rodillas; rodilleras con disco.
+- Antebrazos con brazal de tres cabrios y muñequera de tacos; grebas con cabrios y
+  ajorcas de tacos en los tobillos; rombo tallado en cada muslo.
+- Muy poco musgo seco en lo alto de hombros y crestería y tres raíces finas (una baja
+  por el hombro izquierdo).
+- Vetas del Silencio: grietas finas de luz magenta, en zigzag, por hombros, antebrazos,
+  pecho, espalda y cabeza. Solo mientras está olvidado.
+
+**Paleta** (de `HEX` en `build_nojoch.py`). La primera columna es el código del modelo; la
+piedra se ve más clara en el juego y en estas hojas, entre crema `#ecd2a0` al sol y arena
+`#b08d62` a la sombra.
+
+| Parte | Hex |
+| --- | --- |
+| Caliza: media / arena / crema / oscura | `#ba8f6b` / `#aa805e` / `#d0a781` / `#8e6a50` |
+| Placas talladas (pectoral, banda, ajorcas, losa de la espalda) | `#c99565` |
+| Juntas, cuencas y boca | `#4f3d30` |
+| Desportillados / pátina de tierra | `#dfbf9c` / `#7d6248` |
+| Musgo seco / oscuro / claro | `#737544` / `#565a36` / `#8d8a52` |
+| Raíces / sombra | `#6a4c33` / `#45301f` |
+| Glifos apagados | `#5a564b` |
+| Jade: corazón y ojos / luz de los ojos / luz del corazón y de los glifos | `#2ec4a6` / `#59ffe0` / `#3fe8c4` |
+| Silencio: luz de las vetas y de los ojos / filo / borde | `#fa3399` / `#ffc4e6` / `#b01c66` |
+| Vetas apagadas (cicatrices) | `#8a7460` |
+
+**Rasgos que no deben cambiar.**
+
+- Es de sillares, no de roca: bloques tallados y encajados, de caras planas. Caliza
+  cálida, crema y arena; nunca gris, verde ni negra, y sin metal.
+- Cabeza ancha y sin cuello con la crestería escalonada; no lleva casco, cuernos ni corona.
+- Cara de piedra triste, no feroz: cejas caídas hacia fuera, comisuras bajas, sin
+  dientes ni colmillos. Liberado, serena: cejas casi rectas y una sonrisa leve.
+- Cuatro glifos en el pecho, en fila; cristal de jade en la espalda, dentro de su marco.
+- Brazos hasta el suelo con puños enormes de tres dedos y pulgar; piernas cortas.
+- Olvidado: ojos y vetas magenta, glifos oscuros. Liberado: ojos, glifos y corazón de
+  jade, sin vetas. Nunca las dos luces a la vez, salvo los glifos de jade que se van
+  encendiendo durante el combate.
+- No lleva armas ni armadura, y no es un robot: nada de tornillos, cables ni humo.
+
+**Descripción para prompt.**
+
+> Stylized low-poly 3D fantasy character, flat vertex colours, no textures: a colossal guardian statue built from stacked warm cream-and-sand limestone blocks, wide flat head with stepped temple-crest headdress, sad drooping stone brows, glowing magenta eyes, four dark carved glyph panels on the chest, huge three-fingered fists, short legs, thin glowing magenta cracks, sparse moss, jade crystal heart on its back.
+
+Para el estado liberado, cambia lo magenta: *calm glowing jade eyes, four glowing jade
+glyphs on the chest, a faint serene smile, no magenta cracks (only thin dark scars)*.
+
+---
+
 ## Para usarlas con Kling
 
 - Como referencia de personaje, sube la hoja (`*_hoja.png`) o dos o tres vistas
@@ -292,7 +383,8 @@ El modelo define además un naranja de bordado (`#f0822e`) que no usa ninguna pi
   escenario después. Repite el estilo (low-poly, colores planos, sin texturas) en
   cada plano: es lo primero que el generador tiende a perder.
 - Los personajes son asimétricos a propósito (pluma, arete, nudo de la faja y morral
-  del alux; flor y bastón de la abuela). Si un plano sale en espejo, se nota ahí.
+  del alux; flor y bastón de la abuela; el pilar que falta en la crestería del coloso,
+  a su izquierda). Si un plano sale en espejo, se nota ahí.
 
 ## Lo que estas imágenes heredan de los modelos
 
@@ -310,3 +402,8 @@ reproduzca.
   sirven la vista de frente y la de tres cuartos.
 - **Alux, por detrás:** el cabello es un casquete liso de borde poligonal, sin mechones.
 - **Manos:** pulgar y tres dedos; los dedos son tubos sin articulaciones.
+- **Nojoch Tuunich:** los codos y las rodillas son tambores lisos, menos tallados que el
+  resto; la crestería se lee de frente como losas apiladas más que como un peine calado;
+  de perfil el corazón asoma por detrás de la cabeza. En la hoja de «olvido» las grietas
+  de la furia, apagadas, se adivinan de cerca como costuras de la piedra: no hay que
+  pedirle al generador que las dibuje.

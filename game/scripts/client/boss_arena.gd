@@ -186,33 +186,38 @@ func setup(lite: bool) -> void:
 
 
 ## La Pluma de Jade: un objeto, no un personaje. Flota ante el guardián liberado.
+## Pluma larga de quetzal: raquis dorado, barbas de jade a los dos lados y la punta más clara.
 func _build_feather() -> Node3D:
 	var root := Node3D.new()
-	var vane := SphereMesh.new()
-	vane.radius = 0.5
-	vane.height = 1.0
-	vane.radial_segments = 12
-	vane.rings = 6
-	var vm := Avatar.mat(JADE, 1.8, 0.35)
-	root.add_child(Avatar.part(vane, vm, Vector3(0, 0.1, 0), Vector3.ZERO, Vector3(0.34, 1.25, 0.06)))
-	root.add_child(Avatar.part(vane, Avatar.mat(Color(0.6, 1.0, 0.9), 2.4, 0.3), Vector3(0, 0.25, 0), Vector3.ZERO, Vector3(0.16, 0.85, 0.07)))
+	var body := Node3D.new()
+	root.add_child(body)
+	var leaf := SphereMesh.new()
+	leaf.radius = 0.5
+	leaf.height = 1.0
+	leaf.radial_segments = 10
+	leaf.rings = 5
+	var jade := Avatar.mat(JADE, 1.6, 0.35)
+	var pale := Avatar.mat(Color(0.7, 1.0, 0.92), 2.2, 0.3)
+	var deep := Avatar.mat(Color(0.1, 0.62, 0.52), 1.0, 0.4)
+	# Barbas: láminas inclinadas a cada lado del raquis, más cortas hacia la punta
+	for i in 9:
+		var k := float(i) / 8.0
+		var y := lerpf(-0.42, 0.78, k)
+		var half := lerpf(0.3, 0.07, k * k) * (0.72 if i == 0 else 1.0)
+		for side in [-1.0, 1.0]:
+			var barb := Avatar.part(leaf, pale if i >= 7 else (deep if i % 3 == 1 else jade),
+				Vector3(side * half * 0.5, y, 0.0), Vector3(0.0, 0.0, side * -0.62), Vector3(half * 1.25, 0.2, 0.035))
+			barb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			body.add_child(barb)
 	var quill := CylinderMesh.new()
-	quill.top_radius = 0.012
-	quill.bottom_radius = 0.03
-	quill.height = 1.7
+	quill.top_radius = 0.008
+	quill.bottom_radius = 0.026
+	quill.height = 1.9
 	quill.radial_segments = 6
-	root.add_child(Avatar.part(quill, Avatar.mat(GOLD, 1.6, 0.4), Vector3(0, -0.05, 0)))
-	var halo := SphereMesh.new()
-	halo.radius = 0.55
-	halo.height = 1.5
-	halo.radial_segments = 12
-	halo.rings = 6
-	var hm := Fx.glow_mat(JADE, 0.07)
-	hm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	var h := Avatar.part(halo, hm, Vector3.ZERO)
-	h.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	root.add_child(h)
-	root.rotation = Vector3(0.0, 0.0, 0.35)
+	body.add_child(Avatar.part(quill, Avatar.mat(GOLD, 1.8, 0.4), Vector3(0, 0.0, 0)))
+	# Punta curvada: un toque de ojo de pluma
+	body.add_child(Avatar.part(leaf, pale, Vector3(0.03, 0.9, 0.0), Vector3(0, 0, -0.25), Vector3(0.1, 0.22, 0.04)))
+	root.rotation = Vector3(0.0, 0.0, 0.3)
 	return root
 
 

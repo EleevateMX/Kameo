@@ -898,6 +898,10 @@ func _free() -> void:
 	rubble.clear()
 	_pulse_w = -1.0
 	_purify_summoned()
+	# El Silencio se retira: las criaturas corrompidas que rondaban cerca también recuerdan
+	for e in combat.enemies:
+		if e.state != "dead" and float(Defs.ENEMIES[e.kind].purify_at) > 0.0 and Vector2(e.x - x, e.z - z).length() < 24.0:
+			combat._kill(e, null, true)
 	combat.events.append(["boss", "freed", 0])
 	notices.append("freed")
 

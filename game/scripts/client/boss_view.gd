@@ -14,7 +14,9 @@ const Avatar := preload("res://scripts/client/avatar.gd")
 const MODEL := "res://assets/characters/nojoch.glb"
 const JADE := Color(0.24, 0.91, 0.77)
 const MAGENTA := Color(1.0, 0.2, 0.61)
-const STONE := Color(0.42, 0.46, 0.42)
+const SCAR := Color("#8a7460")        # las vetas apagadas quedan como cicatrices en la caliza
+const EYE_OFF := Color("#2e302c")
+const GLYPH_OFF := Color("#5a564b")
 ## Animación de cada estado y si se repite.
 const ANIMS := {
 	"sleep": ["Sleep", true], "rise": ["Awaken", false], "idle": ["Idle", true], "walk": ["Walk", true],
@@ -25,7 +27,8 @@ const ANIMS := {
 	"bound": ["Kneel", false], "ritual": ["Kneel", false],
 }
 ## Velocidad de la animación en algunos estados (el resto, 1).
-const SPEEDS := {"transit": 1.7, "charge_w": 0.55, "charge": 1.8, "walk": 1.0}
+## (`Walk` está compuesta para 1.7 m/s: se acelera lo mismo que el paso del guardián.)
+const SPEEDS := {"transit": 1.88, "charge_w": 0.5, "charge": 1.0}
 
 var phase := Boss.ASLEEP
 var state := "sleep"
@@ -44,6 +47,17 @@ var _step_in := 0.0
 var _cine := false
 var _cine_look := -1
 var _cine_glow := -1.0
+# Rostro: las cejas y la boca no las mueve ninguna animación del cuerpo; se mezclan aquí entre
+# las tres expresiones del modelo (Face_Sad, Face_Pain, Face_Serene) según la fase.
+const FACE_BONES := ["Brow_L", "Brow_R", "Mouth_L", "Mouth_R"]
+const FACE_BY_PHASE := ["Face_Sad", "Face_Sad", "Face_Pain", "Face_Sad", "Face_Serene"]
+var calm := 0.0                 # 0–1: cuánto ha recordado ya en la fase 3 (acerca el rostro a la serenidad)
+var _crack_src := {}            # valores de exportación de las grietas de la furia (Silence2)
+var _skel: Skeleton3D
+var _faces := {}                # expresión -> {hueso -> [posición, rotación]}
+var _face_rest := {}            # hueso -> [posición, rotación]
+var _face_now := {}             # hueso -> [posición, rotación] que se ve ahora mismo
+var _face_flash := 0.0          # segundos de «casi recuerda» (al encenderse un glifo)
 
 signal stepped
 
@@ -57,12 +71,19 @@ func setup() -> void:
 			_anim = model.find_child("AnimationPlayer", true, false) as AnimationPlayer
 			for n in model.find_children("*", "MeshInstance3D", true, false):
 				var mi := n as MeshInstance3D
+				mi.layers = 2   # capa propia: la luz de jade del cristal no lo tiñe (world_builder)
 				for i in mi.mesh.get_surface_count():
 					var src := mi.get_active_material(i)
 					if src is StandardMaterial3D:
 						var own := (src as StandardMaterial3D).duplicate() as StandardMaterial3D
 						mi.set_surface_override_material(i, own)
 						_mats[src.resource_name] = own
+						if src.resource_name == "Silence2":
+							_crack_src = {"albedo": own.albedo_color, "vertex": own.vertex_color_use_as_albedo}
+			_skel = model.find_child("Skeleton3D", true, false) as Skeleton3D
+			_read_faces()
+			if _anim != null and not _faces.is_empty():
+				_anim.mixer_applied.connect(_apply_face)
 			if _anim != null:
 				for name in ["Sleep", "Idle", "Walk", "Stunned", "Charge"]:
 					if _anim.has_animation(name):
@@ -91,6 +112,83 @@ func setup() -> void:
 	_paint()
 
 
+## Lee las tres expresiones del modelo (animaciones de un cuadro) y las retira del reproductor:
+## desde aquí el rostro se mezcla a mano, encima de cualquier animación del cuerpo.
+func _read_faces() -> void:
+	if _anim == null or _skel == null:
+		return
+	for bone in FACE_BONES:
+		var i := _skel.find_bone(bone)
+		if i >= 0:
+			_face_rest[bone] = [_skel.get_bone_rest(i).origin, _skel.get_bone_rest(i).basis.get_rotation_quaternion()]
+			_face_now[bone] = _face_rest[bone]
+	for face in ["Face_Sad", "Face_Pain", "Face_Serene"]:
+		if not _anim.has_animation(face):
+			continue
+		var a := _anim.get_animation(face)
+		var pose := {}
+		for t in a.get_track_count():
+			var bone := str(a.track_get_path(t)).get_slice(":", 1)
+			if not _face_rest.has(bone) or a.track_get_key_count(t) == 0:
+				continue
+			var cur: Array = pose.get(bone, (_face_rest[bone] as Array).duplicate())
+			match a.track_get_type(t):
+				Animation.TYPE_POSITION_3D:
+					cur[0] = a.track_get_key_value(t, 0)
+				Animation.TYPE_ROTATION_3D:
+					cur[1] = a.track_get_key_value(t, 0)
+			pose[bone] = cur
+		_faces[face] = pose
+	for lib_name in _anim.get_animation_library_list():
+		var lib := _anim.get_animation_library(lib_name)
+		for face in ["Face_Sad", "Face_Pain", "Face_Serene"]:
+			if lib.has_animation(face):
+				lib.remove_animation(face)
+
+
+## Un glifo se enciende: por un instante el rostro se ablanda, como si fuera a recordar.
+func flash_memory() -> void:
+	_face_flash = 1.6
+
+
+func has_faces() -> bool:
+	return _faces.size() == 3
+
+
+func _update_face(delta: float) -> void:
+	if _skel == null or _faces.is_empty():
+		return
+	var look := _cine_look if _cine_look >= 0 else phase
+	var want: String = FACE_BY_PHASE[clampi(look, 0, 4)]
+	_face_flash = maxf(0.0, _face_flash - delta)
+	var k := minf(1.0, delta * (1.2 if look == Boss.FREED else 3.0))
+	for bone in _face_rest:
+		var target: Array = (_faces.get(want, {}) as Dictionary).get(bone, _face_rest[bone])
+		if look == Boss.RECUERDO and calm > 0.0 and _faces.has("Face_Serene"):
+			var serene: Array = (_faces["Face_Serene"] as Dictionary).get(bone, _face_rest[bone])
+			target = [(target[0] as Vector3).lerp(serene[0], calm), (target[1] as Quaternion).slerp(serene[1], calm)]
+		if _face_flash > 0.0 and _faces.has("Face_Serene") and look != Boss.FREED:
+			var calm: Array = (_faces["Face_Serene"] as Dictionary).get(bone, _face_rest[bone])
+			var w := 0.6 * sin(clampf(_face_flash / 1.6, 0.0, 1.0) * PI)
+			target = [(target[0] as Vector3).lerp(calm[0], w), (target[1] as Quaternion).slerp(calm[1], w)]
+		var now: Array = _face_now[bone]
+		now = [(now[0] as Vector3).lerp(target[0], k), (now[1] as Quaternion).slerp(target[1], k)]
+		_face_now[bone] = now
+	_apply_face()
+
+
+## Escribe el rostro en el esqueleto. El reproductor devuelve a su pose de reposo los huesos que
+## su animación no lleva, así que se reescribe cada vez que termina de aplicar un cuadro.
+func _apply_face() -> void:
+	if _skel == null:
+		return
+	for bone in _face_now:
+		var now: Array = _face_now[bone]
+		var i := _skel.find_bone(bone)
+		_skel.set_bone_pose_position(i, now[0])
+		_skel.set_bone_pose_rotation(i, now[1])
+
+
 ## Sin modelo (no debería pasar): un coloso de bloques, para que el combate siga viéndose.
 func _placeholder() -> void:
 	var stone := Avatar.mat(Color(0.8, 0.75, 0.62))
@@ -110,6 +208,10 @@ func apply(b: Array) -> void:
 	_goal = Vector3(float(b[1]), World.terrain_h(float(b[1]), float(b[2])), float(b[2]))
 	_goal_yaw = float(b[3])
 	var repaint := new_phase != phase or int(b[7]) != glyphs
+	if b.size() >= 24 and new_phase == Boss.RECUERDO:
+		calm = clampf(0.35 * float(b[19]) / maxf(1.0, float(b[20])) + 0.65 * float(b[21]) / 100.0, 0.0, 1.0)
+	else:
+		calm = 0.0
 	phase = new_phase
 	glyphs = int(b[7])
 	if new_state != state:
@@ -156,13 +258,19 @@ func _play() -> void:
 	var a: Array = ANIMS.get(state, ["Idle", true])
 	if not _anim.has_animation(a[0]):
 		return
-	_anim.play(a[0], 0.25, float(SPEEDS.get(state, 1.0)))
+	# De rodillas sigue de rodillas: no vuelve a levantarse para arrodillarse otra vez
+	if not bool(a[1]) and _anim.current_animation == str(a[0]) and not state.ends_with("_w"):
+		return
+	var speed := float(SPEEDS.get(state, 1.0))
+	if state == "walk" and phase == Boss.FURIA:
+		speed = 1.35
+	_anim.play(a[0], 0.25, speed)
 	# Los golpes se ven desde el principio del gesto aunque el aviso llegue con algo de retraso
 	if not bool(a[1]):
 		_anim.seek(0.0, true)
 
 
-## Glifos, ojos y vetas según la fase.
+## Glifos, ojos, vetas, grietas y corazón según la fase (art/propuestas/nojoch/README.md, «Estados»).
 func _paint() -> void:
 	var phase := _cine_look if _cine_look >= 0 else self.phase
 	for i in Boss.GLYPHS:
@@ -170,7 +278,7 @@ func _paint() -> void:
 		if m == null:
 			continue
 		var lit := i < glyphs or phase == Boss.FREED
-		m.albedo_color = Color(1, 1, 1) if lit else Color(0.34, 0.38, 0.36)
+		m.albedo_color = Color(1, 1, 1) if lit else GLYPH_OFF
 		m.emission_enabled = lit
 		m.emission = JADE
 		m.emission_energy_multiplier = 2.4
@@ -182,23 +290,33 @@ func _paint() -> void:
 		veins.emission_enabled = e > 0.0
 		veins.emission = MAGENTA
 		veins.emission_energy_multiplier = e
-		veins.albedo_color = Color(1, 1, 1) if phase != Boss.FREED else STONE
-		veins.vertex_color_use_as_albedo = phase != Boss.FREED
+		# Apagadas del todo quedan como cicatrices del color de la piedra
+		veins.albedo_color = Color(1, 1, 1) if e > 0.0 else SCAR
+		veins.vertex_color_use_as_albedo = e > 0.0
+	# Las grietas de la furia sólo se ven en la fase 2
+	var cracks: StandardMaterial3D = _mats.get("Silence2")
+	if cracks != null and not _crack_src.is_empty():
+		var on := phase == Boss.FURIA
+		cracks.emission_enabled = on
+		cracks.emission = MAGENTA
+		cracks.emission_energy_multiplier = 2.4
+		cracks.albedo_color = MAGENTA if on else _crack_src.albedo
+		cracks.vertex_color_use_as_albedo = false if on else bool(_crack_src.vertex)
 	var eyes: StandardMaterial3D = _mats.get("Eye")
 	if eyes != null:
-		var calm := phase == Boss.FREED or phase == Boss.RECUERDO
+		var jade := phase == Boss.FREED or phase == Boss.RECUERDO
 		eyes.emission_enabled = phase != Boss.ASLEEP
-		eyes.emission = JADE if calm else MAGENTA
+		eyes.emission = JADE if jade else MAGENTA
 		eyes.emission_energy_multiplier = 1.6 if phase != Boss.FURIA else 2.6
-		eyes.albedo_color = (JADE if calm else MAGENTA) if phase != Boss.ASLEEP else Color(0.2, 0.22, 0.22)
+		eyes.albedo_color = (JADE if jade else MAGENTA) if phase != Boss.ASLEEP else EYE_OFF
 		eyes.vertex_color_use_as_albedo = false
 	var heart: StandardMaterial3D = _mats.get("Heart")
 	if heart != null:
-		heart.emission_energy_multiplier = 0.5 if phase == Boss.ASLEEP else 1.4
-		heart.emission = JADE if phase == Boss.FREED or phase == Boss.RECUERDO else Color(1.0, 0.55, 0.3)
+		heart.emission_energy_multiplier = [0.5, 1.4, 1.4, 2.0, 2.4][clampi(phase, 0, 4)]
 
 
 func update_view(delta: float) -> void:
+	_update_face(delta)
 	position = position.lerp(_goal, minf(1.0, delta * 9.0))
 	rotation.y = lerp_angle(rotation.y, _goal_yaw, minf(1.0, delta * 6.0))
 	# Las vetas laten mientras está olvidado
@@ -210,7 +328,11 @@ func update_view(delta: float) -> void:
 	# Corazón expuesto: late fuerte mientras las cadenas lo sujetan
 	var heart: StandardMaterial3D = _mats.get("Heart")
 	if heart != null and phase == Boss.FURIA and not _cine:
-		heart.emission_energy_multiplier = 3.2 + 1.6 * sin(_pulse * 9.0) if state == "bound" else 1.4
+		heart.emission_energy_multiplier = 3.4 + 1.8 * sin(_pulse * 9.0) if state == "bound" else 1.4
+	# Las grietas de la furia laten con las vetas
+	var cracks: StandardMaterial3D = _mats.get("Silence2")
+	if cracks != null and cracks.emission_enabled and not _cine:
+		cracks.emission_energy_multiplier = 2.4 * (0.75 + 0.25 * sin(_pulse * 6.0))
 	# Pasos: tiembla un poco el suelo mientras camina o embiste (lo oye quien esté cerca)
 	if state == "walk" or state == "transit" or state == "charge":
 		_step_in -= delta

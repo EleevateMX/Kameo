@@ -30,7 +30,7 @@ const SIT_HEIGHT := 3.4
 const SPEED := 1.7
 ## Patio del santuario por dentro (x0, x1, z0, z1): ahí transcurre la fase 1.
 const ARENA := [22.9, 33.1, -5.1, 5.1]
-const RISE_TIME := 3.0          # tarda en ponerse en pie: nadie recibe daño mientras tanto
+const RISE_TIME := 4.0          # tarda en ponerse en pie (lo que dura su animación): nadie recibe daño mientras tanto
 const REARM_TIME := 6.0         # tras una derrota, lo que tarda en poder despertar otra vez
 
 const SILENCE_MAX := 100.0

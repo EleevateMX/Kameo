@@ -12,6 +12,10 @@ reproducible: los `.glb` salen idénticos, byte a byte, cada vez que se ejecutan
 | `blender/alux_common.py` | Utilidades: mallas, dibujos recortados en la superficie, oclusión, esqueleto, cinemática inversa, horneado de animaciones, exportación, renders. |
 | `blender/render_previews.py` | Renders de vista previa en `previews/` y retratos (HUD y diálogos) en `game/assets/ui/`. |
 | `blender/render_referencias.py` | Hojas de personaje (turnaround) en `referencias/`, para las cinemáticas. |
+| `blender/build_nojoch.py` | Genera `propuestas/nojoch/nojoch.glb` (Nojoch Tuunich, el jefe). Su ficha, con medidas, materiales, estados y animaciones, es `propuestas/nojoch/README.md`. |
+| `blender/render_nojoch.py` | Imágenes del jefe en `propuestas/nojoch/` y sus hojas de `referencias/`; también sus medidas. |
+| `blender/videos_nojoch.py` | Vídeos de las animaciones del jefe, dibujados con Godot (`propuestas/nojoch/animaciones/`). |
+| `godot/check_nojoch.gd`, `godot/render_nojoch.gd` | Comprobación sin ventana del `.glb` del jefe y capturas o cuadros de animación con el renderer de Godot y la luz del juego. |
 | `godot/check_characters.gd` | Comprobación sin ventana de lo que Godot importa. |
 | `godot/render_check.gd` | Capturas con el renderer real de Godot (bajo `xvfb`). |
 | `previews/` | Renders de referencia. `*_hoja.png` es la hoja de contacto; `godot_validacion.png` y `yaxche_godot_hoja.png` son capturas hechas con Godot. |

@@ -1506,8 +1506,11 @@ func _update_cine_stage(delta: float) -> void:
 	_cine_staged = true
 	var pose: Dictionary = shot.boss
 	var glow: Array = pose.get("glow", [-1.0, -1.0])
+	var look := int(pose.get("look", -1))
+	if pose.has("look_to") and _cine.shot_k() >= float(pose.get("look_at", 0.5)):
+		look = int(pose.look_to)
 	_boss.cine_pose(str(pose.anim), float(pose.get("at", 0.0)) + _cine.shot_time() * float(pose.get("speed", 1.0)),
-		int(pose.get("look", -1)), lerpf(float(glow[0]), float(glow[1]), _cine.shot_k()))
+		look, lerpf(float(glow[0]), float(glow[1]), _cine.shot_k()))
 	if shot.has("feather"):
 		_arena.cine_feather = 1 if bool(shot.feather) else 0
 	if shot.has("motes") and not _cine.using_video():
@@ -1622,6 +1625,7 @@ func _on_boss_event(ev: Array) -> void:
 				_hud.hint("El Silencio trae criaturas: son la llave de su memoria", 5.0)
 		"glyph":
 			_hud.banner("Glifo encendido  %d/%d" % [int(ev[2]), int(ev[3])], JADE, 2.5)
+			_boss.flash_memory()
 			Audio.play("glifo_restaurado", at, 2.0)
 			Fx.pillar(self, at, JADE, 7.0, 1.2, 0.7)
 			Fx.ring(self, at + Vector3(0, 0.1, 0), 4.0, JADE, 0.6)
@@ -1696,6 +1700,7 @@ func _on_boss_event(ev: Array) -> void:
 			_bump(0.06 if int(ev[2]) != _my_slot else 0.1)
 		"heart":
 			_hud.banner("Corazón liberado  %d/%d" % [int(ev[2]), int(ev[3])], JADE, 3.5)
+			_boss.flash_memory()
 			Audio.play("corazon_libre", at, 3.0)
 			Fx.pillar(self, at, JADE, 9.0, 1.8, 0.9)
 			Fx.ring(self, at + Vector3(0, 0.1, 0), 6.0, JADE, 0.7)
@@ -1704,6 +1709,7 @@ func _on_boss_event(ev: Array) -> void:
 			_tip("ritual", "Se arrodilla. Enciende los glifos del suelo purificando criaturas junto a él (F)", 9.0)
 		"lit":
 			_hud.banner("Glifo de memoria  %d/%d" % [int(ev[2]), int(ev[3])], JADE, 2.5)
+			_boss.flash_memory()
 			Audio.play("glifo_restaurado", at, 2.0)
 			Fx.pillar(self, at, JADE, 7.0, 1.2, 0.7)
 		"contact":
