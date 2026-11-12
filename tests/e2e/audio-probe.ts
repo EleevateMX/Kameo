@@ -250,7 +250,7 @@ async function normal() {
   check(/silenciado/i.test(mark), `debe avisar en pantalla de que el sonido está silenciado (aviso: «${mark}»)`);
   check(/cero/.test(status), `el menú debe decir que el volumen está a cero (dice: «${status}»)`);
   ok(`Silenciado: sale ${dB(muted.max)} aunque se use una habilidad · aviso «${mark}» · menú «${status}»`);
-  await page.evaluate(() => { (window as any).ALUX_SETTING = 'vol_master:0.8'; });
+  await page.evaluate(() => { (window as any).ALUX_SETTING = 'vol_master:0.9'; });
   await sleep(1500);
   const back = await listen(page, 2500);
   check(back.rms > AUDIBLE && !(await badge(page)), `al subir el volumen vuelve a sonar y el aviso se quita (nivel ${dB(back.rms)})`);
@@ -260,7 +260,7 @@ async function normal() {
   await page.evaluate(() => { (window as any).ALUX_SETTING = 'vol_music:0'; });
   await sleep(1200);
   const noMusic = await listen(page, 2500);
-  await page.evaluate(() => { (window as any).ALUX_SETTING = 'vol_music:0.55'; });
+  await page.evaluate(() => { (window as any).ALUX_SETTING = 'vol_music:0.7'; });
   check(noMusic.rms > AUDIBLE * 0.5 && noMusic.rms < back.rms, `sin música debe quedar el ambiente, más bajo (queda ${dB(noMusic.rms)} de ${dB(back.rms)})`);
   ok(`Música a cero: queda el ambiente a ${dB(noMusic.rms)}`);
 

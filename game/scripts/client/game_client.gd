@@ -117,7 +117,7 @@ var _fps_time := 0.0
 
 # Partida: estado, resultado y ayudas
 var _audio: Audio
-var _settings := {"sens": 0.5, "vol_master": 0.8, "vol_music": 0.55, "vol_sfx": 0.9, "vol_amb": 0.7,
+var _settings := {"sens": 0.5, "vol_master": 0.9, "vol_music": 0.7, "vol_sfx": 0.9, "vol_amb": 0.8,
 	"vol_ui": 0.8, "vol_cine": 0.9, "shake": 0.6}
 var _spawn_sound_t := -10.0
 var _breath_at := 0.0

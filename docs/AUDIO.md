@@ -66,7 +66,7 @@ cinemáticas (música) ───► bus Music
 ```
 
 - **Buses:** `Master`, `Music`, `Ambience`, `SFX`, `UI`, `Cinematics` y `Voice` (reservado: el juego
-  no tiene voces todavía). Volúmenes por defecto: general 0,8 · música 0,55 · ambiente 0,7 ·
+  no tiene voces todavía). Volúmenes por defecto: general 0,9 · música 0,7 · ambiente 0,8 ·
   efectos 0,9 · interfaz 0,8 · cinemáticas 0,9. Se guardan en el navegador con el resto de ajustes.
 - **Limitador:** un compresor de Web Audio (umbral −8 dB, razón 16:1, ataque 2 ms) sobre toda la
   salida, también sobre lo que manda el motor. El compresor del navegador añade por su cuenta una

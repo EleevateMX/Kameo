@@ -17,7 +17,7 @@
   const t0 = performance.now();
   const S = window.ALUX_SND = {
     ok: !!Native, ctx: null,
-    vol: { Master: 0.8, Music: 0.55, Ambience: 0.7, Cinematics: 0.9 },
+    vol: { Master: 0.9, Music: 0.7, Ambience: 0.8, Cinematics: 0.9 },
     manifest: { tracks: {}, cutscenes: {} }, manifestReady: false,
     loaded: {}, loops: {}, log: [], errors: [],
     musicId: '', musicWant: '', musicCur: null, cineCur: null, cineWant: '',

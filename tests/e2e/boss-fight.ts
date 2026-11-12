@@ -104,12 +104,17 @@ if (despertarVideo) await waitFor('«El despertar» como vídeo', async () => (a
 const sawDespertarVideo = (await st(page)).cine_video === true;
 await sleep(2500);
 await shot(page, '01-cinematica-despertar.png');
+// La banda sonora de la escena es una sola, se vea como vídeo o con el motor (la mide el mezclador)
+await waitFor('banda sonora de «El despertar»', async () => (await st(page)).snd?.cine === 'despertar' || (await st(page)).cine !== 'despertar', 20_000);
+const heardDespertar = (await st(page)).snd?.cine === 'despertar';
 cast.forEach((a) => { a.ws.send(JSON.stringify({ t: 'skip' })); a.autoSkip = true; });
 await waitFor('fin de «El despertar»', async () => (await st(page)).frozen === false && (await st(page)).cine === '', 60_000);
 await waitFor('barra de Silencio', async () => (await st(page)).boss_bar === true, 30_000);
 s = await st(page);
 assert.match(s.ui.objective, /glifos del guardián/);
 assert.equal(s.music, 'mus_jefe', 'música propia del guardián');
+assert.ok(heardDespertar, '«El despertar» sonó con su banda sonora');
+await waitFor('el tema del guardián sonando', async () => (await st(page)).snd?.music === 'mus_jefe' && (await st(page)).snd.rms > 0.0005, 30_000);
 if (despertarVideo) assert.equal(sawDespertarVideo, true, 'con los vídeos descargados, «El despertar» se ve como vídeo');
 ok(`Fase 1 «Olvido»: despierta para todos con su cinemática (${sawDespertarVideo ? 'vídeo de Kling' : 'versión del motor'}), barra de Silencio y música propia (glifos ${s.boss[7]}/${s.boss[8]})`);
 if (keepPanel) {
@@ -130,6 +135,7 @@ await look(page, WATCH, { x: 15.5, z: 0 });
 await waitFor('el guardián llega a la explanada', async () => (await st(page)).boss[1] < 21 && BOSS_STATE[(await st(page)).boss[4]] !== 'transit', 90_000);
 s = await st(page);
 assert.equal(s.music, 'mus_jefe_furia', 'la música cambia con la fase');
+await waitFor('la música de la furia sonando', async () => (await st(page)).snd?.music === 'mus_jefe_furia', 30_000);
 assert.equal(s.boss[15], 2, 'con cuatro hacen falta dos anclas');
 const posBefore = await me();
 await shot(page, '02-fase2-explanada.png');
@@ -155,6 +161,7 @@ const p3 = Promise.all(cast.map((a, i) => bossPhase3(a, i, freed, 600)));
 await waitFor('fase 3 en el navegador', async () => (await st(page)).boss[0] === 3, 60_000);
 s = await st(page);
 assert.equal(s.music, 'mus_recuerdo');
+await waitFor('la música del recuerdo sonando', async () => (await st(page)).snd?.music === 'mus_recuerdo', 30_000);
 const spot = { x: 15.5 - 4.1, z: 0 };   // el glifo del oeste: fuera del pulso, dentro del contacto
 let arrived = false;
 for (let attempt = 1; attempt <= 5 && !arrived && !freed(); attempt++) {
@@ -198,12 +205,15 @@ if (liberacionVideo) await waitFor('«La liberación» como vídeo', async () =>
 const sawLiberacionVideo = (await st(page)).cine_video === true;
 await sleep(2500);
 await shot(page, '07-cinematica-liberacion.png');
+await waitFor('banda sonora de «La liberación»', async () => (await st(page)).snd?.cine === 'liberacion' || (await st(page)).cine !== 'liberacion', 20_000);
+assert.equal((await st(page)).snd?.cine, 'liberacion', '«La liberación» suena con su banda sonora');
 cast.forEach((a) => a.ws.send(JSON.stringify({ t: 'skip' })));
 await waitFor('panel de capítulo', async () => (await st(page)).ui.result === true, 120_000);
 s = await st(page);
 assert.equal(s.boss[0], 4);
 assert.equal(s.frozen, false, 'la sala ya no está en pausa');
 assert.equal(s.story & 2, 2, 'la liberación queda en la historia de la sala');
+await waitFor('la música de la liberación sonando', async () => (await st(page)).snd?.music === 'mus_liberacion' && (await st(page)).snd?.cine === '', 30_000);
 await shot(page, '08-capitulo-completado.png');
 const profile = await page.evaluate(async () => (await fetch('/api/v1/me')).json());
 assert.deepEqual(profile.rewards.filter((r: string) => r === 'pluma_de_jade'), ['pluma_de_jade'], 'la Pluma de Jade queda en el perfil, una sola');
