@@ -33,12 +33,12 @@ static func play(sound: String, pos: Variant = null, volume_db := 0.0, pitch_var
 
 func _ready() -> void:
 	inst = self
+	# Los buses vienen de res://default_bus_layout.tres. NO se crean aquí: en la exportación web
+	# AudioServer.add_bus() coloca el bus nuevo en la posición 0 del mezclador del navegador y deja
+	# el maestro sin conexión con la salida (todo «suena» y no se oye nada). Ver docs/AUDIO.md.
 	for b in BUSES:
 		if AudioServer.get_bus_index(b) < 0:
-			var i := AudioServer.bus_count
-			AudioServer.add_bus(i)
-			AudioServer.set_bus_name(i, b)
-			AudioServer.set_bus_send(i, "Master")
+			push_error("Audio: falta el bus «%s» en default_bus_layout.tres" % b)
 	for i in VOICES:
 		var p := AudioStreamPlayer.new()
 		p.bus = "SFX"

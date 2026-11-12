@@ -20,6 +20,7 @@
     "test:flow": "npm run test:flow -w @alux/tests",
     "test:boss": "npm run test:boss -w @alux/tests",
     "test:cine": "npm run test:cine -w @alux/tests --",
+    "test:audio": "npm run test:audio -w @alux/tests --",
     "test:cine-coop": "npm run test:cine-coop -w @alux/tests",
     "migrate": "npm run migrate -w @alux/api --",
     "beta:invites": "npm run --silent beta:invites -w @alux/api --",
