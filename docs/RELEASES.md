@@ -5,8 +5,8 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 
 | Versión | Estado | Contenido |
 | --- | --- | --- |
-| Closed Alpha 0.1 | **Publicada** en <https://alux-beta.onrender.com> | Claro de los Aluxes jugable de 1 a 4, combate, emboscada, victoria y derrota, audio provisional, acceso por invitación |
-| Alpha 0.2 (incrementos 1 y 2) | En la rama de trabajo, **sin publicar** | Introducción «El llamado», Chiich Yaxché con modelo propio y diálogo, primer objetivo narrativo, cinemáticas locales y compartidas con voto, progreso del capítulo en el perfil |
+| Closed Alpha 0.1 | Publicada el 12 nov 2026; **sustituida por la 0.2**. Etiqueta `alpha-0.1` (commit `12fadbe`): es el punto de rollback | Claro de los Aluxes jugable de 1 a 4, combate, emboscada, victoria y derrota, audio provisional, acceso por invitación |
+| **Closed Alpha 0.2** | **Publicada** en <https://alux-beta.onrender.com>. Etiqueta `alpha-0.2` | Introducción «El llamado», Chiich Yaxché con modelo propio y diálogo, primer objetivo narrativo, cinemáticas locales y compartidas con voto, progreso del capítulo en el perfil |
 
 ## Publicación en la rama `beta`
 
@@ -16,7 +16,29 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
 
-## Alpha 0.2 — La abuela del claro (en desarrollo, sin publicar)
+## ALUX Closed Alpha 0.2
+
+| | |
+| --- | --- |
+| **Código de la versión** | `ddb1aa9980a6b7074e7cf674d028acab7425fa34` (rama candidata `release/alpha-0.2-rc1`) |
+| **Commit publicado en `beta`** | El siguiente a ese: añade este registro y el nombre de la versión en el juego y en el portal. Es el que informa `/healthz` y lleva la etiqueta `alpha-0.2`. |
+| **Fecha** | 12 de noviembre de 2026 |
+| **Autorizada por** | El dueño del proyecto, el 12 de noviembre de 2026 |
+| **Base de datos** | Sin cambios: no hay migraciones nuevas respecto a la 0.1. |
+| **Recursos** | Los mismos dos de la 0.1; no se crea ninguno. |
+
+**Comprobado sobre el código de la versión, en una copia limpia, antes de publicar:** API (10 de 10),
+simulación (427 840 comprobaciones sin violaciones), servidor con bots (13 de 13), flujo completo en
+navegador (14 pasos), cuatro navegadores (10 pasos), revisión de secretos y la imagen desplegable
+(migraciones, acceso sólo con invitación, HTTPS/WSS, partida, reconexión, métricas y persistencia
+tras reiniciar).
+
+**Volver a la 0.1:** en Render → `alux-beta` → **Events** → el despliegue del commit `12fadbe` →
+**Rollback**; o, desde Git, `git push origin alpha-0.1:beta --force-with-lease` (la etiqueta
+`alpha-0.1` apunta a `12fadbec9be468036f05b551c87282d19fcaca6f`). La base de datos no necesita nada:
+el esquema es el mismo. Detalle en [beta.md](beta.md), sección 9.
+
+## Alpha 0.2 — La abuela del claro (contenido)
 
 **Incremento 1.** No toca el protocolo existente: añade un mensaje (`talk`), un evento (`story`) y un
 valor al estado del mundo. Un cliente de la 0.1 seguiría funcionando contra este servidor.
