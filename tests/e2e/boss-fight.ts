@@ -135,7 +135,19 @@ await waitFor('fase 3 en el navegador', async () => (await st(page)).boss[0] ===
 s = await st(page);
 assert.equal(s.music, 'mus_recuerdo');
 const spot = { x: 15.5 - 4.1, z: 0 };   // el glifo del oeste: fuera del pulso, dentro del contacto
-assert.ok(await driveTo(page, spot.x, spot.z, { timeoutMs: 400_000, stop: 0.7 }), 'la jugadora llega junto al guardián');
+let arrived = false;
+for (let attempt = 1; attempt <= 5 && !arrived && !freed(); attempt++) {
+  // (en este entorno el navegador a veces pierde el foco del teclado: un clic en el juego lo devuelve)
+  await page.mouse.click(640, 300);
+  arrived = await driveTo(page, spot.x, spot.z, { timeoutMs: 90_000, stop: 0.7 });
+  if (!arrived) {
+    const q = await st(page);
+    const p = q.players.find((r: any) => r.id === q.me);
+    console.log(`  (intento ${attempt}: en ${p.x.toFixed(1)}, ${p.z.toFixed(1)} · vida ${q.hp} · caída ${p.dead} · menú ${q.ui.menu} · ratón ${q.ui.captured} · pausa ${q.frozen} · fps ${q.perf.fps})`);
+    if (q.ui.menu) await page.keyboard.press('Escape');
+  }
+}
+assert.ok(arrived, 'la jugadora llega junto al guardián');
 await look(page, spot, { x: 15.5, z: 0 });
 await shot(page, '05-fase3-ritual.png');
 await waitFor('contacto abierto', async () => (await st(page)).boss[19] >= (await st(page)).boss[20] || (await st(page)).boss[0] === 4, 400_000);
