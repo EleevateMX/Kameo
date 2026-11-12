@@ -59,6 +59,7 @@ function probeScript() {
   AudioBufferSourceNode.prototype.start = function (this: AudioBufferSourceNode, ...rest: any[]) {
     try {
       const b = this.buffer;
+      if (this.context instanceof OfflineAudioContext) return (start as any).apply(this, rest);   // remuestreos: no suenan
       starts.push({ id: w.__idOf(this), t: Math.round(performance.now()), dur: b ? +b.duration.toFixed(2) : 0, loop: this.loop, loopStart: this.loopStart, loopEnd: +this.loopEnd.toFixed(2), offset: +(rest[1] || 0).toFixed(2) });
     } catch (e) { starts.push({ error: String(e) }); }
     return (start as any).apply(this, rest);

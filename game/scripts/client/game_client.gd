@@ -1271,7 +1271,8 @@ func _show_action(slot: int, kind: String, yaw: float, power: float) -> void:
 	var snd: String = {"bolt": "chispa", "claw": "garras", "charge_start": "zarpazo_carga", "charged": "zarpazo",
 		"pounce": "salto_jaguar", "pounce_land": "salto_impacto", "dodge": "esquiva"}.get(kind, "")
 	if not snd.is_empty():
-		Audio.play(snd, pos, 0.0 if slot == _my_slot else -5.0)
+		# las habilidades propias van un poco por encima: tienen que oírse claras sobre la música
+		Audio.play(snd, pos, 3.0 if slot == _my_slot else -5.0)
 	match kind:
 		"interact":
 			Audio.play("interactuar", pos, -6.0 if slot == _my_slot else -12.0)

@@ -166,14 +166,36 @@
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.arrayBuffer();
     }).then((data) => new Promise((resolve, reject) => S.ctx.decodeAudioData(data, resolve, reject)))
+      .then((buf) => ((S.manifest.tracks[id] || {}).bus === 'Ambience' ? shrink(buf) : buf))
       .then((buf) => {
-        S.loaded[id] = { s: +buf.duration.toFixed(2), ms: Math.round(performance.now() - started) };
+        S.loaded[id] = { s: +buf.duration.toFixed(2), ms: Math.round(performance.now() - started), mb: +(buf.length * buf.numberOfChannels * 4 / 1e6).toFixed(1) };
         return buf;
       });
     p.catch((e) => { buffers.delete(id); fail('cargar ' + id, e); });
     buffers.set(id, p);
     return p;
   }
+  // Un sonido decodificado ocupa mucho más que su archivo (estéreo a 44,1 kHz: unos 21 MB por
+  // minuto). Los ambientes son fondo y suenan varios a la vez: se guardan a 22 kHz, la mitad.
+  function shrink(buf) {
+    const Off = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    const rate = 22050;
+    if (!Off || buf.sampleRate <= rate) return buf;
+    try {
+      const off = new Off(buf.numberOfChannels, Math.ceil(buf.duration * rate), rate);
+      const src = off.createBufferSource();
+      src.buffer = buf;
+      nativeConnect.call(src, off.destination);
+      src.start();
+      return Promise.resolve(off.startRendering()).catch(() => buf);
+    } catch (e) { return buf; }
+  }
+  /** Megas que ocupan ahora las pistas decodificadas que se conservan. */
+  S.memory = () => {
+    let total = 0;
+    for (const id in S.loaded) if (buffers.has(id)) total += S.loaded[id].mb;
+    return +total.toFixed(1);
+  };
   S.preload = (ids) => { for (const id of ids || []) load(id).catch(() => {}); };
   /** ¿Existe la pista? Mientras el manifiesto no ha llegado se responde que sí (se sabrá al cargar). */
   S.has = (id) => !S.manifestReady || !!S.manifest.tracks[id];
@@ -208,7 +230,7 @@
   // ---------------------------------------------------------------------------------------
   // 3. Música: una pista a la vez, con fundido cruzado
   // ---------------------------------------------------------------------------------------
-  const recent = [];   // últimas músicas: las demás se sueltan de memoria
+  const recent = [];   // las dos últimas músicas: las demás se sueltan de memoria
   S.music = (id, fade) => {
     id = id || '';
     fade = fade === undefined ? 1.6 : fade;
@@ -238,7 +260,7 @@
     const cur = S.musicCur = { id, src, gain: g };
     if (!tr.loop) src.onended = () => { if (S.musicCur === cur) { S.musicCur = null; S.musicId = ''; S.musicWant = ''; } };
     recent.unshift(id);
-    for (const old of recent.splice(3)) if (!recent.includes(old)) buffers.delete(old);
+    for (const old of recent.splice(2)) if (!recent.includes(old)) buffers.delete(old);
   }
   /** Baja la música un momento para dejar sitio a un golpe grande. */
   S.duck = (db, attack, hold, release) => {
@@ -293,6 +315,7 @@
         const L = S.loops[id];
         delete S.loops[id];
         if (L.src) stopLater(L, secs); else L.gain.disconnect();
+        buffers.delete(id);   // la capa que deja de sonar se suelta de memoria (se vuelve a pedir si hace falta)
       }
     });
   };
@@ -340,7 +363,12 @@
     S.cineWant = '';
     const cur = S.cineCur;
     S.cineCur = null;
-    if (cur) for (const part of cur.parts) stopLater(part, fade);
+    if (cur) {
+      for (const part of cur.parts) stopLater(part, fade);
+      const c = S.manifest.cutscenes[cur.id] || {};
+      buffers.delete(c.fx);
+      buffers.delete(c.mus);
+    }
     if (S.ctx && restore) { ramp(S.musicDuck.gain, 1, 1.4); ramp(S.ambDuck.gain, 1, 1.0); }
   }
   /** Termina la banda sonora (al acabar la escena deja la cola; si se omite, se funde rápido). */
@@ -381,7 +409,7 @@
     ok: S.ok, ctx: S.ctx ? S.ctx.state : 'none', rate: S.ctx ? S.ctx.sampleRate : 0,
     rms: +S.rmsNow.toFixed(4), peak: +S.peakHold.toFixed(4), peakMax: +S.peakMax.toFixed(4),
     music: S.musicId, want: S.musicWant, loops: Object.keys(S.loops), cine: S.cineCur ? S.cineCur.id : '',
-    loaded: Object.keys(S.loaded), tracks: Object.keys(S.manifest.tracks).length,
+    loaded: Object.keys(S.loaded), memMb: S.memory(), tracks: Object.keys(S.manifest.tracks).length,
     errors: S.errors.slice(-6), unlockMs: S.unlockMs, hidden: document.hidden, muted: S.muted,
     reduction: S.limiter ? +(+S.limiter.reduction).toFixed(1) : 0, vol: S.vol,
   });

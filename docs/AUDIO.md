@@ -76,7 +76,9 @@ cinemáticas (música) ───► bus Music
   reproduce con `loopStart`/`loopEnd` de Web Audio. Así el bucle es exacto aunque el decodificador de
   MP3 desplace el contenido unos milisegundos.
 - **Música:** una pista a la vez con fundido cruzado; se cargan bajo demanda y sólo se guardan en
-  memoria las tres últimas. Qué suena lo decide `_refresh_music()`: claro, exploración (lejos del
+  memoria las dos últimas (un minuto de música decodificada ocupa unos 21 MB). Los ambientes se
+  guardan a 22 kHz, la mitad, y la capa que deja de sonar se suelta; la banda sonora de una
+  cinemática se suelta al terminar. Qué suena lo decide `_refresh_music()`: claro, exploración (lejos del
   centro), tensión (criaturas persiguiendo cerca), emboscada, las tres fases del guardián,
   liberación; con respaldo si falta una pista.
 - **Ambientes:** capas simultáneas cuyo volumen depende de dónde está el jugador (selva, aves,
