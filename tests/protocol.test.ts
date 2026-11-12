@@ -320,7 +320,8 @@ test('acertijo + emboscada: 4 altares abren el santuario, los 4 pelean juntos y 
   assert.equal(bots[0].snap!.w[3], 0, 'la emboscada no ha empezado');
 
   // El cuarto alux pisa su altar: se abre y despiertan los guardianes
-  assert.ok(await bots[3].walkTo(plates[3][0], plates[3][1], 14));
+  // (al pisarlo, la sala se pausa para la escena del sello: el bot termina de llegar cuando acaba)
+  assert.ok(await bots[3].walkTo(plates[3][0], plates[3][1], 26));
   await sleep(600);
   for (const b of bots) {
     assert.equal(b.snap!.w[0], 1, 'todos ven el santuario abierto');

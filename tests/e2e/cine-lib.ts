@@ -13,6 +13,7 @@ const MANIFEST = {
   clips: {
     sello_1: { src: { mp4: 'sello_1.mp4', webm: 'sello_1.webm' }, dur: 3.5, audio: false, v: 'p1' },
     sello_2: { src: { mp4: 'sello_2.mp4', webm: 'sello_2.webm' }, dur: 3.5, audio: false, v: 'p1' },
+    sello_3: { src: { mp4: 'sello_3.mp4', webm: 'sello_3.webm' }, dur: 3.5, audio: false, v: 'p1' },
   },
 };
 
@@ -21,14 +22,14 @@ export async function serveVideo(page: Page, mode: Mode, counter?: { bytes: numb
   await page.route('**/game/video/**', async (route) => {
     const file = path.basename(new URL(route.request().url()).pathname);
     if (file === 'manifest.json') return route.fulfill({ contentType: 'application/json', body: JSON.stringify(MANIFEST) });
-    const m = /^sello_([12])\.(mp4|webm)$/.exec(file);
+    const m = /^sello_([123])\.(mp4|webm)$/.exec(file);
     if (!m) return route.fulfill({ status: 404, body: 'no' });
     if (mode === 'lento') { await sleep(60_000); return route.abort().catch(() => {}); }
     if (mode === 'roto') {
       if (m[1] === '1') return route.fulfill({ status: 404, body: 'no' });
       return route.fulfill({ contentType: `video/${m[2]}`, body: fs.readFileSync(path.join(FIX, 'roto.webm')) });
     }
-    const body = fs.readFileSync(path.join(FIX, `prueba_${m[1]}.${m[2]}`));
+    const body = fs.readFileSync(path.join(FIX, `prueba_${m[1] === '3' ? '1' : m[1]}.${m[2]}`));
     if (counter) { counter.bytes += body.length; counter.files += 1; }
     return route.fulfill({ contentType: `video/${m[2]}`, body, headers: { 'cache-control': 'public, max-age=31536000, immutable' } });
   });

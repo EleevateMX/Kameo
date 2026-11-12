@@ -78,11 +78,11 @@ const cases: Record<string, (browser: Browser) => Promise<void>> = {
     const { ctx, page, errors, counter } = await enter(browser, 'Video', 'ok');
     await waitFor('vídeos precargados', async () => {
       const v = (await state(page) as any).video;
-      return v?.clips?.sello_1?.s === 'ready' && v?.clips?.sello_2?.s === 'ready';
+      return v?.clips?.sello_1?.s === 'fetched' && v?.clips?.sello_2?.s === 'fetched' && v?.clips?.sello_3?.s === 'fetched';
     }, 60_000);
     const pre: any = (await state(page) as any).video;
-    assert.equal(counter.files, 2, 'un archivo por vídeo: sólo el formato que este navegador reproduce');
-    ok(`Precarga: 2 vídeos listos antes de necesitarlos (${(pre.stats.bytes / 1024).toFixed(0)} KB, ${pre.stats.preloadMs} ms el más lento)`);
+    assert.equal(counter.files, 3, 'un archivo por vídeo: sólo el formato que este navegador reproduce');
+    ok(`Precarga: 3 vídeos descargados antes de necesitarlos (${(pre.stats.bytes / 1024).toFixed(0)} KB, ${pre.stats.preloadMs} ms el más lento)`);
     let shotDone = false;
     const { w, s } = await openAndWatch(page, async (p) => {
       await waitFor('vídeo en pantalla', async () => (await witness(p)).log.some((r: any) => r.overlay && r.clip === 'sello_1'), 10_000);
@@ -94,14 +94,55 @@ const cases: Record<string, (browser: Browser) => Promise<void>> = {
     const playing = w.log.filter((r: any) => r.phase === 2);
     assert.ok(playing.some((r: any) => r.clip === 'sello_1' && r.overlay && r.engineVideo), 'el primer plano se ve como vídeo');
     assert.ok(playing.some((r: any) => r.clip === 'sello_2' && r.overlay), 'el segundo plano también');
+    assert.ok(playing.some((r: any) => r.clip === 'sello_3' && r.overlay), 'y el tercero');
     assert.ok(w.maxT.sello_1 > 1.5 && w.maxT.sello_2 > 0.8, `los dos vídeos avanzan (${w.maxT.sello_1?.toFixed(1)} s y ${w.maxT.sello_2?.toFixed(1)} s)`);
     assert.ok(w.captions.some((c: string) => /sello cede/.test(c)) && w.captions.some((c: string) => /Olvidados/.test(c)), 'los subtítulos de cada plano salen sobre el vídeo');
     assert.ok(w.notes.some((n: string) => /omitir/.test(n)), 'y el aviso para omitir');
     assert.deepEqual([s.cine_stats.video, s.cine_stats.engine, s.cine_stats.fallbacks], [1, 0, 0], 'contada como vista en vídeo, sin recurrir al motor');
     assert.equal(s.video.log.length, 0, 'sin fallos registrados');
     await assertResumed(page, s);
-    ok(`Vídeo sobre el juego: preparación ${prepMs} ms, dos planos con subtítulos, ${w.videoFrames} cuadros de vídeo, vuelta al juego con la emboscada${shotDone ? '' : ' (sin captura)'}`);
+    await waitFor('decodificadores liberados', async () => Object.values(((await state(page)) as any).video.clips).every((c: any) => c.s === 'fetched'), 15_000);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#cine video').length), 0, 'al terminar no queda ningún <video> abierto');
+    ok(`Vídeo sobre el juego: preparación ${prepMs} ms, tres planos con subtítulos, ${w.videoFrames} cuadros de vídeo, vuelta al juego con la emboscada${shotDone ? '' : ' (sin captura)'}`);
     console.log(`  rendimiento durante la escena: el juego dibuja ${((w.f1 - w.f0) / ((w.t1 - w.t0) / 1000)).toFixed(1)} cuadros/s por debajo (mundo sin dibujar mientras el vídeo lo tapa)`);
+    assert.equal(errors.filter((e) => !/favicon|WebGL|GPU stall|swiftshader|deprecated/i.test(e)).length, 0, 'sin errores en la consola');
+    await ctx.close();
+  },
+
+  // 1b) Los vídeos reales del juego (los de Kling), sin sustituir nada: tienen que descargarse,
+  // decodificarse y verse en este navegador, y la escena tiene que durar lo que dice su guion
+  async real(browser) {
+    const { ctx, page, errors } = await enter(browser, 'Kling', null, { width: 1280, height: 720 });
+    await waitFor('vídeos reales precargados', async () => {
+      const v = (await state(page) as any).video;
+      return ['sello_1', 'sello_2', 'sello_3'].every((id) => v?.clips?.[id]?.s === 'fetched');
+    }, 120_000);
+    const pre: any = (await state(page) as any).video;
+    assert.ok(pre.stats.bytes > 1_000_000, `son los vídeos de verdad, no los de prueba (${pre.stats.bytes} bytes)`);
+    const shots: string[] = [];
+    const { w, s } = await openAndWatch(page, async (p) => {
+      for (const clip of ['sello_1', 'sello_2', 'sello_3']) {
+        await waitFor(`${clip} en pantalla`, async () => {
+          const cur = await witness(p);
+          return cur.log.some((r: any) => r.overlay && r.clip === clip) || cur.seen[3] !== undefined;
+        }, 20_000);
+        await sleep(clip === 'sello_2' ? 1500 : 900);
+        await p.screenshot({ path: path.join(OUT, `kling-${clip}.jpg`), type: 'jpeg', quality: 85, timeout: 30_000 }).then(() => shots.push(clip)).catch(() => {});
+      }
+    });
+    const playing = w.log.filter((r: any) => r.phase === 2);
+    for (const clip of ['sello_1', 'sello_2', 'sello_3']) {
+      assert.ok(playing.some((r: any) => r.clip === clip && r.overlay), `${clip} se ve como vídeo`);
+      assert.ok(w.maxT[clip] > 0.8, `${clip} avanza (${w.maxT[clip]?.toFixed(1)} s)`);
+    }
+    assert.ok(w.captions.length >= 3, `cada plano con su subtítulo (${w.captions.length})`);
+    assert.deepEqual([s.cine_stats.video, s.cine_stats.engine, s.cine_stats.fallbacks], [1, 0, 0], 'vista entera como vídeo, sin recurrir al motor');
+    assert.equal(s.video.log.length, 0, 'sin fallos registrados');
+    const total = w.seen[3] - w.seen[2];
+    assert.ok(total > 8500 && total < 12500, `dura lo que su guion (${total} ms de 10000)`);
+    await assertResumed(page, s);
+    assert.equal(s.gate, true, 'al volver, el santuario está abierto como mostró el vídeo');
+    ok(`Vídeos de Kling en el juego: ${(pre.stats.bytes / 1e6).toFixed(2)} MB precargados en ${pre.stats.preloadMs} ms el más lento; tres planos, ${w.videoFrames} cuadros, ${total} ms; capturas: ${shots.join(', ') || 'ninguna'}`);
     assert.equal(errors.filter((e) => !/favicon|WebGL|GPU stall|swiftshader|deprecated/i.test(e)).length, 0, 'sin errores en la consola');
     await ctx.close();
   },
@@ -109,9 +150,10 @@ const cases: Record<string, (browser: Browser) => Promise<void>> = {
   // 2) Un archivo no existe y el otro está corrupto: se ve la escena del motor y queda registrado
   async roto(browser) {
     const { ctx, page } = await enter(browser, 'Roto', 'roto');
-    await waitFor('fallos detectados', async () => {
+    await waitFor('descargas resueltas', async () => {
       const v = (await state(page) as any).video;
-      return v?.clips?.sello_1?.s === 'error' && v?.clips?.sello_2?.s === 'error';
+      // el que no existe falla al descargarse; los corruptos se descubren al prepararlos para la escena
+      return v?.clips?.sello_1?.s === 'error' && v?.clips?.sello_2?.s === 'fetched' && v?.clips?.sello_3?.s === 'fetched';
     }, 60_000);
     const { w, s } = await openAndWatch(page);
     assert.ok(!w.log.some((r: any) => r.overlay), 'ningún vídeo tapa el juego');
@@ -141,9 +183,10 @@ const cases: Record<string, (browser: Browser) => Promise<void>> = {
   // 4) El vídeo se atasca a mitad: se quita y se sigue viendo el mismo plano con el motor
   async atasco(browser) {
     const { ctx, page } = await enter(browser, 'Atasco', 'ok');
-    await waitFor('vídeos precargados', async () => (await state(page) as any).video?.clips?.sello_2?.s === 'ready', 60_000);
+    await waitFor('vídeos precargados', async () => (await state(page) as any).video?.clips?.sello_3?.s === 'fetched', 60_000);
     const { w, s } = await openAndWatch(page, async (p) => {
-      await waitFor('vídeo en pantalla', async () => (await witness(p)).log.some((r: any) => r.overlay), 10_000);
+      // Se atasca el plano más largo (el segundo): así queda tiempo para ver el cambio al motor
+      await waitFor('segundo vídeo en pantalla', async () => (await witness(p)).log.some((r: any) => r.overlay && r.clip === 'sello_2'), 15_000);
       await p.evaluate(() => (document.querySelector('#cine video.on') as HTMLVideoElement)?.pause());
     });
     const playing = w.log.filter((r: any) => r.phase === 2);
@@ -158,7 +201,7 @@ const cases: Record<string, (browser: Browser) => Promise<void>> = {
   // 5) Omitir a mitad del vídeo (sola: su voto es mayoría)
   async omitir(browser) {
     const { ctx, page } = await enter(browser, 'Omite', 'ok');
-    await waitFor('vídeos precargados', async () => (await state(page) as any).video?.clips?.sello_2?.s === 'ready', 60_000);
+    await waitFor('vídeos precargados', async () => (await state(page) as any).video?.clips?.sello_3?.s === 'fetched', 60_000);
     let pressedAt = 0;
     const { w, s } = await openAndWatch(page, async (p) => {
       await waitFor('vídeo en pantalla', async () => (await witness(p)).log.some((r: any) => r.overlay), 10_000);
@@ -166,7 +209,7 @@ const cases: Record<string, (browser: Browser) => Promise<void>> = {
       await p.keyboard.press('Enter');
     });
     const total = w.seen[3] - w.seen[2];
-    assert.ok(total < 6000, `la escena termina antes de su duración completa (${total} ms de 7000)`);
+    assert.ok(total < 8000, `la escena termina antes de su duración completa (${total} ms de 10000)`);
     assert.ok(!w.log.some((r: any) => r.clip === 'sello_2' && r.overlay), 'el segundo plano ya no llega a verse');
     await assertResumed(page, s);
     ok(`Omitir durante el vídeo: termina ${w.seen[3] - pressedAt} ms después de pulsar Enter y se vuelve al juego`);
