@@ -11,6 +11,7 @@ signal setting_changed(key: String, value: float)
 ## El jugador terminó de leer un diálogo (completed = llegó hasta el final).
 signal dialogue_done(completed: bool)
 
+const Audio := preload("res://scripts/client/audio.gd")
 const Defs := preload("res://scripts/shared/combat_def.gd")
 const World := preload("res://scripts/shared/world_def.gd")
 const Kit := preload("res://scripts/client/ui/ui_kit.gd")
@@ -566,6 +567,7 @@ func _button(text: String, id: String, primary := false) -> Button:
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(0, 40)
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.mouse_entered.connect(func() -> void: Audio.play("ui_mover", null, -4.0, 0.0))
 	var accent := Kit.GOLD if primary else Kit.JADE
 	var normal := Kit.flat(Kit.OBSIDIAN_SOLID.lerp(accent, 0.16 if primary else 0.06), 12.0, 2, accent.darkened(0.25))
 	var hover := Kit.flat(Kit.OBSIDIAN_SOLID.lerp(accent, 0.3), 12.0, 2, accent)
@@ -735,11 +737,11 @@ func _build_panels(root: Control) -> void:
 	mv.add_child(_menu_quality)
 	mv.add_child(_button("Ver la introducción del capítulo", "replay_intro"))
 	var sg := GridContainer.new()
-	sg.columns = 2
+	sg.columns = 4   # dos ajustes por fila: el menú cabe también en pantallas bajas
 	sg.add_theme_constant_override("h_separation", 14)
 	sg.add_theme_constant_override("v_separation", 6)
 	mv.add_child(sg)
-	for def in [["sens", "Sensibilidad del ratón"], ["shake", "Sacudida de cámara"], ["vol_master", "Volumen general"],
+	for def in [["sens", "Sensibilidad"], ["shake", "Sacudida"], ["vol_master", "Volumen general"],
 			["vol_music", "Música"], ["vol_amb", "Ambiente"], ["vol_sfx", "Efectos"], ["vol_ui", "Interfaz"],
 			["vol_cine", "Cinemáticas"]]:
 		sg.add_child(Kit.label(def[1], 14, Kit.LIME))
@@ -747,7 +749,8 @@ func _build_panels(root: Control) -> void:
 		sl.min_value = 0.0
 		sl.max_value = 1.0
 		sl.step = 0.05
-		sl.custom_minimum_size = Vector2(220, 18)
+		sl.custom_minimum_size = Vector2(130, 18)
+		sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		sl.focus_mode = Control.FOCUS_NONE
 		sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		var key: String = def[0]

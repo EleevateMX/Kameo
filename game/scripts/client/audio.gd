@@ -12,6 +12,7 @@ extends Node
 ## Cualquier script puede llamar a `Audio.play("nombre", posición)`; sin instancia (servidor
 ## dedicado, herramientas) las llamadas no hacen nada.
 
+const World := preload("res://scripts/shared/world_def.gd")
 const DIR := "res://assets/audio/"
 ## Buses de res://default_bus_layout.tres. NO se crean en ejecución (ver _ready).
 const BUSES := ["Music", "Ambience", "SFX", "UI", "Cinematics", "Voice"]
@@ -172,7 +173,24 @@ func _variant(sound: String) -> String:
 	return str(options[pick])
 
 
+## Qué pisa quien está en `pos`: "agua", "piedra" (plaza, pirámide, santuario) o "hierba".
+static func ground_at(pos: Vector3) -> String:
+	var here := Vector2(pos.x, pos.z)
+	if World.terrain_h(pos.x, pos.z) < World.WATER_LEVEL + 0.3:
+		return "agua"
+	if here.length() < 7.5 or here.distance_to(World.SANCTUARY) < 15.0 or here.distance_to(World.PYRAMID) < 9.0:
+		return "piedra"
+	return "hierba"
+
+
+## `sound` puede traer alternativas, «nuevo|antiguo»: suena la primera que exista.
 func _play(sound: String, pos: Variant, volume_db: float, pitch_var: float) -> void:
+	if "|" in sound:
+		for option in sound.split("|"):
+			if ResourceLoader.exists(DIR + option + ".wav"):
+				_play(option, pos, volume_db, pitch_var)
+				return
+		return
 	# el mismo efecto no se dispara dos veces en menos de 40 ms (varios golpes en un mismo estado)
 	if _time - float(_last_played.get(sound, -1.0)) < 0.04:
 		return

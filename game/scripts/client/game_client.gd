@@ -119,6 +119,9 @@ var _fps_time := 0.0
 var _audio: Audio
 var _settings := {"sens": 0.5, "vol_master": 0.8, "vol_music": 0.55, "vol_sfx": 0.9, "vol_amb": 0.7,
 	"vol_ui": 0.8, "vol_cine": 0.9, "shake": 0.6}
+var _spawn_sound_t := -10.0
+var _breath_at := 0.0
+var _online := {}           # id de jugador -> conectado (para avisar de quién entra y quién se va)
 var _amb_in := 0.0          # cuenta atrás hasta la siguiente revisión de ambientes y música
 var _danger_until := 0.0    # hasta cuándo se considera que hay peligro cerca (música de tensión)
 var _far_from_claro := false
@@ -159,7 +162,9 @@ var _cine_phase := 0          # Story.CINE_*: fase de la cinemática compartida,
 var _prep := {}               # preparación en curso: {id, t, wait, sent}
 var _cine_out := 0.0          # segundos hasta volver a descubrir el juego tras una cinemática
 var _video_release_in := 0.0  # segundos hasta soltar los decodificadores de vídeo
-var _cine_stats := {"video": 0, "engine": 0, "fallbacks": 0}
+var _cine_stats := {"video": 0, "engine": 0, "fallbacks": 0, "skipped": 0}
+## Playtest del jefe: lo que se mide de cada jugador durante el combate (docs/PLAYTEST.md)
+var _pt := {"secs": [0, 0, 0], "fails": [0, 0, 0], "dmg": 0, "falls": 0, "balam": 0, "freed": false, "denied": 0}
 
 # Métricas de la sesión (beta): se envían a la API cada minuto y al terminar una ronda
 var _m := {"sid": "", "fps": [], "ping_sum": 0.0, "ping_n": 0, "ping_max": 0.0, "load_ms": -1.0, "seconds": 0.0,
@@ -591,6 +596,8 @@ func _play_cutscene(id: String, start_at := 0.0) -> void:
 func _on_cine_finished(id: String, skipped: bool) -> void:
 	# Omitida: la banda sonora se funde enseguida. Terminada: se deja respirar la cola.
 	_audio.cine_stop(0.25 if skipped and not _cine.near_end() else 1.6)
+	if skipped and not _cine.near_end():
+		_cine_stats.skipped += 1
 	_mark_seen(id)
 	_cine_stats["video" if _cine.video_shots > 0 else "engine"] += 1
 	_cine_stats.fallbacks += _cine.fallbacks
@@ -635,7 +642,12 @@ func _on_dialogue_done(completed: bool) -> void:
 
 ## Botones de la interfaz (menú, resultado, bienvenida y pantallas de error).
 func _on_action(id: String) -> void:
-	Audio.play("ui_click")
+	if id in ["start", "again", "retry", "replay_intro"]:
+		Audio.play("ui_confirmar|ui_click")
+	elif id in ["resume", "close"] or (id == "menu" and _hud.menu_open()):
+		Audio.play("ui_cerrar|ui_click")
+	elif id != "sound_test":
+		Audio.play("ui_click")
 	match id:
 		"replay_intro":
 			_close_menu(false)
@@ -919,6 +931,15 @@ func _set_roster(players: Array) -> void:
 			_avatars[slot].queue_free()
 			_avatars.erase(slot)
 			_remote.erase(slot)
+	# Aviso sonoro de quién entra y quién se va (no al recibir la lista por primera vez)
+	var online := {}
+	for p in players:
+		online[str(p.id)] = bool(p.on)
+	if not _online.is_empty():
+		for id in online:
+			if id != _my_id and bool(online[id]) != bool(_online.get(id, false)):
+				Audio.play("ui_jugador_entra" if bool(online[id]) else "ui_jugador_sale", null, -4.0, 0.0)
+	_online = online
 	_hud.set_roster(players, _my_id)
 	_hud.set_team(_team)
 
@@ -1113,6 +1134,9 @@ func _apply_enemies(list: Array) -> void:
 			add_child(view)
 			view.setup(id, Defs.ENEMY_IDS[clampi(int(e[1]), 0, Defs.ENEMY_IDS.size() - 1)])
 			_enemies[id] = view
+			if _net == Net.PLAYING and _time - _spawn_sound_t > 0.25:
+				_spawn_sound_t = _time   # (una oleada entera no dispara ocho sonidos a la vez)
+				Audio.play("enemigo_aparece", Vector3(e[2], e[3], e[4]), -3.0)
 		view.push_state(_time, Vector3(e[2], e[3], e[4]), float(e[5]), float(e[6]), float(e[7]),
 			Defs.ENEMY_STATES[clampi(int(e[8]), 0, Defs.ENEMY_STATES.size() - 1)])
 	for id in _enemies.keys():
@@ -1205,6 +1229,7 @@ func _on_event(m: Dictionary) -> void:
 					_feather_text = "guardada en tu perfil"
 					_hud.toast("Pluma de Jade\nguardada en tu perfil")
 					Audio.play("pluma_jade", null, -2.0, 0.0)
+					Audio.play("ui_recompensa", null, -2.0, 0.0)
 				else:
 					_feather_text = "ya la tenías"
 				if _hud.result_open() and _boss_phase() == BossDef.FREED:
@@ -1248,6 +1273,9 @@ func _show_action(slot: int, kind: String, yaw: float, power: float) -> void:
 	if not snd.is_empty():
 		Audio.play(snd, pos, 0.0 if slot == _my_slot else -5.0)
 	match kind:
+		"interact":
+			Audio.play("interactuar", pos, -6.0 if slot == _my_slot else -12.0)
+			Fx.ring(self, pos, 1.6, JADE, 0.35)
 		"claw":
 			var ab: Dictionary = Defs.FORMS.balam.primary
 			Fx.claws(self, pos + Vector3(0, 0.8, 0), yaw, ab.range, ab.arc, Color(1.0, 0.75, 0.3))
@@ -1255,6 +1283,8 @@ func _show_action(slot: int, kind: String, yaw: float, power: float) -> void:
 			var ab: Dictionary = Defs.FORMS.balam.secondary
 			Fx.slash(self, pos + Vector3(0, 0.8, 0), yaw, ab.range * (1.0 + 0.2 * power), ab.arc, Color(1.0, 0.45, 0.15), 0.32)
 			Fx.burst(self, pos + Vector3(sin(yaw), 0.8, cos(yaw)) * 1.2, GOLD, 10 + int(power * 14.0), 5.0)
+			if power > 0.7:
+				Audio.play("balam_especial", pos, -2.0 if slot == _my_slot else -8.0)   # zarpazo a plena carga
 		"pounce":
 			Fx.burst(self, pos + Vector3(0, 0.3, 0), Color(0.9, 0.8, 0.6), 10, 3.0)
 		"pounce_land":
@@ -1264,8 +1294,6 @@ func _show_action(slot: int, kind: String, yaw: float, power: float) -> void:
 				_shake = 0.2
 		"dodge":
 			Fx.burst(self, pos + Vector3(0, 0.6, 0), av.color.lightened(0.4), 10, 2.5, 0.06, 0.35)
-		"interact":
-			Fx.ring(self, pos, 1.6, JADE, 0.35)
 
 
 func _spawn_bolt(origin: Vector3, yaw: float) -> Dictionary:
@@ -1315,7 +1343,9 @@ func _on_combat_event(ev: Array) -> void:
 					var mine := int(ev[5]) == _my_slot
 					Fx.number(self, view.global_position + Vector3(0, 1.6, 0), str(int(ev[3])), GOLD if mine else Color(1, 1, 1, 0.9), mine)
 					Fx.burst(self, view.global_position + Vector3(0, 0.8, 0), Color(1.0, 0.9, 0.6), 10 if mine else 6, 3.0, 0.05, 0.3)
-					Audio.play("golpe", view.global_position, 0.0 if mine else -6.0, 0.12)
+					var by: Avatar = _avatars.get(int(ev[5]))
+					Audio.play("balam_golpe|golpe" if by != null and by.form == "balam" else "golpe", view.global_position, 0.0 if mine else -6.0, 0.12)
+					Audio.play("enemigo_dano", view.global_position, -6.0 if mine else -12.0, 0.1)
 					if mine:
 						# mi golpe entró: anillo de impacto y un pequeño temblor de cámara
 						Fx.ring(self, view.global_position + Vector3(0, 0.1, 0), 1.0, GOLD, 0.22)
@@ -1328,10 +1358,12 @@ func _on_combat_event(ev: Array) -> void:
 					av.play_action("hit")
 					Fx.number(self, av.global_position + Vector3(0, 1.8, 0), "-%d" % int(ev[3]), Color(1.0, 0.35, 0.35), slot == _my_slot)
 					Fx.burst(self, av.global_position + Vector3(0, 0.9, 0), Color(1.0, 0.3, 0.3), 8, 3.0, 0.06, 0.35)
-					Audio.play("dano", av.global_position, 0.0 if slot == _my_slot else -8.0)
+					Audio.play("dano_fuerte|dano" if int(ev[3]) >= 20 else "dano", av.global_position, 0.0 if slot == _my_slot else -8.0)
 				if slot == _my_slot:
 					_hud.hurt()
 					_shake = 0.3
+					if _encounter == 2:
+						_pt.dmg = int(_pt.dmg) + int(ev[3])
 					if int(ev[4]) <= 40 and int(ev[4]) > 0:
 						_tip("brazier", "Con poca vida: toca el brasero de la plaza (F como alux) para curar al grupo", 7.0)
 		"die":
@@ -1340,6 +1372,8 @@ func _on_combat_event(ev: Array) -> void:
 				if view != null:
 					view.die(int(ev[3]) != 0)
 					Audio.play("purificar" if int(ev[3]) != 0 else "enemigo_muere", view.global_position)
+					if int(ev[3]) != 0:
+						Audio.play("enemigo_purificado", view.global_position, -3.0)
 					if int(ev[3]) != 0:
 						Fx.number(self, view.global_position + Vector3(0, 1.8, 0), "¡Purificada!", Color(0.6, 1.0, 0.8), true)
 				# (la última baja llega en el mismo estado que ya marca la victoria)
@@ -1355,8 +1389,12 @@ func _on_combat_event(ev: Array) -> void:
 					av.set_dead(true)
 					Fx.burst(self, av.global_position + Vector3(0, 0.6, 0), av.color, 18, 4.0)
 					Audio.play("caida", av.global_position, -4.0 if int(ev[2]) == _my_slot else -10.0)
+					if int(ev[2]) != _my_slot:
+						Audio.play("aliado_caido", null, -4.0, 0.0)   # aviso de interfaz: se oye aunque esté lejos
 				if int(ev[2]) == _my_slot:
 					_m.falls = int(_m.falls) + 1
+					if _encounter == 2:
+						_pt.falls = int(_pt.falls) + 1
 					_respawn_at = _time + (Defs.RESPAWN_TIME_ENCOUNTER if _encounter == 1 else Defs.RESPAWN_TIME)
 				elif av != null and _encounter == 1:
 					_hud.hint("%s ha caído  ·  volverá junto al brasero" % av.player_name, 3.5)
@@ -1369,6 +1407,8 @@ func _on_combat_event(ev: Array) -> void:
 			Fx.ring(self, at, 2.4, JADE, 0.6)
 			Fx.pillar(self, at, JADE, 8.0, 1.4, 0.8)
 			Audio.play("reaparecer", at, 0.0 if int(ev[1]) == _my_slot else -6.0)
+			if int(ev[1]) != _my_slot:
+				Audio.play("aliado_revive", null, -6.0, 0.0)
 			if int(ev[1]) == _my_slot and _encounter == 1:
 				_hud.banner("¡De vuelta! Regresa con tu grupo", Color(0.6, 1.0, 0.85), 2.5)
 		"heal":
@@ -1383,7 +1423,7 @@ func _on_combat_event(ev: Array) -> void:
 			var view: EnemyView = _enemies.get(int(ev[1]))
 			if view != null:
 				view.slam()
-				Audio.play("enemigo_golpe", view.global_position)
+				Audio.play(("guardian_ataque" if view.kind == "piedra" else "criatura_ataque") + "|enemigo_golpe", view.global_position)
 		"brazier":
 			Fx.ring(self, Vector3(0, 0.1, 0), Defs.BRAZIER_RANGE + 2.0, Color(1.0, 0.75, 0.3), 0.7)
 			Fx.burst(self, Vector3(0, 1.4, 0), Color(1.0, 0.8, 0.35), 26, 5.0, 0.08, 0.9)
@@ -1503,6 +1543,11 @@ func _update_soundscape(delta: float, at: Vector3) -> void:
 		if view.state in ["chase", "windup", "strike"] and view.global_position.distance_to(at) < 14.0:
 			_danger_until = _time + 5.0
 			break
+	# El guardián dormido respira: se le oye al acercarse al patio
+	if _boss != null and _boss.visible and not _boss_state.is_empty() and _boss_phase() == BossDef.ASLEEP and _time >= _breath_at \
+			and (_boss.position - at).length() < 24.0:
+		_breath_at = _time + 6.5
+		Audio.play("jefe_respira", _boss.position, 2.0, 0.03)
 	# Exploración: lejos del centro del claro (con margen para no ir cambiando en la frontera)
 	var out := here.length()
 	if out > 27.0 and ruins <= 0.0:
@@ -1679,6 +1724,7 @@ func _on_boss_event(ev: Array) -> void:
 		"awake":
 			_hud.banner("Nojoch Tuunich despierta", Color(1.0, 0.45, 0.7), 4.0)
 			Audio.play("jefe_despierta", at, 2.0, 0.0)
+			Audio.duck(-7.0, 1.0, 1.2)
 			_bump(0.22)
 			_refresh_music()
 			# Qué significa su barra, una sola vez
@@ -1715,6 +1761,7 @@ func _on_boss_event(ev: Array) -> void:
 			Fx.ring(self, p, float(ev[4]), Color(1.0, 0.8, 0.5), 0.5)
 			Fx.burst(self, p + Vector3(0, 0.3, 0), Color(0.8, 0.75, 0.62), 22, 6.0, 0.12, 0.7)
 			Audio.play("jefe_losa", p, 0.0)
+			Audio.duck(-5.0, 0.25, 0.6)
 			_bump(clampf(0.34 - (p - _pred.pos).length() * 0.02, 0.06, 0.3))
 		"sweep":
 			Fx.slash(self, at + Vector3(0, 0.9, 0), float(ev[2]), float(BossDef.SWEEP.range), float(BossDef.SWEEP.arc), Color(1.0, 0.85, 0.6), 0.25)
@@ -1735,6 +1782,9 @@ func _on_boss_event(ev: Array) -> void:
 		"phase":
 			_refresh_music()
 			_bump(0.2)
+			Audio.play("jefe_fase", at, 2.0, 0.0)
+			Audio.play("punto_control", null, -6.0, 0.0)   # la fase alcanzada queda como punto de control
+			Audio.duck(-8.0, 1.2, 1.5)
 			if int(ev[2]) == BossDef.FURIA:
 				_hud.banner("FASE 2  ·  El corazón de piedra", Color(1.0, 0.55, 0.35), 4.5)
 				Audio.play("silencio_grieta", at, 3.0)
@@ -1757,6 +1807,8 @@ func _on_boss_event(ev: Array) -> void:
 				_hud.hint("Ya hay tres columnas despiertas: no caben más", 3.5)
 		"pillar_down":
 			_arena.pillar_fx(int(ev[2]), true)
+			var gone: Vector2 = BossDef.PILLAR_SPOTS[clampi(int(ev[2]), 0, BossDef.PILLAR_SPOTS.size() - 1)]
+			Audio.play("pilar_rompe", Vector3(gone.x, 1.0, gone.y), -2.0)
 		"rain":
 			Audio.play("lluvia_piedra", at, 0.0, 0.0)
 			_bump(0.1)
@@ -1767,6 +1819,8 @@ func _on_boss_event(ev: Array) -> void:
 			_arena.pillar_fx(int(ev[2]), true)
 			Audio.play("jefe_choque", at, 2.0)
 			Audio.play("jefe_aturdido", at, 0.0)
+			Audio.play("pilar_rompe", at, 0.0)
+			Audio.duck(-8.0, 0.6, 1.0)
 			_bump(0.34)
 			_hud.banner("¡Aturdido!  Pisen las anclas", GOLD, 3.0)
 			_tip("anclas", "Aturdido: pisen los discos de jade de la explanada para sujetarlo con cadenas", 8.0)
@@ -1818,11 +1872,14 @@ func _on_boss_event(ev: Array) -> void:
 			_tip("contacto", "Como alux, junto a él, mantén F. Tienen que tocarlo todos los que sigan en pie", 9.0)
 		"pulse":
 			Fx.ring(self, at + Vector3(0, 0.2, 0), float(ev[2]), MAGENTA, 0.45)
-			Audio.play("jefe_losa", at, -3.0)
+			Audio.play("ritual_pulso|jefe_losa", at, -1.0)
 			_bump(0.16)
 		"freed":
 			_hud.banner("Nojoch Tuunich recuerda", JADE, 5.0)
+			_pt.freed = true
 			Audio.play("liberacion", null, 0.0, 0.0)
+			Audio.play("jefe_cae", at, 0.0, 0.0)
+			Audio.duck(-10.0, 1.5, 1.5)
 			Fx.pillar(self, at, JADE, 14.0, 2.6, 1.6)
 			Fx.ring(self, at + Vector3(0, 0.1, 0), 12.0, JADE, 1.2)
 			_stats.secs = _time - float(_stats.t0)
@@ -1831,6 +1888,8 @@ func _on_boss_event(ev: Array) -> void:
 			_refresh_music()
 		"fail":
 			_hud.banner("Nojoch Tuunich vuelve a dormirse", Color(1.0, 0.5, 0.5), 3.5)
+			var lost := clampi(int(ev[2]), BossDef.OLVIDO, BossDef.RECUERDO) - 1
+			(_pt.fails as Array)[lost] = int((_pt.fails as Array)[lost]) + 1
 			Audio.play("derrota", null, 0.0, 0.0)
 			_refresh_music()
 			if int(ev[2]) >= BossDef.FURIA:
@@ -1913,6 +1972,8 @@ func _physics_process(_delta: float) -> void:
 
 ## Si el jugador pulsa una habilidad que ahora no puede usar, se le dice por qué.
 func _explain_denied(buttons: int) -> void:
+	if _encounter == 2:
+		_pt.denied = int(_pt.denied) + 1   # intentó algo que no podía: pista de que no entendió el objetivo
 	var rising := buttons & ~_prev_buttons
 	if _pred.dead:
 		return
@@ -2264,6 +2325,12 @@ func _metrics_sample() -> void:
 	if _net != Net.PLAYING or str(_m.sid).is_empty():
 		return
 	_m.seconds = float(_m.seconds) + 1.0
+	# Combate con el guardián: segundos en cada fase y cuántos de ellos como Balam
+	var phase := _boss_phase()
+	if _encounter == 2 and phase >= BossDef.OLVIDO and phase <= BossDef.RECUERDO and not _frozen:
+		(_pt.secs as Array)[phase - 1] = int((_pt.secs as Array)[phase - 1]) + 1
+		if _pred.form == "balam":
+			_pt.balam = int(_pt.balam) + 1
 	var fps: Array = _m.fps
 	if fps.size() < 7200:
 		fps.append(Engine.get_frames_per_second())
@@ -2301,6 +2368,8 @@ func _metrics_send(final: bool) -> void:
 		"audio": {"master": _settings.vol_master, "music": _settings.vol_music, "sfx": _settings.vol_sfx, "amb": _settings.vol_amb,
 			"ui": _settings.vol_ui, "cine": _settings.vol_cine},
 		"cine": _cine_metrics(),
+		"boss": {"secs": _pt.secs, "fails": _pt.fails, "dmg": _pt.dmg, "falls": _pt.falls, "balam": _pt.balam,
+			"freed": _pt.freed, "denied": _pt.denied},
 	}
 	# El navegador añade resolución y estado del audio; keepalive deja terminar el envío al salir de la página
 	_js("(function(b){try{b.viewport=innerWidth+'x'+innerHeight;b.dpr=devicePixelRatio||1;" +
@@ -2319,7 +2388,7 @@ func _cine_metrics() -> Dictionary:
 	var fails := []
 	for entry in info.get("log", []):
 		fails.append("%s:%s" % [str(entry.get("id", "")), str(entry.get("what", ""))])
-	return {"video": _cine_stats.video, "engine": _cine_stats.engine, "fallbacks": _cine_stats.fallbacks,
+	return {"video": _cine_stats.video, "engine": _cine_stats.engine, "fallbacks": _cine_stats.fallbacks, "skipped": _cine_stats.skipped,
 		"bytes": int(stats.get("bytes", 0)), "preloadMs": int(stats.get("preloadMs", 0)), "fails": fails}
 
 

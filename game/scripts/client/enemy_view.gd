@@ -72,7 +72,7 @@ func _on_state(next: String) -> void:
 			Fx.telegraph(get_parent(), global_position + fwd * 1.0, def.hit_radius, def.windup)
 		else:
 			Fx.burst(get_parent(), global_position + Vector3(0, 0.6, 0), Color(1.0, 0.2, 0.7), 8, 2.0, 0.05, 0.35)
-		Audio.play("enemigo_aviso", global_position, -4.0)
+		Audio.play(("guardian_llamada" if kind == "piedra" else "criatura_llamada") + "|enemigo_aviso", global_position, -4.0)
 	elif next == "dead":
 		dying = true
 

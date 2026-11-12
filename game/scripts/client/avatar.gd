@@ -152,6 +152,8 @@ func set_form(f: String, with_effect := true) -> void:
 		var gold := Color(1.0, 0.72, 0.25)
 		Fx.transform_burst(get_parent(), global_position, gold if form == "balam" else EYE, color.lightened(0.25))
 		Audio.play("transformar", global_position, 0.0 if is_local else -6.0)
+		if form == "balam":
+			Audio.play("balam_grunido", global_position, -3.0 if is_local else -9.0)
 		if _players.has(form) and (_players[form] as AnimationPlayer).has_animation("Transform"):
 			(_players[form] as AnimationPlayer).speed_scale = 1.0
 			(_players[form] as AnimationPlayer).play("Transform", 0.0)
@@ -245,7 +247,8 @@ func animate(delta: float, grounded: bool, swim: bool) -> void:
 		_stride += speed * delta
 		if _stride > (1.5 if form == "alux" else 2.3):
 			_stride = 0.0
-			Audio.play("paso_%d" % (1 + randi() % 3), global_position, -2.0 if is_local else -10.0, 0.12)
+			# el paso suena a lo que se pisa: hierba, losa o agua somera (con el paso genérico de respaldo)
+			Audio.play("paso_%s_1|paso_1" % Audio.ground_at(global_position), global_position, -2.0 if is_local else -10.0, 0.12)
 	if swim != _was_swim:
 		_was_swim = swim
 		if _has_last:
