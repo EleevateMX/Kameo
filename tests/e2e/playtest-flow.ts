@@ -187,8 +187,8 @@ if (s.boss !== undefined) {
   assert.equal(s.boss_bar, false, 'dormido no muestra barra');
   const alive = cast.slice(1).map((a) => a.idle(0, 1));
   await cast[0].walkTo(19.5, 0, 'alux', 25);
-  await cast[0].walkTo(25.5, 0, 'alux', 25);
-  const stay = cast[0].idle(1, 0);
+  // (al pisar el patio la sala se pausa para la cinemática: el compañero termina de entrar cuando acaba)
+  const entering = cast[0].walkTo(25.5, 0, 'alux', 60);
   await waitFor('el guardián despierta', async () => (await state(page) as any).boss[0] === 1, 30_000);
   // Su despertar es una cinemática compartida: se ve (con el motor si no hay vídeo) y se omite por mayoría
   await waitFor('cinemática «El despertar»', async () => (await state(page) as any).cine === 'despertar', 60_000);
@@ -196,6 +196,8 @@ if (s.boss !== undefined) {
   await shot(page, '06a-cinematica-despertar.png');
   cast.forEach((a) => a.ws.send(JSON.stringify({ t: 'skip' })));
   await waitFor('fin de «El despertar»', async () => (await state(page) as any).frozen === false && (await state(page) as any).cine === '', 60_000);
+  await entering;
+  const stay = cast[0].idle(1, 0);
   await waitFor('barra de Silencio', async () => (await state(page) as any).boss_bar === true, 15_000);
   s = await state(page);
   assert.match(s.ui.objective, /glifos del guardián/, 'el objetivo explica qué hacer con él');

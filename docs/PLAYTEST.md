@@ -1,7 +1,7 @@
 # Playtest: guía de la sesión y resultados
 
 
-Una sesión corta (10–15 minutos) para 1 a 4 personas. Esta guía sirve a quien organiza la prueba y
+Una sesión de 20–30 minutos para 1 a 4 personas (10–15 hasta la emboscada; el resto, el guardián). Esta guía sirve a quien organiza la prueba y
 a quien juega por primera vez.
 
 | Bienvenida | Emboscada |
@@ -40,12 +40,20 @@ Para jugar en una sola computadora, ver [README](../README.md#probarlo-en-tu-com
 | 2. Explorar | Objetivo arriba: «Pisa un altar…» o «Pisen N altares…». Los altares salen en la brújula. | Caminar hasta un altar y quedarse encima. Con varios jugadores, uno en cada altar. |
 | 3. Esperar | «Quédate en el altar (2/4) · esperando al grupo». | No moverse hasta que el grupo complete los altares. |
 | 4. Emboscada | Aviso, música de combate y objetivo «Quedan N enemigos». | Vencer o purificar a todos. |
-| 5. Resultado | Panel de **Victoria** (resumen y sello) o de **Derrota**. | Otra ronda, seguir explorando, reintentar o salir. |
+| 5. Resultado | Panel de **Victoria** (resumen y sello) o de **Derrota**. | Enter: entrar al santuario. O reintentar, otra ronda (con su botón) o salir. |
+| 6. El guardián despierta (0.3) | Al entrar al patio, la cinemática «El despertar» y la barra de Silencio. | Fase 1: debilitar criaturas y tocarlas con F **junto a él**. Sus golpes no le hacen nada. |
+| 7. La explanada (0.3) | El guardián sale andando del santuario. Glifos dorados y discos de jade en el suelo. | Fase 2: un alux despierta una columna (F), el grupo hace que embista contra ella, se pisan las anclas y Balam golpea el corazón. Tres veces. Bajo la lluvia de piedra, junto a una columna. |
+| 8. El ritual (0.3) | El guardián se arrodilla. | Fase 3: purificar criaturas junto a él para encender los glifos del suelo; después, todos como alux mantienen F a su lado a la vez. |
+| 9. Liberación (0.3) | Cinemática «La liberación» y panel **Capítulo I completado**. | Hablar con el guardián (F): da la pista del Cenote. La Pluma de Jade queda en el perfil. |
 
 - **Victoria**: no queda ningún enemigo. Todos reciben el Sello del Claro (una sola vez por perfil).
 - **Derrota**: todo el grupo conectado está caído a la vez. El santuario se sella y, a los 6 s, se
   puede volver a pisar los altares.
 - **Otra ronda**: tras la victoria, la piden todos los jugadores (botón del panel o del menú).
+- **Derrota contra el guardián**: si cae todo el grupo, se duerme y el combate se retoma desde la
+  fase alcanzada; no hay que volver a abrir el santuario ni repetir fases.
+
+![El combate con Nojoch Tuunich, fase a fase](img/jefe-fases.jpg)
 
 ## Controles
 
@@ -88,6 +96,18 @@ Los dos enemigos: el **guardián de piedra** (lento, golpea en área, resiste la
 - ¿El volumen por defecto molesta? ¿Algún sonido cansa?
 - ¿Algún momento de confusión con la cámara o el ratón?
 
+Con el guardián (0.3), que nadie ha jugado todavía:
+
+- ¿Entienden que no se le pega, que hay que devolverle la memoria? ¿Cuánto tardan?
+- ¿Descubren solos las columnas, la embestida, las anclas y el corazón, o hace falta explicarlo?
+- ¿Se reparten papeles? ¿Alguien se queda sin nada que hacer?
+- ¿La lluvia de piedra y la embestida se ven venir a tiempo? ¿El daño es justo?
+- ¿El contacto final (todos manteniendo F) se entiende? ¿Frustra cuando una criatura lo corta?
+- ¿Cuánto dura cada fase? ¿Se hace larga alguna?
+- ¿La cara del guardián se lee triste al principio y serena al final?
+- ¿Las dos cinemáticas se ven enteras? ¿Alguien quiere omitirlas?
+- ¿La sacudida de cámara molesta a alguien?
+
 ## Resultados
 
 | Fecha | Versión | Qué se probó | Resultado |
@@ -111,6 +131,7 @@ y las métricas que registró el juego (`npm run beta:metrics`).
 - Los enemigos siguen siendo modelos provisionales.
 - Sin mando ni controles táctiles: teclado y ratón.
 - El rendimiento con tarjeta gráfica real no está medido (ver [rendimiento.md](rendimiento.md)).
-- Un solo escenario y un solo encuentro.
+- Un solo escenario; dos encuentros (la emboscada y el guardián).
+- El combate con el guardián no lo ha jugado ninguna persona: su ritmo y dificultad son una apuesta.
 
 Lo demás, en [pendientes.md](pendientes.md).

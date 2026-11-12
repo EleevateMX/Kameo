@@ -48,15 +48,17 @@ planear, escudo), se añade ese tipo a la simulación compartida con sus pruebas
 | --- | --- | --- | --- |
 | Guardián de piedra | Lento, golpe en área, resiste las chispas | «!» y marca en el suelo antes del golpe | En el juego (modelo provisional) |
 | Criatura corrompida | Rápida, embiste, débil a las chispas, **purificable** | Anillo de jade y «F» cuando ya se puede purificar | En el juego (modelo provisional) |
-| **Nojoch Tuunich**, el Guardián Dormido | Jefe del Capítulo I | Ver abajo | Diseñado |
+| **Nojoch Tuunich**, el Guardián Dormido | Jefe del Capítulo I | Ver abajo | **Hecho** (0.3) |
 
 En la historia, los dos enemigos actuales son los guardianes y los animales del claro tocados por el
 Silencio: por eso algunos se purifican y los de piedra sólo se detienen.
 
 ## Jefe del Capítulo I: Nojoch Tuunich (resumen)
 
-**El diseño completo, con ataques, escenario, cinemáticas y recompensa, está en [BOSS.md](BOSS.md)**
-(pendiente de tu aprobación). Lo de abajo es el resumen original.
+**El diseño completo y lo construido (ataques, escenario, cinemáticas y recompensa) está en
+[BOSS.md](BOSS.md).** Lo de abajo es el resumen original; donde difiere, manda BOSS.md (las columnas
+las despiertan los jugadores, las anclas son discos de la explanada y el contacto final se mantiene
+con F).
 
 Un coloso de piedra dormido en el patio del santuario. No es malvado: olvidó a quién cuida.
 Se le vence haciéndole recordar. Reutiliza sistemas que ya existen.
@@ -83,7 +85,7 @@ mundo. El cliente elige con ellas el objetivo, la marca de la brújula y qué di
 | `altares` | Pisa un altar / Pisen N altares | Regla actual de los altares |
 | `emboscada` | Quedan N enemigos | Regla actual |
 | `derrota` | El santuario se selló de nuevo | Automático tras unos segundos |
-| `liberado` | Santuario liberado | — (seguirá el jefe en 0.3) |
+| `liberado` | Santuario abierto | Entra al santuario: el guardián duerme dentro. Tras liberarlo: habla con él y recibe la pista del Cenote |
 
 Hablar con la abuela **no es obligatorio**: quien ya conoce el juego puede ir directo a los altares.
 Los personajes no tienen colisión y su posición y alcance están en `shared/story_def.gd`.
@@ -94,7 +96,7 @@ Los personajes no tienen colisión y su posición y alcance están en `shared/st
 | --- | --- | --- |
 | Formas vinculadas | Perfil del jugador (`unlocks`) | En el juego (Alux y Balam de inicio) |
 | Sello del Claro | Perfil (`rewards_ledger`), una vez por jugador | En el juego |
-| Plumas de Kukulkán | Perfil; una por capítulo | Planeado (0.4): el sello pasa a ser la Pluma de Jade |
+| Plumas de Kukulkán | Perfil; una por capítulo | **Hecho (0.3):** la Pluma de Jade, objeto ancestral que entrega Nojoch Tuunich y señala el Cenote |
 | Avance del capítulo | Perfil (`rewards_ledger`): «El llamado de la abuela» al hablar con ella | En el juego (0.2). La sala nueva aún empieza la historia desde el principio |
 
 ## Controles

@@ -368,9 +368,12 @@ test('acertijo + emboscada: 4 altares abren el santuario, los 4 pelean juntos y 
   assert.deepEqual([...calls[0].players].sort(), bots.map((b) => b.id).sort());
   assert.ok(bots.every((b) => b.events.some((e) => e.e === 'reward' && e.saved === true)));
 
-  // Con la puerta abierta se puede entrar al santuario
+  // Con la puerta abierta se puede entrar al santuario. Al pisar el patio despierta el guardián y
+  // la sala se pausa para «El despertar»: el grupo la omite y el bot termina de entrar.
+  bots.forEach((b) => { b.autoSkip = true; });
   assert.ok(await bots[3].walkTo(19, 0, 10));
-  assert.ok(await bots[3].walkTo(25, 0, 8), 'debería cruzar la puerta abierta');
+  assert.ok(await bots[3].walkTo(25, 0, 14), 'debería cruzar la puerta abierta');
+  assert.equal(bots[0].snap!.b![0], 1, 'y al entrar al patio despierta el guardián');
   bots.forEach((b) => b.close());
 });
 

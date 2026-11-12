@@ -72,19 +72,24 @@ como pendiente debe darse por hecho.
     hablante de maya yucateco.
   - Kling: storyboard de «El vínculo de Balam» aprobado y una toma de prueba hecha (50 créditos por
     5 s). Presupuestos por escena en [CINEMATICS.md](CINEMATICS.md), **todos sin aprobar**.
-- **Jefe Nojoch Tuunich (Alpha 0.3, sin publicar)**
-  - Hecho: fase 1 completa en servidor y cliente, modelo propuesto, barra de Silencio explicada,
-    avisos de ataque, derrota y reintento. Probado con bots para 1, 2 y 4 jugadores.
-  - **Sin programar:** fases 2 y 3, el escenario que cambia (muros, anclas, pilares), la Pluma de
-    Jade y las dos cinemáticas. Al completar la fase 1 el guardián se queda de rodillas.
-  - El golpe de losa deja escombros que hacen daño; el suelo todavía no se hunde.
-  - Sus golpes no se pueden esquivar con ayuda visual más allá del aviso en el suelo: falta probar
-    con personas si se leen a tiempo y si el daño está bien medido.
-  - El modelo es provisional hasta tu revisión: cara adusta, poca talla, caliza verdosa con la luz
-    del juego; las animaciones sólo se han visto en cuadros sueltos.
-  - Sin sonidos propios (usa los de los enemigos) ni presentación: despierta sin escena.
-  - Sin medir su costo en navegador con tarjeta gráfica ni la memoria del servidor en combate.
-  - Chiich Yaxché todavía no dice nada sobre él.
+- **Jefe Nojoch Tuunich (Alpha 0.3, candidata sin publicar)**
+  - Hecho: las tres fases en servidor y cliente, modelo definitivo, punto de control por fase,
+    liberación, Pluma de Jade, pista del Cenote, sonidos, música por fase y las dos cinemáticas con
+    Kling. Probado con bots (1, 2 y 4 jugadores) y en un navegador real con una jugadora y tres bots.
+  - **Nadie lo ha jugado.** Ritmo, dificultad, daño y si las pistas bastan están sin validar. Los
+    bots completan el combate en 2–5 minutos jugando perfecto; con personas será otra cosa.
+  - Las columnas de la fase 2 no son sólidas: dan refugio y paran la embestida, pero se pueden
+    atravesar. Tampoco hay muros que caigan ni suelo que se hunda (exige sólidos dinámicos en la
+    simulación compartida).
+  - El corazón expuesto se alcanza con cualquier golpe de Balam desde el suelo; el diseño original
+    pedía un salto.
+  - La pluma no se ve en el alux (sólo en el perfil y flotando ante el guardián).
+  - En «El sello cede», publicada antes de que existiera, el patio sale **sin** el coloso.
+  - Las cinemáticas usan sonidos generados por código, no audio de Kling; nadie los ha escuchado.
+  - El cambio entre las músicas de fase no va sincronizado al compás.
+  - Sin medir con tarjeta gráfica. Con render por software el combate completo va a 1–3 FPS, como
+    el resto del juego en ese entorno.
+  - Una criatura ambiental del claro puede acercarse al combate y contar para los glifos.
 - **Secuelas del sello en el santuario (Alpha 0.3, sin publicar)**
   - Hechas: enredaderas, grietas, glifos y marcas que se apagan, restos magenta, magia residual.
   - El vídeo sigue siendo más rico que el escenario (luz de atardecer, musgo, piedra tallada).

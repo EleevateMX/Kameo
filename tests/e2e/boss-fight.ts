@@ -70,17 +70,23 @@ await Promise.all(cast.map((a) => a.fight(cleared, 240, { form: 'balam', near: {
 await page.keyboard.up('KeyJ');
 assert.ok(cleared(), 'la emboscada se supera');
 await waitFor('panel de victoria', async () => (await st(page)).ui.result === true, 60_000);
-await page.keyboard.press('Enter');   // «Entrar al santuario»
-await waitFor('panel cerrado', async () => (await st(page)).ui.result === false, 30_000);
 let s = await st(page);
-assert.equal(s.encounter, 2, 'Enter en el panel sigue la aventura: no pide otra ronda');
-assert.match(s.ui.objective, /Entra al santuario/);
-ok('Emboscada superada; el panel invita a entrar al santuario');
-
-// La jugadora se queda mirando desde la plaza, fuera del alcance del combate
-await page.mouse.click(640, 300);
 const WATCH = { x: -1.5, z: 3.0 };
-const toWatch = driveTo(page, WATCH.x, WATCH.z, { timeoutMs: 300_000, stop: 1.2 });
+let toWatch: Promise<boolean> = Promise.resolve(true);
+// E2E_PANEL=1: la jugadora deja abierto el panel de victoria; el guardián despierta igual y su
+// cinemática tiene que verse (y cerrar el panel) aunque ella no haya tocado nada
+const keepPanel = process.env.E2E_PANEL === '1';
+if (!keepPanel) {
+  await page.keyboard.press('Enter');   // «Entrar al santuario»
+  await waitFor('panel cerrado', async () => (await st(page)).ui.result === false, 30_000);
+  s = await st(page);
+  assert.equal(s.encounter, 2, 'Enter en el panel sigue la aventura: no pide otra ronda');
+  assert.match(s.ui.objective, /Entra al santuario/);
+  ok('Emboscada superada; el panel invita a entrar al santuario');
+  // La jugadora se queda mirando desde la plaza, fuera del alcance del combate
+  await page.mouse.click(640, 300);
+  toWatch = driveTo(page, WATCH.x, WATCH.z, { timeoutMs: 300_000, stop: 1.2 });
+}
 
 // 3) Fase 1: un compañero entra al patio, el guardián despierta con su cinemática
 const b = () => cast[0].snap?.b as number[];
@@ -106,6 +112,14 @@ assert.match(s.ui.objective, /glifos del guardián/);
 assert.equal(s.music, 'mus_jefe', 'música propia del guardián');
 if (despertarVideo) assert.equal(sawDespertarVideo, true, 'con los vídeos descargados, «El despertar» se ve como vídeo');
 ok(`Fase 1 «Olvido»: despierta para todos con su cinemática (${sawDespertarVideo ? 'vídeo de Kling' : 'versión del motor'}), barra de Silencio y música propia (glifos ${s.boss[7]}/${s.boss[8]})`);
+if (keepPanel) {
+  assert.equal(s.ui.result, false, 'la cinemática cerró el panel de victoria');
+  ok('Con el panel de victoria abierto, «El despertar» se ve igual y el panel no vuelve a salir');
+  clearInterval(alive);
+  cast.forEach((a) => a.ws.close());
+  await browser.close();
+  process.exit(0);
+}
 assert.ok((await p1).every(Boolean), 'los compañeros completan la fase 1');
 await toWatch;
 

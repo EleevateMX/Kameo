@@ -11,15 +11,15 @@ Pruebas: [PLAYTEST.md](PLAYTEST.md) · Versiones: [RELEASES.md](RELEASES.md).
 | Área | Estado real |
 | --- | --- |
 | Versión publicada | **Closed Alpha 0.2.1** en <https://alux-beta.onrender.com> (rama `beta`, commit `94bb9c8`), desde el 12 nov 2026: la 0.2 con «El sello cede» producida en Kling. Rollback a la 0.2: commit `c28e32c` ([RELEASES.md](RELEASES.md)). |
-| Versión candidata | Ninguna pendiente: `release/alpha-0.2.1-rc1` ya está publicada. |
-| Versión en desarrollo | **Alpha 0.3**, en la rama de trabajo, **sin publicar**: secuelas del sello en el santuario y el jefe Nojoch Tuunich con su fase 1 jugable ([BOSS.md](BOSS.md)). |
+| Versión candidata | **Alpha 0.3 RC1** (`release/alpha-0.3-rc1`): el jefe completo, sus dos cinemáticas y la Pluma de Jade. **Sin publicar**: espera tu visto bueno ([RELEASES.md](RELEASES.md)). |
+| Versión en desarrollo | Lo que siga a la 0.3, en la rama de trabajo. |
 | Multijugador | Servidor autoritativo, 4 jugadores, reconexión, salas. Verificado con bots, navegadores y contra el servicio desplegado (un jugador). **Cuatro personas reales a la vez: sin probar.** |
 | Combate y formas | Alux y Balam, dos enemigos, emboscada, derrota y otra ronda. Datos modulares (`combat_def.gd`). Equilibrio sin probar con personas. |
-| Historia | Introducción, un personaje con diálogo, primer objetivo narrativo y una escena compartida (Alpha 0.2). Sin jefe ni cierre de capítulo. |
-| Cinemáticas | Sistema híbrido y **«El sello cede» con Kling, publicados** (10 s, 284 créditos de 500). Las dos del jefe están diseñadas, con cuadros clave y prompts, sin producir. Quedan 2 375 créditos. |
+| Historia | Introducción, un personaje con diálogo, primer objetivo narrativo, **jefe con tres fases y cierre del capítulo** con la Pluma de Jade y la pista del Cenote (candidata 0.3). Falta «El vínculo de Balam». |
+| Cinemáticas | Sistema híbrido y **tres producidas con Kling**: «El sello cede» (publicada; 284 créditos), «El despertar» y «La liberación» de Nojoch Tuunich (candidata 0.3; 488 créditos de 800). Quedan 1 887 créditos. |
 | Escenario | Un solo mapa, definido en un único archivo compartido (`world_def.gd`). **No hay soporte para varias zonas.** |
-| Arte | Alux, Balam y Chiich Yaxché modelados y con los hilos de las prendas corregidos. Nojoch Tuunich: propuesta de modelo lista para revisar. Enemigos comunes con modelos provisionales. |
-| Audio | 38 sonidos generados por código. **Nadie los ha escuchado.** |
+| Arte | Alux, Balam, Chiich Yaxché y **Nojoch Tuunich (modelo definitivo)** modelados. Enemigos comunes con modelos provisionales. |
+| Audio | 69 sonidos generados por código (31 del jefe, con música por fase). **Nadie los ha escuchado.** |
 | Rendimiento | Medido sólo con render por software. **Sin datos de tarjeta gráfica**; las métricas de cada sesión real ya se registran. |
 | Acceso y datos | Invitaciones individuales, PostgreSQL en Render, migraciones automáticas. Discord real pendiente de credenciales. |
 | Infraestructura | Un contenedor de 512 MB (unos 300 MB con cuatro jugadores). Aviso de pago pendiente en la cuenta de Render. |
@@ -72,8 +72,9 @@ a los demás; ninguna prueba anterior se rompe.
 | **Incremento 1 (hecho)** | Sistema cinematográfico híbrido. |
 | **Incremento 2 (hecho)** | «El sello cede» producida con Kling e integrada, con sus dos tratamientos. |
 | **Incremento 3 (hecho)** | El santuario conserva las consecuencias de «El sello cede»: enredaderas, grietas, glifos que se asientan, restos magenta que se apagan y magia residual. |
-| **Incremento 4 (hecho)** | Nojoch Tuunich: modelo propuesto y fase 1 (Olvido) completa en servidor y cliente, con pruebas para 1, 2 y 4 jugadores. |
-| **Siguiente** | Fase 2 (Furia: anclas, embestida, corazón expuesto y salida a la explanada), fase 3 (Recuerdo), Pluma de Jade y las dos cinemáticas. |
+| **Incremento 4 (hecho)** | Nojoch Tuunich completo: modelo definitivo, tres fases, punto de control por fase, liberación, Pluma de Jade y pista del Cenote; pruebas con bots para 1, 2 y 4 jugadores y combate completo en navegador. |
+| **Incremento 5 (hecho)** | «El despertar» y «La liberación» producidas con Kling e integradas. |
+| **Siguiente** | Tu visto bueno para publicar la candidata. Después: probarla con personas y ajustar ritmo y dificultad; modelos propios de los dos enemigos comunes. |
 | **Dependencias** | Cinemáticas compartidas (0.2, incremento 2). Datos de rendimiento con tarjeta gráfica para decidir cuántos efectos caben. |
 | **Implementación** | El jefe reutiliza la IA de enemigos, los avisos de ataque, los altares de presión, la purificación y la derrota con reintento. |
 | **Pruebas** | Bots: victoria con 1, 2 y 4 jugadores; derrota y reintento; nadie puede saltarse fases desde el cliente. Navegador: flujo completo hasta vencer. |
@@ -84,7 +85,7 @@ a los demás; ninguna prueba anterior se rompe.
 | | |
 | --- | --- |
 | **Objetivo** | Que el capítulo tenga final: recompensa, revelación y camino al siguiente. |
-| **Alcance** | Pluma de Jade como recompensa persistente; cinemática final; «El vínculo de Balam» y el final como vídeo (Kling) con versión dentro del motor de respaldo. El reproductor de vídeo ya existe (0.3). |
+| **Alcance** | (La Pluma de Jade y la cinemática final se adelantaron a la 0.3.) «El vínculo de Balam» como vídeo de Kling con versión del motor; modelos propios de los enemigos; ajustes tras jugar el jefe con personas; la pluma en el aspecto del alux; rehacer el plano 3 de «El sello cede» con el coloso en el patio. |
 | **Dependencias** | Tu aprobación de guiones, storyboards y créditos de Kling. Modelos definitivos (para que los vídeos no queden viejos). |
 | **Aceptación** | El capítulo se juega de principio a fin en 20–30 minutos y deja claro adónde se va después. |
 
@@ -135,6 +136,7 @@ Historia, jefe y cierre de Los Secretos del Cenote, con la misma estructura que 
 | Publicar la Alpha 0.2 | **Autorizada y publicada** el 12 nov 2026. | [RELEASES.md](RELEASES.md) |
 | Publicar la Alpha 0.2.1 | **Autorizada y publicada** el 12 nov 2026, con «El sello cede» de Kling y los modelos corregidos. | [RELEASES.md](RELEASES.md) |
 | Concepto de Nojoch Tuunich | **Aprobado** (12 nov 2026): liberarlo del Silencio, tres fases, fase 2 en la explanada, reintento por fases, Pluma de Jade. | [BOSS.md](BOSS.md) |
+| Cinemáticas del jefe con Kling | **Autorizadas** (12 nov 2026): despertar hasta 450 créditos y liberación hasta 350, con el modelo definitivo y la mecánica verificados. Producidas: 488 en total. | [art/cinematicas/jefe/kling/PRODUCCION.md](../art/cinematicas/jefe/kling/PRODUCCION.md) |
 | Kling en las cinemáticas | **Obligatorio en toda cinemática narrativa** (12 nov 2026), con presupuesto por escena y respaldo del motor. La primera en producirse será «El sello cede». | [CINEMATICS.md](CINEMATICS.md) |
 | Voto para omitir cinemáticas compartidas | **Mayoría de los conectados**; un jugador solo omite al instante. | Implementado en 0.2 |
 
@@ -142,6 +144,4 @@ Historia, jefe y cierre de Los Secretos del Cenote, con la misma estructura que 
 
 | Decisión | Opciones | Recomendación |
 | --- | --- | --- |
-| Modelo de Nojoch Tuunich | Aprobarlo · pedir cambios (cara más serena, más talla, otra crestería) | Pedir al menos la cara y la talla antes de producir vídeos con él |
-| Presupuesto de las cinemáticas del jefe | Despertar (máx. 450) y liberación (máx. 350) · menos · esperar | Aprobarlo cuando el modelo esté cerrado |
-| Publicar la Alpha 0.3 | Cuando el jefe tenga sus tres fases · antes, con la fase 1 como adelanto | Esperar a las tres fases: hoy el combate se queda a medias |
+| Publicar la Alpha 0.3 | Publicar la candidata `release/alpha-0.3-rc1` en `beta` · probarla antes con el grupo en local · esperar | Publicarla: lleva regresión completa y rollback a la 0.2.1 sin tocar datos |

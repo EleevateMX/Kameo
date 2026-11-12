@@ -101,7 +101,9 @@ const cases: Record<string, (browser: Browser) => Promise<void>> = {
     assert.deepEqual([s.cine_stats.video, s.cine_stats.engine, s.cine_stats.fallbacks], [1, 0, 0], 'contada como vista en vídeo, sin recurrir al motor');
     assert.equal(s.video.log.length, 0, 'sin fallos registrados');
     await assertResumed(page, s);
-    await waitFor('decodificadores liberados', async () => Object.values(((await state(page)) as any).video.clips).every((c: any) => c.s === 'fetched'), 15_000);
+    // (los vídeos de otras escenas no están en el manifiesto de esta prueba: constan como ausentes)
+    await waitFor('decodificadores liberados', async () => Object.entries(((await state(page)) as any).video.clips)
+      .every(([id, c]: [string, any]) => c.s === (id.startsWith('sello_') ? 'fetched' : 'absent')), 15_000);
     assert.equal(await page.evaluate(() => document.querySelectorAll('#cine video').length), 0, 'al terminar no queda ningún <video> abierto');
     ok(`Vídeo sobre el juego: preparación ${prepMs} ms, tres planos con subtítulos, ${w.videoFrames} cuadros de vídeo, vuelta al juego con la emboscada${shotDone ? '' : ' (sin captura)'}`);
     console.log(`  rendimiento durante la escena: el juego dibuja ${((w.f1 - w.f0) / ((w.t1 - w.t0) / 1000)).toFixed(1)} cuadros/s por debajo (mundo sin dibujar mientras el vídeo lo tapa)`);

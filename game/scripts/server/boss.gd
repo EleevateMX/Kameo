@@ -137,9 +137,14 @@ func _clear_summoned() -> void:
 	combat.enemies = combat.enemies.filter(func(e: Variant) -> bool: return not e.summoned)
 
 
-func _purify_summoned() -> void:
+## El Silencio suelta a sus criaturas: las que llamó el guardián y cualquier otra corrompida que
+## ronde a menos de `radius` metros de él (las del claro reaparecen en su sitio más tarde).
+func _purify_summoned(radius := 0.0) -> void:
 	for e in combat.enemies:
-		if e.summoned and e.state != "dead":
+		if e.state == "dead":
+			continue
+		var near: bool = radius > 0.0 and float(Defs.ENEMIES[e.kind].purify_at) > 0.0 and Vector2(e.x - x, e.z - z).length() < radius
+		if e.summoned or near:
 			combat._kill(e, null, true)
 
 
@@ -504,7 +509,7 @@ func _begin_furia(players: Array) -> void:
 	var n := maxi(1, _connected(players))
 	silence = float(Boss.SILENCE_AT[Boss.FURIA])
 	# Las criaturas que quedaban se deshacen: ya no hay Silencio que las sostenga en esta fase
-	_purify_summoned()
+	_purify_summoned(16.0)
 	rubble.clear()
 	phase = Boss.FURIA
 	checkpoint_phase = Boss.FURIA
@@ -897,11 +902,8 @@ func _free() -> void:
 	target_slot = -1
 	rubble.clear()
 	_pulse_w = -1.0
-	_purify_summoned()
 	# El Silencio se retira: las criaturas corrompidas que rondaban cerca también recuerdan
-	for e in combat.enemies:
-		if e.state != "dead" and float(Defs.ENEMIES[e.kind].purify_at) > 0.0 and Vector2(e.x - x, e.z - z).length() < 24.0:
-			combat._kill(e, null, true)
+	_purify_summoned(24.0)
 	combat.events.append(["boss", "freed", 0])
 	notices.append("freed")
 
