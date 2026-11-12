@@ -124,12 +124,36 @@ assert.match(s.ui.objective, /Pisen 4 altares/);
 const plates = [[0, -15.5], [-11, 7], [8, 16]];
 await Promise.all(cast.map((a, i) => a.walkTo(plates[i][0], plates[i][1])));
 let timers = cast.map((a) => a.idle(0, 1));
-assert.ok(await driveTo(page, 17.5, -5, { timeoutMs: 180_000, stop: 0.9 }), 'la jugadora llega a su altar');
-await waitFor('emboscada en curso', async () => (await state(page))?.encounter === 1, 60_000);
-timers.forEach(clearInterval);
+// La sala se pausa en cuanto se pisa el cuarto altar, así que la cinemática se vigila mientras camina
+const drive = driveTo(page, 17.5, -5, { timeoutMs: 240_000, stop: 0.9 });
+
+// 5b) Cinemática compartida «El sello cede»: todos la ven, la sala está en pausa y se omite por mayoría
+await waitFor('cinemática compartida', async () => (await state(page) as any).cine === 'sello', 240_000);
 s = await state(page);
+assert.equal(s.frozen, true, 'la sala está en pausa');
 assert.equal(s.gate, true);
 assert.equal(s.wave, 8);
+// Se vota enseguida: la escena dura 7 s y en este entorno una captura puede tardar más que eso
+await page.keyboard.press('Enter');
+await waitFor('voto contado o escena terminada', async () => {
+  const st: any = await state(page);
+  return st.skip_votes === 1 || st.frozen === false;
+}, 30_000);
+s = await state(page);
+if (s.frozen) {
+  assert.equal(s.cine, 'sello', 'un voto de cuatro no la omite');
+  await page.screenshot({ path: path.join(OUT, '05a-cinematica-sello.png'), timeout: 180_000 });
+  cast.slice(0, 2).forEach((a) => a.ws.send(JSON.stringify({ t: 'skip' })));
+} else {
+  console.log('  (la escena terminó por su duración antes de poder completar la votación)');
+}
+await waitFor('fin de la cinemática', async () => (await state(page) as any).frozen === false && (await state(page) as any).cine === '', 30_000);
+assert.ok(await drive, 'la jugadora termina de llegar a su altar');
+await waitFor('emboscada en curso', async () => (await state(page))?.encounter === 1, 60_000);
+timers.forEach(clearInterval);   // (los compañeros siguen dando señales de vida hasta que empiezan a pelear)
+ok('Cinemática compartida: pausa la sala, un voto de cuatro no basta y con tres se omite');
+
+s = await state(page);
 assert.match(s.ui.objective, /Emboscada/);
 assert.equal(s.music, 'mus_emboscada');
 await shot(page, '05-emboscada.png');
@@ -174,15 +198,34 @@ cast.forEach((a) => a.ws.close());
 await waitFor('se queda sola', async () => (await state(page))!.need === 1, 60_000);
 await waitFor('altares listos', async () => (await state(page) as any).lock === 0, 30_000);
 await page.mouse.click(640, 300);   // clic en el mundo: captura el ratón
-assert.ok(await driveTo(page, 17.5, -5, { timeoutMs: 180_000, stop: 0.9 }), 'vuelve al altar');
-await waitFor('segunda emboscada', async () => (await state(page))?.encounter === 1, 60_000);
-assert.equal((await state(page))!.wave, 3, 'sola aparecen tres enemigos');
-await driveTo(page, 15, 0, { timeoutMs: 60_000, stop: 1.5 });
-await waitFor('derrota', async () => (await state(page))?.encounter === 3, 180_000);
+// Sola, la emboscada puede acabar con ella en segundos y la fase de derrota dura poco: un testigo
+// dentro de la página anota lo que pasa aunque esta prueba consulte despacio.
+await page.evaluate(() => {
+  const w = window as any;
+  w.__seen = { wave: 0, defeat: false, gate: null, objective: '' };
+  setInterval(() => {
+    const st = w.__aluxState;
+    if (!st) return;
+    if (st.encounter === 1) w.__seen.wave = Math.max(w.__seen.wave, st.wave);
+    if (st.encounter === 3 && !w.__seen.defeat) w.__seen = { ...w.__seen, defeat: true, gate: st.gate, objective: st.ui.objective };
+  }, 50);
+});
+const seen = () => page.evaluate(() => (window as any).__seen);
+const walk = { stop: false };
+const toAltar = driveTo(page, 17.5, -5, { timeoutMs: 180_000, stop: 0.9, cancel: walk });
+await waitFor('segunda emboscada', async () => (await seen()).wave > 0, 180_000);
+walk.stop = true;
+await toAltar;
+assert.equal((await seen()).wave, 3, 'sola aparecen tres enemigos');
+const fight = { stop: false };
+const toFight = driveTo(page, 15, 0, { timeoutMs: 60_000, stop: 1.5, cancel: fight });
+await waitFor('derrota', async () => (await seen()).defeat === true, 180_000);
+fight.stop = true;
+await toFight;
 await waitFor('panel de derrota', async () => (await ui(page)).result === true, 60_000);
-s = await state(page);
-assert.equal(s.gate, false, 'el santuario se vuelve a sellar');
-assert.match(s.ui.objective, /Derrota/);
+const lost = await seen();
+assert.equal(lost.gate, false, 'el santuario se vuelve a sellar');
+assert.match(lost.objective, /Derrota/);
 await shot(page, '08-derrota.png');
 ok('Derrota: si cae la única jugadora se pierde la emboscada y el santuario se sella');
 

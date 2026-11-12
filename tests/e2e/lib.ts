@@ -69,7 +69,7 @@ export async function login(page: Page, name: string) {
 }
 
 /** Orienta la cámara (sólo disponible con ?debug=1) y camina con W hasta llegar a (x, z). */
-export async function driveTo(page: Page, x: number, z: number, opts: { timeoutMs?: number; stop?: number } = {}) {
+export async function driveTo(page: Page, x: number, z: number, opts: { timeoutMs?: number; stop?: number; cancel?: { stop: boolean } } = {}) {
   const end = Date.now() + (opts.timeoutMs ?? 60_000);
   let walking = false;
   // Para detectar que se quedó atascado de frente contra un obstáculo y rodearlo
@@ -78,6 +78,7 @@ export async function driveTo(page: Page, x: number, z: number, opts: { timeoutM
   let last: any = null;
   try {
     while (Date.now() < end) {
+      if (opts.cancel?.stop) return false;   // quien llama ya no necesita que llegue
       const s = await state(page);
       const me = s?.players.find((p) => p.id === s.me);
       if (me) {
