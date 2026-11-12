@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Browser } from 'playwright';
+import type { Page } from 'playwright';
 import { BASE, driveTo, launch, login, sleep, state, waitFor } from './lib.ts';
 
 const OUT = process.env.E2E_SHOTS || path.resolve(import.meta.dirname, 'screenshots/beta');
@@ -21,23 +21,18 @@ type Mode = 'ver' | 'omitir' | 'sin_video';
 const wanted = (process.argv.slice(2).filter((a) => ['ver', 'omitir', 'sin_video'].includes(a)) as Mode[]);
 const modes: Mode[] = wanted.length ? wanted : ['ver', 'omitir', 'sin_video'];
 
-async function run(browser: Browser, mode: Mode) {
-  const ctx = await browser.newContext({ viewport: { width: 960, height: 540 } });
-  // La introducción sólo se comprueba en la primera pasada
-  if (mode !== 'ver') await ctx.addInitScript(() => { try { localStorage.setItem('alux_seen_llamado', '1'); } catch { /* nada */ } });
-  const page = await ctx.newPage();
-  const errors: string[] = [];
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 200)); });
-  page.on('pageerror', (e) => errors.push(String(e).slice(0, 200)));
-  const videoRequests: { url: string; status: number; bytes: number; cache: string }[] = [];
-  page.on('response', async (r) => {
-    if (!/\/game\/video\/.+\.(mp4|webm)/.test(r.url())) return;
-    const len = Number(r.headers()['content-length'] || 0);
-    videoRequests.push({ url: path.basename(new URL(r.url()).pathname), status: r.status(), bytes: len, cache: r.headers()['cache-control'] || '' });
-  });
-  if (mode === 'sin_video') await page.route(/\/game\/video\/.+\.(mp4|webm)/, (route) => route.abort());
+// Una sola sesión para las tres pasadas: la invitación de comprobación es una
+const errors: string[] = [];
+const videoRequests: { url: string; status: number; bytes: number; cache: string }[] = [];
 
-  await login(page, 'Cine');
+async function run(page: Page, mode: Mode, first: boolean) {
+  errors.length = 0;
+  videoRequests.length = 0;
+  await page.unroute(/\/game\/video\/.+\.(mp4|webm)/).catch(() => {});
+  if (mode === 'sin_video') await page.route(/\/game\/video\/.+\.(mp4|webm)/, (route) => route.abort());
+  if (!first) await page.goto(`${BASE}/hub`);
+  // La introducción sólo se comprueba en la pasada «ver»
+  await page.evaluate((seen) => { try { if (seen) localStorage.setItem('alux_seen_llamado', '1'); else localStorage.removeItem('alux_seen_llamado'); } catch { /* nada */ } }, mode !== 'ver');
   await page.click('text=Crear sala privada');
   const code = (await page.textContent('.room-code'))!.trim();
   await page.goto(`${BASE}/game/index.html?room=${code}&debug=1&q=min`);
@@ -81,9 +76,11 @@ async function run(browser: Browser, mode: Mode) {
     assert.equal(fetched.length, names.length, `todos los vídeos se descargan (${names.map((n) => `${n}:${clips[n].s}`).join(', ')})`);
     const total = names.reduce((sum, n) => sum + clips[n].bytes, 0);
     const okReq = videoRequests.filter((r) => r.status === 200);
-    assert.ok(okReq.length >= names.length, 'un archivo por vídeo, servido con 200');
-    assert.ok(okReq.every((r) => /immutable/.test(r.cache)), `los vídeos llegan con caché larga (${okReq[0]?.cache})`);
-    ok(`Carga de vídeo: ${names.length} archivos, ${(total / 1e6).toFixed(2)} MB (${okReq.map((r) => r.url).join(', ')}), caché «${okReq[0].cache}»`);
+    if (mode === 'ver') {
+      assert.ok(okReq.length >= names.length, 'un archivo por vídeo, servido con 200');
+      assert.ok(okReq.every((r) => /immutable/.test(r.cache)), `los vídeos llegan con caché larga (${okReq[0]?.cache})`);
+    }
+    ok(`Carga de vídeo: ${names.length} archivos, ${(total / 1e6).toFixed(2)} MB${okReq.length ? ` (${okReq.map((r) => r.url).join(', ')}), caché «${okReq[0].cache}»` : ' (servidos desde la caché del navegador)'}`);
   }
 
   // Sola, pisa el altar: la sala se pausa, se ve la escena y vuelve la partida
@@ -146,11 +143,19 @@ async function run(browser: Browser, mode: Mode) {
   const bad = errors.filter((e) => !/favicon|WebGL|GPU stall|swiftshader|deprecated|net::ERR_FAILED|Failed to load resource/i.test(e));
   if (bad.length) console.log('Errores de consola:\n  ' + bad.slice(0, 6).join('\n  '));
   assert.equal(bad.length, 0, 'sin errores en la consola del navegador');
-  await ctx.close();
 }
 
 const browser = await launch();
-for (const mode of modes) await run(browser, mode);
+const ctx = await browser.newContext({ viewport: { width: 960, height: 540 } });
+const page = await ctx.newPage();
+page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 200)); });
+page.on('pageerror', (e) => errors.push(String(e).slice(0, 200)));
+page.on('response', (r) => {
+  if (!/\/game\/video\/.+\.(mp4|webm)/.test(r.url())) return;
+  videoRequests.push({ url: path.basename(new URL(r.url()).pathname), status: r.status(), bytes: Number(r.headers()['content-length'] || 0), cache: r.headers()['cache-control'] || '' });
+});
+await login(page, 'Cine');
+for (let i = 0; i < modes.length; i++) await run(page, modes[i], i === 0);
 await browser.close();
 console.log(`Cinemáticas verificadas contra ${BASE} (${modes.join(', ')}). Capturas en ${OUT}`);
 process.exit(0);

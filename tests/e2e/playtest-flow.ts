@@ -179,6 +179,26 @@ assert.ok(s.stats.kills + s.stats.purified >= 8, `el resumen cuenta las 8 bajas 
 await shot(page, '06-victoria.png');
 ok(`Victoria: panel con resumen (${Math.round(s.stats.secs)} s, ${s.stats.kills} vencidos, ${s.stats.purified} purificadas, ${s.stats.falls} caídas)`);
 
+// 6b) El guardián duerme en el patio; en cuanto un compañero entra, despierta para todos
+s = await state(page);
+if (s.boss !== undefined) {
+  assert.equal(s.boss[0], 0, 'con la emboscada recién superada, el guardián sigue dormido');
+  assert.equal(s.boss_glb, true, 'el guardián se ve con su modelo');
+  assert.equal(s.boss_bar, false, 'dormido no muestra barra');
+  const alive = cast.slice(1).map((a) => a.idle(0, 1));
+  await cast[0].walkTo(19.5, 0, 'alux', 25);
+  await cast[0].walkTo(25.5, 0, 'alux', 25);
+  const stay = cast[0].idle(1, 0);
+  await waitFor('el guardián despierta', async () => (await state(page) as any).boss[0] === 1, 30_000);
+  await waitFor('barra de Silencio', async () => (await state(page) as any).boss_bar === true, 15_000);
+  s = await state(page);
+  assert.match(s.ui.objective, /glifos del guardián/, 'el objetivo explica qué hacer con él');
+  assert.equal(s.boss[6], 100, 'su Silencio está entero');
+  await shot(page, '06b-jefe-despierta.png');
+  [...alive, stay].forEach(clearInterval);
+  ok(`Jefe: Nojoch Tuunich duerme en el patio y despierta para todos cuando entra un compañero (glifos ${s.boss[7]}/${s.boss[8]}, barra de Silencio en pantalla)`);
+}
+
 // 7) Otra ronda: hace falta el voto de todos
 await page.keyboard.press('Enter');
 await waitFor('voto de la jugadora', async () => (await state(page) as any).votes === 1, 30_000);

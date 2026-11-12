@@ -1,8 +1,18 @@
 # Nojoch Tuunich, el Guardián Dormido
 
-Diseño del primer jefe de ALUX (Alpha 0.3). **Propuesta para tu aprobación:** nada de esto está
-programado todavía y no se ha gastado ningún crédito de Kling en él. Resumen del capítulo y de las
-formas: [GAME_DESIGN.md](GAME_DESIGN.md) · Historia: [STORY_BIBLE.md](STORY_BIBLE.md) ·
+Diseño del primer jefe de ALUX (Alpha 0.3). **Concepto aprobado el 12 de noviembre de 2026:** tres
+fases cooperativas, fase 2 en la explanada, reintento por fases, recompensas persistentes sin
+duplicar y la Pluma de Jade como recompensa final. No se ha gastado ningún crédito de Kling en él.
+
+| Parte | Estado |
+| --- | --- |
+| Fase 1 (Olvido) en el servidor | **Hecha y probada** con bots para 1, 2 y 4 jugadores |
+| Fase 1 en el cliente: modelo, barra de Silencio, avisos de ataque, objetivo | **Hecha**; vista en capturas, sin probar con personas |
+| Modelo del coloso | **Propuesta lista para tu revisión** (`art/propuestas/nojoch/`); en el juego va como provisional |
+| Fases 2 y 3, escenario que cambia, recompensa | Diseñadas aquí; **sin programar**. Al completar la fase 1 el guardián queda de rodillas |
+| Cinemáticas de despertar y liberación | Storyboards, cuadros clave, prompts y presupuesto listos; **sin producir** hasta que apruebes modelo y créditos |
+
+Resumen del capítulo y de las formas: [GAME_DESIGN.md](GAME_DESIGN.md) · Historia: [STORY_BIBLE.md](STORY_BIBLE.md) ·
 Cinemáticas: [CINEMATICS.md](CINEMATICS.md).
 
 ## Qué es
@@ -43,7 +53,7 @@ El guardián se levanta y pelea despacio. Su pecho está apagado.
 
 | Ataque | Aviso | Efecto | Cómo se responde |
 | --- | --- | --- | --- |
-| **Golpe de losa** | Levanta el puño 1.2 s; círculo en el suelo (3.5 m) | Daño alto. **Rompe las losas**: esa zona queda hundida 12 s y quien cae recibe daño y vuelve al borde | Salir del círculo; después, rodear el hueco |
+| **Golpe de losa** | Levanta el puño 1.2 s; círculo en el suelo (3.5 m) | Daño alto. **Rompe las losas**: deja 12 s de escombros cargados de Silencio que hacen daño a quien los pisa. (El hundimiento real del suelo llegará con el escenario que cambia.) | Salir del círculo; después, rodear los escombros |
 | **Barrido** | Gira el torso 0.9 s; abanico de 140° | Daño medio y empujón | Esquiva del alux o salto de Balam |
 | **Llamada del Silencio** | Golpea el suelo con las dos manos | Salen criaturas corrompidas de los muros (2 a 4 según el grupo) | Ver abajo |
 
@@ -92,6 +102,43 @@ Las vetas magenta se apagan, los glifos se encienden y el guardián recuerda.
 | Sin atascos | Ninguna fase depende de que el jefe haga un ataque concreto: las criaturas y la embestida vuelven cada cierto tiempo |
 | Otra ronda | Tras vencerlo, la sala puede votar otra ronda como hoy; el jefe vuelve a dormirse |
 
+## Cómo se explica la barra de Silencio
+
+| Dónde | Qué dice |
+| --- | --- |
+| Barra superior | «NOJOCH TUUNICH · Olvido», barra magenta con la palabra SILENCIO y los glifos que faltan (◆ ◇ ◇) |
+| Al despertar, una vez | «Su barra no es vida: es Silencio. Purifica criaturas a su lado (F) y recordará» |
+| Objetivo | «Enciende los glifos del guardián (1/3) · Debilita a una criatura y tócala con F junto a él · los golpes no le hacen nada» |
+| Si se purifica lejos | «Demasiado lejos del guardián: purifícala a su lado para encender un glifo» |
+| Al llamar criaturas | «El Silencio trae criaturas: son la llave de su memoria» |
+| Chiich Yaxché (pendiente) | Una línea nueva cuando el santuario esté libre: el guardián no es un enemigo, es alguien que olvidó |
+
+![El jefe en el juego: dormido tras el cristal, en la fase 1 con su barra, y de cerca](img/jefe-en-juego.jpg)
+
+## El modelo (propuesta para revisar)
+
+![Nojoch Tuunich junto a un alux y a Balam, a escala](../art/propuestas/nojoch/nojoch_escala.png)
+
+Hecho por código en Blender, como los demás: 8 765 triángulos, 26 huesos, 1.17 MB, sin texturas.
+Once animaciones: dormir, despertar, reposo, andar, golpe de losa, barrido, llamada, embestida,
+aturdido, de rodillas y recordar. Hojas, poses y medidas en `art/propuestas/nojoch/`.
+
+Cada fase se distingue a la vista sin cambiar de modelo, sólo con materiales y animación:
+
+| Fase | Ojos | Vetas del Silencio | Glifos del pecho | Postura |
+| --- | --- | --- | --- | --- |
+| Dormido | Apagados | Tenues | Apagados | Sentado, cabeza gacha |
+| Olvido | Magenta | Magenta, latiendo despacio | Se encienden en jade de uno en uno | De pie, lento |
+| Furia | Magenta intenso | Más vivas, latiendo rápido | Los encendidos se quedan | Agresivo; de rodillas cuando lo sujetan |
+| Recuerdo | Jade | Apagándose | Los cuatro encendidos | De rodillas |
+| Liberado | Jade | Apagadas (quedan como cicatrices) | Encendidos | Sentado en su sitio, despierto |
+
+**Lo que está flojo y conviene decidir antes de las cinemáticas:** recuerda todavía al gólem de
+bloques genérico (le falta talla en espalda y piernas); la cara sale más adusta que serena; la
+crestería se lee de frente como un sombrero de losas; con la luz del juego la caliza se ve verdosa;
+las animaciones sólo se han visto en cuadros sueltos, no en movimiento; y en algunas poses los
+sillares se cruzan en codos y rodillas.
+
 ## Qué hay que construir
 
 | Pieza | Reutiliza | Nuevo |
@@ -123,46 +170,78 @@ cuerpos, por eso la fase 2 sale a la explanada.
 
 ## Cinemáticas
 
+Las dos son narrativas principales: llevan Kling, con la versión del motor debajo, como «El sello
+cede». **No se produce ninguna hasta que apruebes el modelo y el presupuesto.**
+
+![Cuadros clave sacados del juego con el modelo propuesto: arriba el despertar, abajo la liberación](img/jefe-cuadros-clave.jpg)
+
+Referencias para Kling: los cuadros clave (`art/cinematicas/jefe/`), la hoja del modelo
+(`art/propuestas/nojoch/nojoch_hoja.png`) y los cuadros enriquecidos de «El sello cede» como estilo,
+para que el patio se vea igual que en esa escena.
+
 ### «El despertar de Nojoch Tuunich» (presentación, compartida)
 
-16 s en cuatro planos. Empieza cuando el grupo entra al patio.
+16 s en cuatro planos. Empieza cuando el grupo entra al patio. Sin jugadores en cuadro.
 
-| Plano | Duración | Qué pasa | Termina en |
-| --- | --- | --- | --- |
-| 1. La estatua | 4 s | El patio en silencio. Al fondo, lo que parecía una estatua cubierta de musgo y raíces. El cristal de jade late una vez. | Plano general del patio |
-| 2. Las grietas | 4 s | Una grieta recorre el pecho de piedra; caen polvo y hojas; las raíces se rompen. | Primer plano del pecho |
-| 3. Los glifos | 4 s | Los cuatro glifos intentan encenderse en jade… y se tiñen de magenta. Se abren los ojos. | Primer plano de la cabeza |
-| 4. De pie | 4 s | El coloso se incorpora, el patio tiembla, alza un puño. | **La cámara de combate**, con él de pie en su sitio |
+| Plano | Dur. | Qué pasa | Cámara | Cuadro clave |
+| --- | --- | --- | --- | --- |
+| 1. La estatua | 4 s | El patio en silencio. Al fondo, lo que parecía una estatua cubierta de musgo y raíces. El cristal late una vez. | Del umbral hacia el fondo, muy lenta | `despertar_1` |
+| 2. Las grietas | 4 s | Una grieta de luz recorre el pecho de piedra; caen polvo y hojas; las raíces de los hombros se rompen. | Primer plano del pecho, subiendo | `despertar_2` |
+| 3. Los ojos | 4 s | Los glifos parpadean en jade un instante… y se tiñen de magenta. Las vetas se encienden. Se abren los ojos. | Primer plano de la cabeza | `despertar_3` |
+| 4. De pie | 4 s | El coloso se incorpora, el patio tiembla, alza un puño. | Baja, desde el portal; termina en **la cámara de combate** | `despertar_4` (primer y último cuadro) |
 
-Subtítulo final: «Nojoch Tuunich ya no recuerda a quién guarda.»
+Subtítulos: «El santuario guardaba algo más que un cristal.» · «Nojoch Tuunich, el que cuida.» ·
+«…y ya no recuerda a quién.»
 
-### «El guardián recuerda» (despedida, compartida)
+| Plano | Prompt (imagen a vídeo, con el cuadro clave enriquecido como primer cuadro) |
+| --- | --- |
+| 1 | *A quiet walled courtyard of an ancient jungle sanctuary. At the back sits a colossal statue made of stacked limestone blocks with a stepped stone headdress, covered in moss and roots, completely motionless, eyes dark. In front of it a jade crystal floats above a stone pedestal and pulses once with light. Dust motes drift in the golden light. Very slow camera push-in toward the statue. Nothing else moves.* |
+| 2 | *Close on the chest of the limestone colossus. A thin crack of light runs across the stone blocks, dust and dry leaves fall, the roots wrapped around its shoulders snap one by one. The four carved glyph panels on its chest stay dark. Slow camera tilt up toward the head.* |
+| 3 | *Close-up of the stone head with its stepped headdress. The carved glyphs flicker jade for an instant, then turn magenta; magenta veins of light spread along the cracks of the head and shoulders; the heavy stone eyelids grind open and two magenta eyes ignite. Slow push-in.* |
+| 4 | *The limestone colossus rises to its full height, five metres tall, stone blocks grinding, the courtyard trembling and dust pouring from its shoulders. It raises one huge fist. Low wide shot from the gate. It ends standing behind the pedestal, facing the camera.* |
 
-12 s en tres planos, al terminar la fase 3.
+En los cuatro: *Epic stylized 3D animated fantasy film, volumetric light, same statue design, same
+courtyard, pedestal and crystal as the first frame. No other characters, no people, no text, no logos.*
+Negativo: *photorealistic, humanoid face, extra limbs, weapons, armor, new buildings, text, watermark.*
 
-| Plano | Duración | Qué pasa |
-| --- | --- | --- |
-| 1 | 4 s | Las vetas magenta se apagan de la cabeza a los pies; los glifos del pecho se encienden en jade uno a uno. |
-| 2 | 4 s | El coloso mira sus manos, las abre: entre ellas flota una pluma de jade. La acerca al grupo (visto desde arriba, sin mostrar caras). |
-| 3 | 4 s | Vuelve a sentarse en su sitio, despierto. La pluma tiembla y gira sola hacia el oeste; lejos, el agua oscura del cenote devuelve un destello. |
+### «La liberación» (despedida, compartida)
 
-Subtítulo final: «La pluma señala al cenote. Abajo hay alguien que también olvidó su nombre.»
+12 s en tres planos, al terminar la fase 3. Entrega la Pluma de Jade.
 
-### Presupuesto estimado de Kling (sin aprobar)
+| Plano | Dur. | Qué pasa | Cámara | Cuadro clave |
+| --- | --- | --- | --- | --- |
+| 1. El Silencio se va | 4 s | De rodillas. Las vetas magenta se apagan de la cabeza a los pies; los glifos del pecho se encienden en jade uno a uno; los ojos pasan a jade. | Media, girando despacio | `liberacion_1` |
+| 2. La pluma | 4 s | Abre las manos: entre ellas flota una pluma de jade que antes no estaba. La acerca hacia delante. | Desde arriba, sin mostrar a los jugadores | `liberacion_2` |
+| 3. El que cuida | 4 s | Vuelve a sentarse en su sitio, despierto. La pluma tiembla y gira sola hacia el oeste; lejos, el agua oscura del cenote devuelve un destello. | Del patio hacia fuera, subiendo | `liberacion_3` |
 
-Con los precios ya medidos en «El sello cede»: 20 créditos por cuadro clave enriquecido y 8 por
-segundo de vídeo a 1080p.
+Subtítulos: «Recordó.» · «La primera pluma de Kukulkán.» · «La pluma señala al cenote. Abajo hay
+alguien que también olvidó su nombre.»
 
-| | Despertar | El guardián recuerda |
+| Plano | Prompt |
+| --- | --- |
+| 1 | *The limestone colossus kneels in the courtyard. The magenta veins of light along its cracks fade out from the head down to the feet, leaving dark scars. The four carved glyph panels on its chest light up in jade one by one, and its eyes turn from magenta to calm jade. Slow orbit, warm golden light returning.* |
+| 2 | *High angle looking down at the kneeling colossus as it opens its two huge stone hands. Between them a small glowing jade feather appears and floats, turning slowly, shedding motes of jade light. The colossus gently offers it forward.* |
+| 3 | *The colossus sits back in its place at the end of the courtyard, awake and serene, jade eyes glowing softly. The jade feather trembles in the air and turns by itself toward the west. Camera rises above the courtyard walls: far away over the jungle canopy, a dark cenote flashes once with light.* |
+
+### Presupuesto de Kling (con los precios medidos; sin aprobar)
+
+Precios reales de «El sello cede»: 20 créditos por cuadro clave enriquecido y 8 por segundo de vídeo
+a 1080p. Saldo: 2 375.
+
+| | Despertar | La liberación |
 | --- | --- | --- |
 | Duración | 16 s | 12 s |
-| Cuadros clave enriquecidos | 5 (100) | 4 (80) |
+| Cuadros clave enriquecidos | 5 (4 de inicio + el final del plano 4): 100 | 4 (3 de inicio + el final del plano 1): 80 |
 | Vídeo, una pasada | 128 | 96 |
-| Total de una pasada | ~230 | ~180 |
-| Con repeticiones (un coloso animado falla más que un escenario) | ~400 | ~300 |
+| **Una pasada** | **228** | **176** |
+| Repeticiones previstas | 1 por plano de media: un coloso animado falla más que un escenario (en «El sello cede», sin personajes, hubo 1 de 7) | Igual |
 | **Máximo propuesto** | **450** | **350** |
 
-No se gasta nada hasta que apruebes el modelo, la mecánica y estos presupuestos.
+Sin medir: si conviene registrar al coloso como «sujeto» de Kling para fijar su diseño entre planos;
+se probaría con la primera toma, dentro del máximo.
+
+**Qué falta antes de producirlas:** tu visto bueno al modelo (o los cambios que pidas), la versión
+del motor de las dos escenas (los planos con estas mismas cámaras) y, para la liberación, la fase 3.
 
 ## Recompensa y enlace con el Capítulo II
 
@@ -176,7 +255,18 @@ No se gasta nada hasta que apruebes el modelo, la mecánica y estos presupuestos
 Esto adelanta a la 0.3 la recompensa que la hoja de ruta ponía en la 0.4. La 0.4 queda para el
 vínculo de Balam como desbloqueo narrativo y el pulido del capítulo.
 
-## Decisiones que necesito
+## Decisiones
+
+Aprobadas el 12 de noviembre de 2026: barra de Silencio (explicada en la interfaz y la narrativa),
+tres fases cooperativas, fase 2 en la explanada, reintento por fases, recompensas sin duplicar y la
+Pluma de Jade como recompensa final. Quedan abiertas:
+
+| Decisión | Opciones | Recomendación |
+| --- | --- | --- |
+| Modelo del coloso | Aprobarlo · pedir cambios (cara más serena, más talla, otra crestería) | Pedir al menos la cara y la talla antes de hacer vídeos con él |
+| Presupuesto de las dos cinemáticas | 450 + 350 créditos · menos · esperar | Aprobarlo cuando el modelo esté cerrado |
+
+Decisiones ya tomadas (se conservan como registro):
 
 | Decisión | Opciones | Recomendación |
 | --- | --- | --- |

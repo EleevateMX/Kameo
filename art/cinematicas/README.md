@@ -7,6 +7,7 @@ del motor que tiene debajo. No llevan interfaz, jugadores ni textos.
 | Carpeta | Escena | Archivos |
 | --- | --- | --- |
 | `sello/` | «El sello cede» | `plano_1a/1b` (altar → portal), `plano_2a/2b` (sellado → abierto), `plano_3a/3b` (umbral → cristal del patio) |
+| `jefe/` | «El despertar de Nojoch Tuunich» y «La liberación» | `despertar_1…4` y `liberacion_1…3`, con el modelo propuesto (sin producir; guiones en [docs/BOSS.md](../../docs/BOSS.md)) |
 | `sello/kling/` | Producción con Kling | Originales, cuadros enriquecidos, secuencias montadas y [registro con prompts y costos](sello/kling/PRODUCCION.md) |
 
 Regenerar (las cámaras están en `KEYFRAMES`, en `game/tools/preview.gd`):

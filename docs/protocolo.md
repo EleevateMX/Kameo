@@ -45,6 +45,20 @@ Quien entra o se reconecta recibe, tras el `welcome`, el `cine_prep` (con la esp
 `cine` (con `at`) de la fase en curso. El vídeo nunca viaja por este canal: cada navegador lo
 descarga por HTTP. Detalle y motivos: [CINEMATICS.md](CINEMATICS.md).
 
+### `snap.b` — el jefe
+
+Estado de Nojoch Tuunich ([BOSS.md](BOSS.md)); también viaja en `welcome`. Lo decide todo el servidor
+y no existe ningún mensaje del cliente que lo toque:
+
+`[fase, x, z, giro, estado, segundosDelEstado, silencio, glifos, glifosNecesarios, slotObjetivo, golpeX, golpeZ, giroDelBarrido, escombros]`
+
+- Fase: 0 dormido · 1 olvido · 2 furia · 3 recuerdo · 4 liberado. Silencio: de 100 a 0.
+- Estado: `sleep`, `rise`, `idle`, `walk`, `slam_w`, `sweep_w`, `summon_w`, `recover`, `kneel`, `freed`.
+- Escombros: lista de `[x, z, radio, segundosQueQuedan]`.
+
+Sus eventos van con los de combate: `["boss", "awake"|"tele"|"slam"|"sweep"|"summon"|"glyph"|"far"|"phase"|"fail", …]`.
+`tele` avisa de un ataque antes de que caiga (cuál, cuánto falta y dónde).
+
 ### `snap.p` — jugadores
 
 `[lugar, últimaEntradaProcesada, conectado, vida, ...estado]`, donde el estado simulado son 19 valores:

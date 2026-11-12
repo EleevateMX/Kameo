@@ -72,14 +72,30 @@ como pendiente debe darse por hecho.
     hablante de maya yucateco.
   - Kling: storyboard de «El vínculo de Balam» aprobado y una toma de prueba hecha (50 créditos por
     5 s). Presupuestos por escena en [CINEMATICS.md](CINEMATICS.md), **todos sin aprobar**.
-- **Cinemáticas con vídeo (Alpha 0.3)**
+- **Jefe Nojoch Tuunich (Alpha 0.3, sin publicar)**
+  - Hecho: fase 1 completa en servidor y cliente, modelo propuesto, barra de Silencio explicada,
+    avisos de ataque, derrota y reintento. Probado con bots para 1, 2 y 4 jugadores.
+  - **Sin programar:** fases 2 y 3, el escenario que cambia (muros, anclas, pilares), la Pluma de
+    Jade y las dos cinemáticas. Al completar la fase 1 el guardián se queda de rodillas.
+  - El golpe de losa deja escombros que hacen daño; el suelo todavía no se hunde.
+  - Sus golpes no se pueden esquivar con ayuda visual más allá del aviso en el suelo: falta probar
+    con personas si se leen a tiempo y si el daño está bien medido.
+  - El modelo es provisional hasta tu revisión: cara adusta, poca talla, caliza verdosa con la luz
+    del juego; las animaciones sólo se han visto en cuadros sueltos.
+  - Sin sonidos propios (usa los de los enemigos) ni presentación: despierta sin escena.
+  - Sin medir su costo en navegador con tarjeta gráfica ni la memoria del servidor en combate.
+  - Chiich Yaxché todavía no dice nada sobre él.
+- **Secuelas del sello en el santuario (Alpha 0.3, sin publicar)**
+  - Hechas: enredaderas, grietas, glifos y marcas que se apagan, restos magenta, magia residual.
+  - El vídeo sigue siendo más rico que el escenario (luz de atardecer, musgo, piedra tallada).
+- **Cinemáticas con vídeo (publicadas en la 0.2.1)**
   - Hecho: reproducción en el navegador, respaldo del motor por plano, fases de preparación y
     reanudación, reconexión, métricas, y **«El sello cede» producida con Kling e integrada**.
-  - **Sin publicar:** la beta lleva la Alpha 0.2, donde esa escena todavía es la del motor.
+  - **Publicado** en la Closed Alpha 0.2.1.
   - Sin probar: Safari y Firefox, tarjeta gráfica, sonido dentro de un vídeo, personas.
   - El vídeo deja niebla y vetas magenta en el patio que el juego no tiene; no se nota porque se
     vuelve por fundido a la cámara del jugador, fuera del patio.
-  - Las etiquetas de versión `alpha-0.1` y `alpha-0.2` no se pudieron subir desde este entorno
+  - Las etiquetas de versión `alpha-0.1`, `alpha-0.2` y `alpha-0.2.1` no se pudieron subir desde este entorno
     (el servicio de Git rechazó la subida de etiquetas). Los commits son `12fadbe` y `c28e32c`.
   - Precios de Kling sin medir: planos con personajes, sonido generado, 720p y 4K.
   - La introducción («El llamado») es local y empieza nada más entrar: cuando tenga vídeo habrá

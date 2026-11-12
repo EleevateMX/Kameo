@@ -8,7 +8,9 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 | Closed Alpha 0.1 | Publicada el 12 nov 2026; **sustituida por la 0.2**. Commit `12fadbe`: es el punto de rollback | Claro de los Aluxes jugable de 1 a 4, combate, emboscada, victoria y derrota, audio provisional, acceso por invitación |
 | Closed Alpha 0.2 | Publicada el 12 nov 2026; **sustituida por la 0.2.1**. Commit `c28e32c`: es el punto de rollback | Introducción «El llamado», Chiich Yaxché con modelo propio y diálogo, primer objetivo narrativo, cinemáticas locales y compartidas con voto, progreso del capítulo en el perfil |
 
-| **Closed Alpha 0.2.1** | **Publicada** en <https://alux-beta.onrender.com> | La 0.2 más las cinemáticas híbridas, **«El sello cede» producida con Kling** y los modelos de los personajes corregidos |
+| **Closed Alpha 0.2.1** | **Publicada** el 12 nov 2026 en <https://alux-beta.onrender.com> (commit `94bb9c8`) | La 0.2 más las cinemáticas híbridas, **«El sello cede» producida con Kling** y los modelos de los personajes corregidos |
+
+| Alpha 0.3 (en desarrollo) | En la rama de trabajo, **sin publicar** | Secuelas del sello en el santuario; jefe Nojoch Tuunich con modelo propuesto y fase 1 jugable |
 
 ## Publicación en la rama `beta`
 
@@ -17,6 +19,30 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
+
+## Alpha 0.3 — El Guardián Dormido (en desarrollo, sin publicar)
+
+| Novedad | Detalle |
+| --- | --- |
+| Secuelas de «El sello cede» | El santuario conserva lo que mostró el vídeo: enredaderas y grietas fijas (en la misma malla de piedra) y, al romperse el sello, glifos y sol encendidos de más que se asientan, marcas magenta que se apagan, restos del sello que tardan en irse y motas de jade y oro que se quedan. Sin luces nuevas. |
+| Nojoch Tuunich, fase 1 | El jefe duerme al fondo del patio y despierta cuando el grupo entra con la emboscada superada. Golpe de losa con escombros, barrido y llamada de criaturas, todos con aviso. Purificar criaturas cerca de él enciende sus glifos (2, 3, 4 y 4 para 1 a 4 jugadores). Derrota y reintento desde la fase. |
+| Barra de Silencio | No es vida: se explica en la barra, en el objetivo y con un aviso al despertar. Los golpes de los jugadores no le hacen nada. |
+| Modelo propuesto | Coloso de sillares de caliza, 8 765 triángulos, 26 huesos, 11 animaciones; las fases se distinguen por ojos, vetas y glifos. Provisional hasta su revisión. |
+| Cinemáticas del jefe | Despertar (16 s) y liberación (12 s): storyboards, cuadros clave, prompts y presupuesto, sin producir. |
+
+![Las secuelas del sello: a los 3 s por fuera y por dentro, y ya asentado](img/secuelas-sello.jpg)
+
+Protocolo: cada instantánea y la bienvenida llevan el estado del jefe (`b`) y hay eventos de combate
+`boss`. Compatible: un cliente anterior los ignora. Sin migraciones.
+
+| Comprobación (en local) | Resultado |
+| --- | --- |
+| API y simulación | 10 de 10 · sin violaciones |
+| Servidor con bots | 17 de 17. Nuevas, para 1, 2 y 4 jugadores: el jefe duerme hasta que alguien entra al patio, los mensajes inventados se ignoran, nadie recibe daño mientras se levanta, la fase se completa con los glifos justos, todos ven lo mismo y, con un jugador, derrota y reintento |
+| Navegador | Flujo completo (15 pasos, con el nuevo: el jefe duerme en el patio y despierta para todos cuando entra un compañero, con su modelo, su barra y su objetivo), vídeos reales de Kling y cuatro navegadores: pasan |
+
+**Sin comprobar:** el jefe con personas y con tarjeta gráfica; su costo en navegador y en la memoria
+del servidor; las fases 2 y 3, que no existen todavía.
 
 ## ALUX Closed Alpha 0.2.1
 
@@ -46,6 +72,39 @@ servicio.
 **Volver a la 0.2:** en Render → `alux-beta` → **Events** → el despliegue del commit `c28e32c` →
 **Rollback**; o, desde Git, `git push origin c28e32c42925ae3c27b73b763772c84df8709a04:beta --force-with-lease`.
 La base de datos no necesita nada: el esquema es el mismo. Detalle en [beta.md](beta.md), sección 9.
+
+**Comprobado después de desplegar, contra <https://alux-beta.onrender.com>:**
+
+| Comprobación | Resultado |
+| --- | --- |
+| Versión en servicio | `/healthz` informa `94bb9c888bb041dd0491a924eee45b45f537ff4d`; base de datos respondiendo |
+| HTTPS, cabeceras y cierre sin sesión | Pasa |
+| WSS | `wss://alux-beta.onrender.com/ws` abre y rechaza tickets falsos |
+| Invitación, guardado, métricas | Pasa |
+| Partida por WebSocket | 15 estados por segundo, latencia de 30 ms, reconexión tras un corte en el mismo sitio |
+| Carga de vídeo | Los tres vídeos se sirven con 200 y caché de un año (`immutable`): 2.63 MB en MP4; el manifiesto, con revalidación |
+| Reproducción en navegador real | «El sello cede» pausa la sala y se ve **como vídeo**, los tres planos, durante 8.9 s; la partida sigue con la emboscada y el santuario abierto |
+| Omisión | Enter a mitad del vídeo la termina a los 2.5 s y la partida sigue |
+| Respaldo | Con las descargas de vídeo cortadas, la escena se ve con el motor (9.3 s), los tres fallos quedan registrados y la partida sigue |
+| Introducción | «El llamado» se reproduce al entrar y se omite con Enter |
+| Ciclo completo de un jugador | Pasa: carga (17.5 s), audio, menú, altar, emboscada, derrota, reintento y salida |
+
+![La beta publicada reproduciendo el plano 2 de Kling](img/beta-021-sello.jpg)
+
+**Sin comprobar en el servicio:** de dos a cuatro jugadores a la vez (sólo hay una invitación de
+comprobación), los registros de Render (no hay acceso desde aquí; el servicio responde y no se
+reinició durante las pruebas), Safari, Firefox y cualquier navegador con tarjeta gráfica.
+
+**Etiqueta de versión:** `alpha-0.2.1` (`94bb9c8`) está creada en local y **no se pudo subir**: el
+servicio de Git de este entorno sigue rechazando las etiquetas. Para crearla:
+
+```bash
+git tag -a alpha-0.2.1 94bb9c888bb041dd0491a924eee45b45f537ff4d -m "ALUX Closed Alpha 0.2.1"
+```
+
+```bash
+git push origin alpha-0.2.1
+```
 
 ## Contenido de la 0.2.1 — «El sello cede» con Kling
 

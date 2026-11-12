@@ -10,15 +10,15 @@ Pruebas: [PLAYTEST.md](PLAYTEST.md) · Versiones: [RELEASES.md](RELEASES.md).
 
 | Área | Estado real |
 | --- | --- |
-| Versión publicada | **Closed Alpha 0.2** en <https://alux-beta.onrender.com> (rama `beta`, commit `c28e32c`), desde el 12 nov 2026. Rollback a la 0.1: commit `12fadbe` ([RELEASES.md](RELEASES.md)). |
-| Versión candidata | Ninguna pendiente: la rama `release/alpha-0.2-rc1` ya está publicada. |
-| Versión en desarrollo | **Alpha 0.3**: cinemáticas híbridas y «El sello cede» producida con Kling, en la rama de trabajo. **Sin publicar.** Siguiente: el jefe ([BOSS.md](BOSS.md)). |
+| Versión publicada | **Closed Alpha 0.2.1** en <https://alux-beta.onrender.com> (rama `beta`, commit `94bb9c8`), desde el 12 nov 2026: la 0.2 con «El sello cede» producida en Kling. Rollback a la 0.2: commit `c28e32c` ([RELEASES.md](RELEASES.md)). |
+| Versión candidata | Ninguna pendiente: `release/alpha-0.2.1-rc1` ya está publicada. |
+| Versión en desarrollo | **Alpha 0.3**, en la rama de trabajo, **sin publicar**: secuelas del sello en el santuario y el jefe Nojoch Tuunich con su fase 1 jugable ([BOSS.md](BOSS.md)). |
 | Multijugador | Servidor autoritativo, 4 jugadores, reconexión, salas. Verificado con bots, navegadores y contra el servicio desplegado (un jugador). **Cuatro personas reales a la vez: sin probar.** |
 | Combate y formas | Alux y Balam, dos enemigos, emboscada, derrota y otra ronda. Datos modulares (`combat_def.gd`). Equilibrio sin probar con personas. |
 | Historia | Introducción, un personaje con diálogo, primer objetivo narrativo y una escena compartida (Alpha 0.2). Sin jefe ni cierre de capítulo. |
-| Cinemáticas | Sistema híbrido hecho. **Primera cinemática con Kling producida e integrada**: «El sello cede» (10 s, 284 créditos de 500). Quedan 2 375 créditos. |
+| Cinemáticas | Sistema híbrido y **«El sello cede» con Kling, publicados** (10 s, 284 créditos de 500). Las dos del jefe están diseñadas, con cuadros clave y prompts, sin producir. Quedan 2 375 créditos. |
 | Escenario | Un solo mapa, definido en un único archivo compartido (`world_def.gd`). **No hay soporte para varias zonas.** |
-| Arte | Alux, Balam y Chiich Yaxché modelados (Blender, por código). Enemigos con modelos provisionales. |
+| Arte | Alux, Balam y Chiich Yaxché modelados y con los hilos de las prendas corregidos. Nojoch Tuunich: propuesta de modelo lista para revisar. Enemigos comunes con modelos provisionales. |
 | Audio | 38 sonidos generados por código. **Nadie los ha escuchado.** |
 | Rendimiento | Medido sólo con render por software. **Sin datos de tarjeta gráfica**; las métricas de cada sesión real ya se registran. |
 | Acceso y datos | Invitaciones individuales, PostgreSQL en Render, migraciones automáticas. Discord real pendiente de credenciales. |
@@ -71,7 +71,9 @@ a los demás; ninguna prueba anterior se rompe.
 | **Alcance** | Nojoch Tuunich con tres fases (diseño en [GAME_DESIGN.md](GAME_DESIGN.md)), su presentación como cinemática compartida, modelos propios de los dos enemigos actuales. |
 | **Incremento 1 (hecho)** | Sistema cinematográfico híbrido. |
 | **Incremento 2 (hecho)** | «El sello cede» producida con Kling e integrada, con sus dos tratamientos. |
-| **Siguiente** | El jefe, según [BOSS.md](BOSS.md): modelo, fase 1 en el servidor, escenario que cambia, fases 2 y 3, recompensa y dos cinemáticas. Espera tu aprobación del diseño. |
+| **Incremento 3 (hecho)** | El santuario conserva las consecuencias de «El sello cede»: enredaderas, grietas, glifos que se asientan, restos magenta que se apagan y magia residual. |
+| **Incremento 4 (hecho)** | Nojoch Tuunich: modelo propuesto y fase 1 (Olvido) completa en servidor y cliente, con pruebas para 1, 2 y 4 jugadores. |
+| **Siguiente** | Fase 2 (Furia: anclas, embestida, corazón expuesto y salida a la explanada), fase 3 (Recuerdo), Pluma de Jade y las dos cinemáticas. |
 | **Dependencias** | Cinemáticas compartidas (0.2, incremento 2). Datos de rendimiento con tarjeta gráfica para decidir cuántos efectos caben. |
 | **Implementación** | El jefe reutiliza la IA de enemigos, los avisos de ataque, los altares de presión, la purificación y la derrota con reintento. |
 | **Pruebas** | Bots: victoria con 1, 2 y 4 jugadores; derrota y reintento; nadie puede saltarse fases desde el cliente. Navegador: flujo completo hasta vencer. |
@@ -131,6 +133,8 @@ Historia, jefe y cierre de Los Secretos del Cenote, con la misma estructura que 
 | Nombres de los espíritus y del antagonista | **Aprobados como nombres de trabajo**: Áayin, Tuunich, Toh y El que Calla. Falta la revisión de un hablante de maya yucateco. | [STORY_BIBLE.md](STORY_BIBLE.md) |
 | Primera cinemática con Kling | **«El sello cede»**, autorizada con 500 créditos y producida con 284 (12 nov 2026), en tratamiento enriquecido. «El vínculo de Balam» sigue aprobada en storyboard, para la 0.4. | [CINEMATICS.md](CINEMATICS.md) |
 | Publicar la Alpha 0.2 | **Autorizada y publicada** el 12 nov 2026. | [RELEASES.md](RELEASES.md) |
+| Publicar la Alpha 0.2.1 | **Autorizada y publicada** el 12 nov 2026, con «El sello cede» de Kling y los modelos corregidos. | [RELEASES.md](RELEASES.md) |
+| Concepto de Nojoch Tuunich | **Aprobado** (12 nov 2026): liberarlo del Silencio, tres fases, fase 2 en la explanada, reintento por fases, Pluma de Jade. | [BOSS.md](BOSS.md) |
 | Kling en las cinemáticas | **Obligatorio en toda cinemática narrativa** (12 nov 2026), con presupuesto por escena y respaldo del motor. La primera en producirse será «El sello cede». | [CINEMATICS.md](CINEMATICS.md) |
 | Voto para omitir cinemáticas compartidas | **Mayoría de los conectados**; un jugador solo omite al instante. | Implementado en 0.2 |
 
@@ -138,6 +142,6 @@ Historia, jefe y cierre de Los Secretos del Cenote, con la misma estructura que 
 
 | Decisión | Opciones | Recomendación |
 | --- | --- | --- |
-| Publicar «El sello cede» con Kling | Llevar la rama de trabajo a `beta` como Alpha 0.2.1 · esperar a la 0.3 con el jefe | Publicarla ya: está probada, no cambia la base de datos y es lo más visible para los testers |
-| Diseño de Nojoch Tuunich | Aprobar [BOSS.md](BOSS.md) tal cual · cambiar la barra de Silencio, la salida a la explanada, el reintento por fases o la Pluma de Jade en la 0.3 | Aprobarlo como está |
-| Arreglar los hilos de las prendas en los modelos | Regenerar los tres personajes · dejarlo | Hacerlo antes de producir vídeos con personajes (A y B) |
+| Modelo de Nojoch Tuunich | Aprobarlo · pedir cambios (cara más serena, más talla, otra crestería) | Pedir al menos la cara y la talla antes de producir vídeos con él |
+| Presupuesto de las cinemáticas del jefe | Despertar (máx. 450) y liberación (máx. 350) · menos · esperar | Aprobarlo cuando el modelo esté cerrado |
+| Publicar la Alpha 0.3 | Cuando el jefe tenga sus tres fases · antes, con la fase 1 como adelanto | Esperar a las tres fases: hoy el combate se queda a medias |
