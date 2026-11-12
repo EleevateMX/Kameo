@@ -1,9 +1,16 @@
 extends RefCounted
-## Nojoch Tuunich en el servidor: fases, ataques con aviso, glifos y escombros.
+## Nojoch Tuunich en el servidor: fases, ataques con aviso, glifos, anclas, corazón y ritual.
 ## Sólo el servidor decide nada de esto; ningún mensaje del cliente lo toca. Diseño: docs/BOSS.md.
 ##
-## Hecho: fase 1 (Olvido). Las fases 2 y 3 están definidas en el diseño y sin programar: al
-## completar la fase 1 el guardián queda de rodillas.
+##   Fase 1 «Olvido»    en el patio: purificar criaturas junto a él enciende los glifos del pecho.
+##   Fase 2 «Furia»     sale andando a la explanada. Un alux despierta columnas (F); si embiste
+##                      contra una queda aturdido; con las anclas pisadas las cadenas lo sujetan y
+##                      Balam golpea el corazón expuesto. Tres veces.
+##   Fase 3 «Recuerdo»  definida en el diseño y sin programar: al liberar el tercer corazón el
+##                      guardián queda de rodillas.
+##
+## Nadie se teletransporta al cambiar de fase: es el guardián quien camina. Si cae todo el grupo,
+## se duerme y el combate se retoma desde la última fase alcanzada.
 
 const Sim := preload("res://scripts/shared/sim.gd")
 const World := preload("res://scripts/shared/world_def.gd")
@@ -25,37 +32,85 @@ var glyphs := 0
 var needed := 2
 var target_slot := -1
 var aim := Vector2.ZERO         # punto del golpe de losa en curso
-var aim_yaw := 0.0              # dirección del barrido en curso
+var aim_yaw := 0.0              # dirección del barrido o de la embestida en curso
 var rubble: Array = []          # escombros: [x, z, radio, segundos que quedan, segundos hasta el próximo daño]
+# Fase 2
+var pillars: Array = []         # columnas en pie: [índice de zócalo, segundos que le quedan]
+var anchors := 0                # máscara de anclas activas
+var anchors_need := 1
+var heart := 0.0                # aguante que le queda al corazón en esta exposición
+var heart_max := 1.0
+var releases := 0               # veces que se ha liberado el corazón
+# Fase 3
+var lit := 0                    # glifos de memoria encendidos en el suelo
+var lit_need := 1
+var ritual := 0.0               # segundos de contacto acumulados
+var ritual_need := 3.0
+var channel := 0                # máscara de slots que lo están tocando
+var touch_need := 1             # cuántos tienen que tocarlo a la vez
+## Avisos para la sala (los recoge game_server): "awake" al despertar por primera vez, "freed".
+var notices: Array = []
+var awakenings := 0
+
 var _summon_cd := 0.0
 var _rearm := 0.0
 var _swing := 0                 # alterna barrido y losa cuando tiene a alguien cerca
 var _walked := 0.0
 var _dmg_scale := 1.0
+var _anchor_t: Array = [0.0, 0.0, 0.0, 0.0]
+var _charge_cd := 0.0
+var _rain_cd := 0.0
+var _rain_next := 0.0
+var _dir := Vector2.ZERO        # dirección fijada de la embestida
+var _run_left := 0.0
+var _struck := {}
+var _path: Array = []           # puntos por los que camina al cambiar de sitio
+var _leg_t := 0.0
+var _wave_t := 0.0
+var _pulse_t := 0.0
+var _pulse_w := -1.0            # > 0 mientras avisa el pulso
+var _clang_cd := 0.0
+## Los jugadores de la sala tal y como los vio el último tick (para lo que nace de una acción de
+## jugador, fuera del tick del jefe).
+var _players: Array = []
 
 
 func _init(p_combat: RefCounted) -> void:
 	combat = p_combat
 
 
-## Vuelve a dormirse en su sitio. `full`: olvida también hasta dónde había llegado el grupo.
+## Vuelve a dormirse. `full`: olvida también hasta dónde había llegado el grupo.
 func reset(full: bool) -> void:
+	if full:
+		checkpoint_phase = Boss.OLVIDO
+		_rearm = 0.0
+		awakenings = 0
+		notices.clear()
 	phase = Boss.ASLEEP
 	state = "sleep"
 	t = 0.0
-	x = Boss.HOME.x
-	z = Boss.HOME.y
+	# A partir de la fase 2 duerme donde se libra el combate: en la explanada
+	var at: Vector2 = Boss.HOME if checkpoint_phase == Boss.OLVIDO else Boss.P2_HOME
+	x = at.x
+	z = at.y
 	yaw = Boss.HOME_YAW
-	glyphs = 0
+	silence = float(Boss.SILENCE_AT[checkpoint_phase])
+	glyphs = 0 if checkpoint_phase == Boss.OLVIDO else needed
 	target_slot = -1
 	rubble.clear()
+	pillars.clear()
+	anchors = 0
+	_anchor_t = [0.0, 0.0, 0.0, 0.0]
+	heart = 0.0
+	releases = 0
+	lit = 0
+	ritual = 0.0
+	channel = 0
 	_summon_cd = 0.0
 	_swing = 0
+	_path.clear()
+	_pulse_w = -1.0
 	_clear_summoned()
-	if full:
-		checkpoint_phase = Boss.OLVIDO
-		silence = Boss.SILENCE_MAX
-		_rearm = 0.0
 
 
 func active() -> bool:
@@ -82,15 +137,26 @@ func _clear_summoned() -> void:
 	combat.enemies = combat.enemies.filter(func(e: Variant) -> bool: return not e.summoned)
 
 
+func _purify_summoned() -> void:
+	for e in combat.enemies:
+		if e.summoned and e.state != "dead":
+			combat._kill(e, null, true)
+
+
+func _dist(p: Variant) -> float:
+	return Vector2(p.state.pos.x - x, p.state.pos.z - z).length()
+
+
 # ───────────────────────── Tick ─────────────────────────
 
 func tick(players: Array) -> void:
+	_players = players
 	_rearm = maxf(0.0, _rearm - DT)
 	if phase == Boss.ASLEEP:
-		# Despierta cuando, con la emboscada superada, alguien entra al patio
+		# Despierta cuando, con la emboscada superada, alguien se le acerca
 		if combat.encounter == 2 and _rearm <= 0.0:
 			for p in players:
-				if combat._targetable(p) and Boss.in_arena(p.state.pos.x, p.state.pos.z):
+				if combat._targetable(p) and _wakes(p):
 					_awaken(players)
 					break
 		return
@@ -98,6 +164,7 @@ func tick(players: Array) -> void:
 		return
 
 	_tick_rubble(players)
+	_tick_pillars()
 
 	# Derrota: no queda en pie ningún conectado. El guardián vuelve a dormirse y se reintenta
 	# desde la fase alcanzada.
@@ -111,22 +178,33 @@ func tick(players: Array) -> void:
 	if connected > 0 and standing == 0:
 		_fail(players)
 		return
-	# Si el grupo se queda con menos gente, hacen falta menos glifos (nunca más de los previstos)
+	# Si el grupo se queda con menos gente, hace falta menos (nunca más de lo previsto al empezar)
 	if connected > 0:
-		needed = mini(needed, Boss.glyphs_needed(connected))
-		if phase == Boss.OLVIDO and glyphs >= needed and state != "rise":
-			_complete_phase()
-			return
+		match phase:
+			Boss.OLVIDO:
+				needed = mini(needed, Boss.glyphs_needed(connected))
+				if glyphs >= needed and state != "rise":
+					_begin_furia(players)
+					return
+			Boss.FURIA:
+				anchors_need = Boss.anchors_needed(connected)
+				_tick_anchors(players, connected)
 
 	_summon_cd = maxf(0.0, _summon_cd - DT)
+	_charge_cd = maxf(0.0, _charge_cd - DT)
+	_rain_cd = maxf(0.0, _rain_cd - DT)
+	_clang_cd = maxf(0.0, _clang_cd - DT)
 	t -= DT
 	match state:
 		"rise":
 			if t <= 0.0:
-				_idle(0.6)
+				_after_rise(players)
 		"idle":
 			if t <= 0.0:
-				_decide(players)
+				if phase == Boss.FURIA:
+					_decide_furia(players)
+				else:
+					_decide(players)
 		"walk":
 			_walk(players)
 		"slam_w":
@@ -141,21 +219,76 @@ func tick(players: Array) -> void:
 		"recover":
 			if t <= 0.0:
 				_idle(0.5)
+		"kneel":
+			# Un instante de memoria al cambiar de fase; después camina a donde sigue el combate
+			if t <= 0.0 and phase == Boss.FURIA:
+				_begin_transit()
+		"transit":
+			_tick_transit(players)
+		"rain_w":
+			if t <= 0.0:
+				state = "rain"
+				t = Boss.RAIN.dur
+				_rain_next = 0.0
+				combat.events.append(["boss", "rain", snappedf(t, 0.01)])
+		"rain":
+			_tick_rain(players)
+		"charge_w":
+			_tick_charge_windup(players)
+		"charge":
+			_tick_charge(players)
+		"stunned":
+			if anchors_count() >= anchors_need:
+				_bind()
+			elif t <= 0.0:
+				combat.events.append(["boss", "shake", 0])
+				state = "recover"
+				t = Boss.CHARGE.recover
+		"bound":
+			if anchors_count() < anchors_need or t <= 0.0:
+				_unbind(players, false)
 		_:
-			pass   # kneel: fase 2 sin programar
+			pass
+
+
+func _wakes(p: Variant) -> bool:
+	if checkpoint_phase == Boss.OLVIDO:
+		return Boss.in_arena(p.state.pos.x, p.state.pos.z)
+	return _dist(p) < 9.0
 
 
 func _awaken(players: Array) -> void:
 	var n := maxi(1, _connected(players))
-	phase = checkpoint_phase if checkpoint_phase == Boss.OLVIDO else Boss.OLVIDO
-	needed = Boss.glyphs_needed(n)
-	glyphs = 0
-	silence = Boss.SILENCE_MAX
+	awakenings += 1
+	phase = checkpoint_phase
 	_dmg_scale = Defs.dmg_scale(n)
-	_summon_cd = 2.0
+	silence = float(Boss.SILENCE_AT[phase])
+	match phase:
+		Boss.OLVIDO:
+			needed = Boss.glyphs_needed(n)
+			glyphs = 0
+			_summon_cd = 2.0
+		Boss.FURIA:
+			_setup_furia(n)
 	state = "rise"
 	t = Boss.RISE_TIME
 	combat.events.append(["boss", "awake", phase, needed])
+	if awakenings == 1:
+		notices.append("awake")
+
+
+## La cinemática del despertar ya lo mostró poniéndose en pie: el combate empieza donde ella acaba.
+func skip_rise() -> void:
+	if state == "rise":
+		t = minf(t, 0.4)
+
+
+func _after_rise(players: Array) -> void:
+	if phase == Boss.RECUERDO:
+		state = "kneel"
+		t = 0.0
+	else:
+		_idle(0.6)
 
 
 func _fail(players: Array) -> void:
@@ -174,20 +307,44 @@ func _idle(wait: float) -> void:
 	t = wait
 
 
+func _in_zone(px: float, pz: float, margin: float) -> bool:
+	if phase == Boss.OLVIDO:
+		return Boss.in_arena(px, pz, margin)
+	return Boss.in_esplanade(px, pz, margin + 2.0)
+
+
 func _target(players: Array) -> Variant:
 	var best: Variant = null
 	var best_d := 1e9
 	for p in players:
 		if not combat._targetable(p):
 			continue
-		var d := Vector2(p.state.pos.x - x, p.state.pos.z - z).length()
-		# quien está dentro del patio tiene prioridad sobre quien se asoma desde fuera
-		if not Boss.in_arena(p.state.pos.x, p.state.pos.z, 0.6):
+		var d := _dist(p)
+		# quien está en la zona del combate tiene prioridad sobre quien se asoma desde fuera
+		if not _in_zone(p.state.pos.x, p.state.pos.z, 0.6):
 			d += 40.0
 		if d < best_d:
 			best_d = d
 			best = p
 	return best
+
+
+func _melee_choice(p: Variant, d: float) -> bool:
+	if d <= float(Boss.SWEEP.range) - 0.5 and _swing % 2 == 0:
+		_swing += 1
+		aim_yaw = yaw
+		state = "sweep_w"
+		t = Boss.SWEEP.windup
+		combat.events.append(["boss", "tele", "sweep", snappedf(t, 0.01), snappedf(aim_yaw, 0.01)])
+		return true
+	if d <= float(Boss.SLAM.reach):
+		_swing += 1
+		aim = Vector2(p.state.pos.x, p.state.pos.z)
+		state = "slam_w"
+		t = Boss.SLAM.windup
+		combat.events.append(["boss", "tele", "slam", snappedf(t, 0.01), snappedf(aim.x, 0.01), snappedf(aim.y, 0.01)])
+		return true
+	return false
 
 
 func _decide(players: Array) -> void:
@@ -207,19 +364,7 @@ func _decide(players: Array) -> void:
 		return
 	if d > 0.05:
 		yaw = atan2(to.x, to.y)
-	if d <= float(Boss.SWEEP.range) - 0.5 and _swing % 2 == 0:
-		_swing += 1
-		aim_yaw = yaw
-		state = "sweep_w"
-		t = Boss.SWEEP.windup
-		combat.events.append(["boss", "tele", "sweep", snappedf(t, 0.01), snappedf(aim_yaw, 0.01)])
-	elif d <= float(Boss.SLAM.reach):
-		_swing += 1
-		aim = Vector2(p.state.pos.x, p.state.pos.z)
-		state = "slam_w"
-		t = Boss.SLAM.windup
-		combat.events.append(["boss", "tele", "slam", snappedf(t, 0.01), snappedf(aim.x, 0.01), snappedf(aim.y, 0.01)])
-	else:
+	if not _melee_choice(p, d):
 		state = "walk"
 		_walked = 0.0
 
@@ -237,12 +382,15 @@ func _walk(players: Array) -> void:
 		_idle(0.15)
 		return
 	yaw = atan2(to.x, to.y)
-	var step := to / d * Boss.SPEED * DT
-	var next := Sim.move_xz(Vector2(x, z), step, World.terrain_h(x, z), Boss.RADIUS, true)
-	# En la fase 1 no sale del patio
-	if Boss.in_arena(next.x, next.y, -Boss.RADIUS * 0.4):
+	var speed := Boss.SPEED * (1.35 if phase == Boss.FURIA else 1.0)
+	var next := Sim.move_xz(Vector2(x, z), to / d * speed * DT, World.terrain_h(x, z), Boss.RADIUS, true)
+	# No sale de la zona donde se libra la fase
+	var ok := Boss.in_arena(next.x, next.y, -Boss.RADIUS * 0.4) if phase == Boss.OLVIDO else Boss.in_esplanade(next.x, next.y)
+	if ok:
 		x = next.x
 		z = next.y
+	elif phase == Boss.FURIA:
+		_idle(0.3)
 
 
 func _strike_slam(players: Array) -> void:
@@ -274,17 +422,24 @@ func _strike_sweep(players: Array) -> void:
 
 func _strike_summon(players: Array) -> void:
 	var n := Boss.summon_count(maxi(1, _connected(players)))
+	_spawn_summoned(n, Boss.SUMMON_SPOTS, players)
+	_summon_cd = Boss.SUMMON.cd
+	state = "recover"
+	t = Boss.SUMMON.recover
+
+
+func _spawn_summoned(n: int, spots: Array, players: Array) -> void:
 	var scale := Defs.hp_scale(maxi(1, _connected(players)))
+	var first: int = int(combat._rng.randi() % spots.size()) if phase == Boss.RECUERDO else 0
 	for i in n:
-		var spot: Vector2 = Boss.SUMMON_SPOTS[i % Boss.SUMMON_SPOTS.size()]
+		var spot: Vector2 = spots[(first + i) % spots.size()]
 		var e: Variant = combat._spawn("corrupta", spot.x, spot.y, scale, false)
 		e.summoned = true
 		e.wake = float(Boss.SUMMON.wake) + 0.2 * float(i)
 		e.dmg_scale = _dmg_scale
-	_summon_cd = Boss.SUMMON.cd
+		if phase == Boss.RECUERDO:
+			e.home = Vector2(x, z)   # vienen a por quienes rodean al guardián
 	combat.events.append(["boss", "summon", n])
-	state = "recover"
-	t = Boss.SUMMON.recover
 
 
 func _tick_rubble(players: Array) -> void:
@@ -300,30 +455,335 @@ func _tick_rubble(players: Array) -> void:
 	rubble = rubble.filter(func(r: Array) -> bool: return float(r[3]) > 0.0)
 
 
-# ───────────────────────── Memoria ─────────────────────────
+# ───────────────────────── Fase 1: memoria ─────────────────────────
 
-## Una criatura corrompida acaba de ser purificada: si fue cerca del guardián, enciende un glifo.
+## Una criatura corrompida acaba de ser purificada: si fue cerca del guardián, enciende un glifo
+## (los del pecho en la fase 1, los del suelo en la fase 3).
 func on_purified(e: Variant, by: Variant) -> void:
-	if phase != Boss.OLVIDO or state == "rise":
-		return
-	if Vector2(e.x - x, e.z - z).length() > Boss.GLYPH_RANGE:
-		combat.events.append(["boss", "far", by.slot if by != null else -1])
-		return
-	glyphs = mini(Boss.GLYPHS, glyphs + 1)
-	combat.events.append(["boss", "glyph", glyphs, needed, by.slot if by != null else -1])
-	if glyphs >= needed:
-		_complete_phase()
+	var slot: int = by.slot if by != null else -1
+	if phase == Boss.OLVIDO and state != "rise":
+		if Vector2(e.x - x, e.z - z).length() > Boss.GLYPH_RANGE:
+			combat.events.append(["boss", "far", slot])
+			return
+		glyphs = mini(Boss.GLYPHS, glyphs + 1)
+		combat.events.append(["boss", "glyph", glyphs, needed, slot])
 
 
-func _complete_phase() -> void:
-	silence = maxf(0.0, silence - Boss.SILENCE_PER_PHASE)
+# ───────────────────────── Fase 2: el corazón de piedra ─────────────────────────
+
+func _setup_furia(n: int) -> void:
+	anchors_need = Boss.anchors_needed(n)
+	anchors = 0
+	_anchor_t = [0.0, 0.0, 0.0, 0.0]
+	releases = 0
+	heart_max = Boss.heart_pool(n)
+	heart = heart_max
+	pillars.clear()
+	_charge_cd = 5.0
+	_rain_cd = 14.0
+	_swing = 0
+	glyphs = needed
+
+
+func _begin_furia(players: Array) -> void:
+	var n := maxi(1, _connected(players))
+	silence = float(Boss.SILENCE_AT[Boss.FURIA])
 	# Las criaturas que quedaban se deshacen: ya no hay Silencio que las sostenga en esta fase
-	for e in combat.enemies:
-		if e.summoned and e.state != "dead":
-			combat._kill(e, null, true)
+	_purify_summoned()
 	rubble.clear()
 	phase = Boss.FURIA
 	checkpoint_phase = Boss.FURIA
+	combat.checkpoint = 2
+	_dmg_scale = Defs.dmg_scale(n)
+	_setup_furia(n)
+	state = "kneel"
+	t = 2.4
+	target_slot = -1
+	combat.events.append(["boss", "phase", phase, int(round(silence))])
+
+
+## Camino a pie hasta el centro de la explanada, rodeando el pedestal y cruzando el portal.
+func _begin_transit() -> void:
+	_path.clear()
+	if phase == Boss.FURIA and x > 22.0:
+		var side := 1.0 if z >= 0.0 else -1.0
+		if x > 27.4:
+			if absf(z) < 3.0:
+				_path.append(Vector2(x, side * 3.4))
+			_path.append(Vector2(26.4, side * 3.4))
+		_path.append(Vector2(24.8, 0.0))
+		_path.append(Vector2(20.2, 0.0))
+	_path.append(Boss.P2_HOME)
+	_leg_t = 0.0
+	state = "transit"
+	t = 0.0
+	target_slot = -1
+	combat.events.append(["boss", "transit", phase])
+
+
+func _tick_transit(players: Array) -> void:
+	if _path.is_empty():
+		_arrive(players)
+		return
+	var goal: Vector2 = _path[0]
+	var to := goal - Vector2(x, z)
+	var d := to.length()
+	var step := Boss.TRANSIT_SPEED * DT
+	if d <= step:
+		x = goal.x
+		z = goal.y
+		_path.pop_front()
+		_leg_t = 0.0
+		return
+	yaw = atan2(to.x, to.y)
+	_leg_t += DT
+	var next := Vector2(x, z) + to / d * step
+	# Si algo le estorba más de la cuenta, pasa igualmente: no puede quedarse atascado a mitad
+	if _leg_t < 5.0:
+		next = Sim.move_xz(Vector2(x, z), to / d * step, World.terrain_h(x, z), Boss.RADIUS, true)
+	x = next.x
+	z = next.y
+
+
+func _arrive(players: Array) -> void:
+	combat.events.append(["boss", "arena", phase])
+	_idle(0.9)
+
+
+func anchors_count() -> int:
+	var n := 0
+	for i in Boss.ANCHORS.size():
+		if (anchors & (1 << i)) != 0:
+			n += 1
+	return n
+
+
+func _tick_anchors(players: Array, connected: int) -> void:
+	var latch := Boss.ANCHOR_LATCH_SOLO if connected <= 1 else Boss.ANCHOR_LATCH
+	var mask := 0
+	for i in Boss.ANCHORS.size():
+		var a: Vector2 = Boss.ANCHORS[i]
+		var on := false
+		for p in players:
+			if combat._targetable(p) and Vector2(p.state.pos.x - a.x, p.state.pos.z - a.y).length() < Boss.ANCHOR_R \
+					and absf(p.state.pos.y - World.terrain_h(a.x, a.y)) < 0.8:
+				on = true
+				break
+		# Sólo responden con el guardián aturdido o ya sujeto: antes no hay nada que amarrar
+		if on and (state == "stunned" or state == "bound"):
+			_anchor_t[i] = latch
+		else:
+			_anchor_t[i] = maxf(0.0, float(_anchor_t[i]) - DT)
+		if float(_anchor_t[i]) > 0.0:
+			mask |= 1 << i
+	if mask != anchors:
+		for i in Boss.ANCHORS.size():
+			if (mask & (1 << i)) != 0 and (anchors & (1 << i)) == 0:
+				combat.events.append(["boss", "anchor", i, 1])
+			elif (mask & (1 << i)) == 0 and (anchors & (1 << i)) != 0:
+				combat.events.append(["boss", "anchor", i, 0])
+		anchors = mask
+
+
+func _tick_pillars() -> void:
+	for pl in pillars:
+		pl[1] = float(pl[1]) - DT
+		if float(pl[1]) <= 0.0:
+			combat.events.append(["boss", "pillar_down", int(pl[0]), 0])
+	pillars = pillars.filter(func(pl: Array) -> bool: return float(pl[1]) > 0.0)
+
+
+## Un alux toca (F) el glifo de una columna dormida. Devuelve true si el toque era para eso.
+func raise_pillar(p: Variant) -> bool:
+	if phase != Boss.FURIA or state == "kneel" or state == "transit" or state == "rise":
+		return false
+	var here := Vector2(p.state.pos.x, p.state.pos.z)
+	var best := -1
+	var best_d := float(Boss.PILLARS.touch)
+	for i in Boss.PILLAR_SPOTS.size():
+		var up := false
+		for pl in pillars:
+			if int(pl[0]) == i:
+				up = true
+		if up:
+			continue
+		var d := (here - Boss.PILLAR_SPOTS[i]).length()
+		if d < best_d:
+			best_d = d
+			best = i
+	if best < 0:
+		return false
+	if pillars.size() >= int(Boss.PILLARS.count):
+		combat.events.append(["boss", "pillar_max", p.slot])
+		return true
+	# No sube debajo del guardián
+	if (Vector2(x, z) - Boss.PILLAR_SPOTS[best]).length() < Boss.RADIUS + float(Boss.PILLARS.radius) + 0.4:
+		return true
+	pillars.append([best, float(Boss.PILLARS.life)])
+	combat.events.append(["boss", "pillar", best, p.slot])
+	return true
+
+
+func _sheltered(p: Variant) -> bool:
+	for pl in pillars:
+		var s: Vector2 = Boss.PILLAR_SPOTS[int(pl[0])]
+		if Vector2(p.state.pos.x - s.x, p.state.pos.z - s.y).length() <= float(Boss.PILLARS.shelter):
+			return true
+	return false
+
+
+func _decide_furia(players: Array) -> void:
+	var p: Variant = _target(players)
+	if p == null:
+		target_slot = -1
+		_idle(0.5)
+		return
+	target_slot = p.slot
+	var to := Vector2(p.state.pos.x - x, p.state.pos.z - z)
+	var d := to.length()
+	if d > 0.05:
+		yaw = atan2(to.x, to.y)
+	if _rain_cd <= 0.0:
+		_rain_cd = Boss.RAIN.cd
+		state = "rain_w"
+		t = Boss.RAIN.windup
+		combat.events.append(["boss", "tele", "rain", snappedf(t, 0.01)])
+		return
+	if _charge_cd <= 0.0 and d > 2.6:
+		_charge_cd = Boss.CHARGE.cd
+		aim_yaw = yaw
+		state = "charge_w"
+		t = Boss.CHARGE.windup
+		combat.events.append(["boss", "tele", "charge", snappedf(t, 0.01)])
+		return
+	if not _melee_choice(p, d):
+		state = "walk"
+		_walked = 0.0
+
+
+func _tick_rain(players: Array) -> void:
+	_rain_next -= DT
+	if _rain_next <= 0.0:
+		_rain_next = Boss.RAIN.every
+		for p in players:
+			if combat._targetable(p) and Boss.in_esplanade(p.state.pos.x, p.state.pos.z, 4.0) and not _sheltered(p):
+				combat.damage_player(p, float(Boss.RAIN.dmg) * _dmg_scale, Vector2(p.state.pos.x, p.state.pos.z), 0.0)
+	if t <= 0.0:
+		state = "recover"
+		t = Boss.RAIN.recover
+
+
+func _tick_charge_windup(players: Array) -> void:
+	# Sigue a su objetivo hasta el último momento: ahí fija la dirección y ya no la cambia
+	if t > float(Boss.CHARGE.lock):
+		var p: Variant = _target(players)
+		if p != null:
+			target_slot = p.slot
+			var to := Vector2(p.state.pos.x - x, p.state.pos.z - z)
+			if to.length() > 0.05:
+				aim_yaw = atan2(to.x, to.y)
+				yaw = aim_yaw
+	if t <= 0.0:
+		_dir = Vector2(sin(aim_yaw), cos(aim_yaw))
+		_run_left = Boss.CHARGE.dist
+		_struck = {}
+		state = "charge"
+		t = 0.0
+		combat.events.append(["boss", "charge", snappedf(aim_yaw, 0.01)])
+
+
+func _tick_charge(players: Array) -> void:
+	var step := float(Boss.CHARGE.speed) * DT
+	var from := Vector2(x, z)
+	var next := Sim.move_xz(from, _dir * step, World.terrain_h(x, z), Boss.RADIUS, true)
+	var moved := (next - from).length()
+	var inside := Boss.in_esplanade(next.x, next.y)
+	if inside:
+		x = next.x
+		z = next.y
+	_run_left -= step
+	var here := Vector2(x, z)
+	for p in players:
+		if combat._targetable(p) and not _struck.has(p.id) and _dist(p) <= float(Boss.CHARGE.hit_r) \
+				and absf(p.state.pos.y - World.terrain_h(x, z)) < 2.5:
+			_struck[p.id] = true
+			combat.damage_player(p, float(Boss.CHARGE.dmg) * _dmg_scale, here - _dir * 1.5, float(Boss.CHARGE.knock))
+	# Contra una columna: la rompe y queda aturdido
+	for pl in pillars:
+		var s: Vector2 = Boss.PILLAR_SPOTS[int(pl[0])]
+		if (here - s).length() <= float(Boss.PILLARS.crash):
+			pillars.erase(pl)
+			combat.events.append(["boss", "crash", int(pl[0]), snappedf(float(Boss.CHARGE.stun), 0.01)])
+			state = "stunned"
+			t = Boss.CHARGE.stun
+			target_slot = -1
+			return
+	if not inside or moved < step * 0.4 or _run_left <= 0.0:
+		combat.events.append(["boss", "charge_end", 0])
+		state = "recover"
+		t = Boss.CHARGE.recover
+
+
+func _bind() -> void:
+	state = "bound"
+	t = Boss.BOUND.window
+	combat.events.append(["boss", "bound", snappedf(t, 0.01), int(round(heart / heart_max * 100.0))])
+
+
+func _unbind(players: Array, released: bool) -> void:
+	anchors = 0
+	_anchor_t = [0.0, 0.0, 0.0, 0.0]
+	# Se suelta de un tirón: aparta a quien tenga encima, sin daño
+	for p in players:
+		if combat._targetable(p) and _dist(p) <= float(Boss.BOUND.shove_r):
+			var d := Vector2(p.state.pos.x - x, p.state.pos.z - z)
+			d = d.normalized() if d.length() > 0.05 else Vector2(sin(yaw), cos(yaw))
+			p.state.kx = d.x * float(Boss.BOUND.shove)
+			p.state.kz = d.y * float(Boss.BOUND.shove)
+	combat.events.append(["boss", "unbound", 1 if released else 0])
+	state = "recover"
+	t = Boss.BOUND.recover
+	_charge_cd = maxf(_charge_cd, 4.0)
+
+
+## Un golpe cuerpo a cuerpo de un jugador (lo llama el combate). A Nojoch no se le hace daño:
+## sólo cuenta contra el corazón, sólo con las cadenas puestas y sólo si quien golpea es Balam.
+func on_melee(p: Variant, dmg: float, reach: float) -> void:
+	if not active() or _dist(p) > reach + Boss.RADIUS or absf(p.state.pos.y - World.terrain_h(x, z)) > 3.0:
+		return
+	if phase != Boss.FURIA or state != "bound":
+		if _clang_cd <= 0.0:
+			_clang_cd = 0.8
+			combat.events.append(["boss", "clang", p.slot])
+		return
+	heart = maxf(0.0, heart - dmg)
+	combat.events.append(["boss", "heart_hit", p.slot, int(round(dmg)), int(round(heart / heart_max * 100.0))])
+	if heart <= 0.0:
+		_release(p)
+
+
+func _release(by: Variant) -> void:
+	releases += 1
+	silence = maxf(0.0, silence - Boss.SILENCE_PER_EXPOSURE)
+	combat.events.append(["boss", "heart", releases, Boss.EXPOSURES, int(round(silence)), by.slot])
+	if releases >= Boss.EXPOSURES:
+		_begin_recuerdo()
+		return
+	heart = heart_max
+	_unbind(_players, true)
+
+
+# ───────────────────────── Fase 3 (sin programar) ─────────────────────────
+
+func _begin_recuerdo() -> void:
+	for pl in pillars:
+		combat.events.append(["boss", "pillar_down", int(pl[0]), 0])
+	pillars.clear()
+	rubble.clear()
+	anchors = 0
+	phase = Boss.RECUERDO
+	checkpoint_phase = Boss.RECUERDO
+	silence = float(Boss.SILENCE_AT[Boss.RECUERDO])
 	state = "kneel"
 	t = 0.0
 	target_slot = -1
@@ -331,10 +791,17 @@ func _complete_phase() -> void:
 
 
 ## [fase, x, z, giro, estado, segundos del estado, silencio, glifos, glifosNecesarios, slotObjetivo,
-##  puntoDelGolpeX, puntoDelGolpeZ, giroDelBarrido, escombros[[x, z, radio, segundos]]]
+##  puntoDelGolpeX, puntoDelGolpeZ, giroDelBarridoOEmbestida, escombros[[x, z, radio, segundos]],
+##  anclasActivas(máscara), anclasNecesarias, columnas[[zócalo, segundos]], corazón(0–100), corazonesLiberados,
+##  glifosDelSuelo, glifosDelSueloNecesarios, contacto(0–100), quiénesLoTocan(máscara), cuántosDebenTocarlo]
 func snapshot() -> Array:
 	var rub := []
 	for r in rubble:
 		rub.append([snappedf(r[0], 0.01), snappedf(r[1], 0.01), snappedf(r[2], 0.01), snappedf(r[3], 0.1)])
+	var pil := []
+	for pl in pillars:
+		pil.append([int(pl[0]), snappedf(pl[1], 0.1)])
 	return [phase, snappedf(x, 0.01), snappedf(z, 0.01), snappedf(yaw, 0.01), Boss.STATES.find(state), snappedf(maxf(t, 0.0), 0.01),
-		int(round(silence)), glyphs, needed, target_slot, snappedf(aim.x, 0.01), snappedf(aim.y, 0.01), snappedf(aim_yaw, 0.01), rub]
+		int(round(silence)), glyphs, needed, target_slot, snappedf(aim.x, 0.01), snappedf(aim.y, 0.01), snappedf(aim_yaw, 0.01), rub,
+		anchors, anchors_need, pil, int(round(heart / maxf(heart_max, 1.0) * 100.0)), releases,
+		lit, lit_need, int(round(clampf(ritual / maxf(ritual_need, 0.1), 0.0, 1.0) * 100.0)), channel, touch_need]

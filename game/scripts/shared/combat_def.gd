@@ -93,5 +93,6 @@ const BRAZIER_HEAL := 60.0
 const BRAZIER_CD := 12.0
 const PURIFY_HEAL := 15.0
 
-## Puntos de reaparición (x, z). El segundo se activa al superar la emboscada.
-const CHECKPOINTS: Array[Vector2] = [Vector2(0.0, 3.2), Vector2(13.0, 0.0)]
+## Puntos de reaparición (x, z). El segundo se activa al superar la emboscada; el tercero, cuando
+## el guardián sale a la explanada (queda fuera de su alcance, camino de la plaza).
+const CHECKPOINTS: Array[Vector2] = [Vector2(0.0, 3.2), Vector2(13.0, 0.0), Vector2(4.6, 0.0)]

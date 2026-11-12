@@ -154,6 +154,8 @@ func _melee(p: Variant, yaw: float, reach: float, arc: float, dmg: float, kind: 
 			continue
 		var away := d / dist if dist > 0.01 else Vector2(sin(yaw), cos(yaw))
 		_damage_enemy(e, dmg, p, kind, away, knock, stun)
+	# Al guardián no se le hace daño: sólo su corazón expuesto acusa las garras de Balam
+	boss.on_melee(p, dmg, reach)
 
 
 func _interact(p: Variant, players: Array) -> void:
@@ -177,7 +179,10 @@ func _interact(p: Variant, players: Array) -> void:
 			if _targetable(o) and Vector2(o.state.pos.x - best.x, o.state.pos.z - best.z).length() < 9.0:
 				_heal(o, Defs.PURIFY_HEAL)
 		return
-	# 2) Brasero de la plaza: cura a quienes estén cerca
+	# 2) Despertar una columna de la explanada (fase 2 del guardián)
+	if boss.raise_pillar(p):
+		return
+	# 3) Brasero de la plaza: cura a quienes estén cerca
 	if brazier_cd <= 0.0 and (here - Defs.BRAZIER).length() < Defs.BRAZIER_RANGE:
 		brazier_cd = Defs.BRAZIER_CD
 		events.append(["brazier", p.slot])

@@ -60,7 +60,7 @@ export const SNAP_SLOT = 0, SNAP_ACK = 1, SNAP_ON = 2, SNAP_HP = 3, SNAP_X = 4, 
 /**
  * [santuarioAbierto, altares, altaresNecesarios, emboscada(0 pendiente/1 en curso/2 superada/3 fallida),
  *  enemigosRestantes, puntoDeReaparición, braseroListo, votosOtraRonda, conectados, segundosDeEsperaDeLosAltares,
- *  banderasDeHistoria(1 = alguien habló con Chiich Yaxché), segundosDeCinemáticaCompartida(0 = ninguna; >0 = sala en pausa),
+ *  banderasDeHistoria(1 = alguien habló con Chiich Yaxché · 2 = Nojoch Tuunich liberado · 4 = pista del Cenote entregada), segundosDeCinemáticaCompartida(0 = ninguna; >0 = sala en pausa),
  *  votosParaOmitirla, faseDeLaCinemática(0 ninguna, 1 preparación, 2 reproducción, 3 reanudación)]
  */
 export type WorldStateArray = number[];
@@ -71,11 +71,20 @@ export const ENEMY_KINDS = ['piedra', 'corrupta'] as const;
  * Nojoch Tuunich, el jefe del Capítulo I (docs/BOSS.md). Lo decide todo el servidor:
  * [fase(0 dormido, 1 olvido, 2 furia, 3 recuerdo, 4 liberado), x, z, giro, estado, segundosDelEstado,
  *  silencio(0–100), glifosEncendidos, glifosNecesarios, slotObjetivo, golpeX, golpeZ, giroDelBarrido,
- *  escombros[[x, z, radio, segundos]]]
- * Eventos de combate propios: ['boss', 'awake'|'tele'|'slam'|'sweep'|'summon'|'glyph'|'far'|'phase'|'fail', ...].
+ *  escombros[[x, z, radio, segundos]],
+ *  anclasActivas(máscara), anclasNecesarias, columnas[[zócalo, segundos]], corazón(0–100), corazonesLiberados,
+ *  glifosDelSuelo, glifosDelSueloNecesarios, contacto(0–100), quiénesLoTocan(máscara de slots), cuántosDebenTocarlo]
+ * Eventos de combate propios (['boss', tipo, ...]):
+ *  fase 1  awake [fase, glifos] · tele [ataque, segundos, ...] · slam · sweep · summon · glyph · far · phase [fase, silencio] · fail
+ *  fase 2  transit · arena [fase] · pillar [zócalo, slot] · pillar_max · pillar_down · rain · charge [giro] · charge_end
+ *          crash [zócalo, aturdido] · shake · anchor [i, activa] · bound [segundos, corazón] · unbound [liberado]
+ *          clang [slot] (golpe sin efecto) · heart_hit [slot, daño, corazón] · heart [liberados, total, silencio, slot]
+ *  fase 3  ritual [glifos] · lit [n, necesarios, slot] · contact [cuántos] · pulse · freed
  */
-export type BossStateArray = [number, number, number, number, number, number, number, number, number, number, number, number, number, number[][]];
-export const BOSS_STATES = ['sleep', 'rise', 'idle', 'walk', 'slam_w', 'sweep_w', 'summon_w', 'recover', 'kneel', 'freed'] as const;
+export type BossStateArray = [number, number, number, number, number, number, number, number, number, number, number, number, number, number[][],
+  number, number, number[][], number, number, number, number, number, number, number];
+export const BOSS_STATES = ['sleep', 'rise', 'idle', 'walk', 'slam_w', 'sweep_w', 'summon_w', 'recover', 'kneel', 'freed',
+  'transit', 'pillars_w', 'rain_w', 'rain', 'charge_w', 'charge', 'stunned', 'bound', 'ritual'] as const;
 export const ENEMY_STATES = ['idle', 'chase', 'windup', 'strike', 'recover', 'stun', 'dead', 'return'] as const;
 
 /**
@@ -108,8 +117,12 @@ export type ServerMessage =
   | { t: 'event'; e: 'reward'; reward: string; saved: boolean; new: boolean }
   /** defeat: todo el grupo cayó y el santuario se vuelve a sellar · restart: nueva ronda pedida por el grupo */
   | { t: 'event'; e: 'defeat' | 'restart' }
-  /** Avance de la historia de la sala: k = 'talked' (alguien habló con el personaje npc). */
-  | { t: 'event'; e: 'story'; k: string; npc: string; by: string }
+  /**
+   * Avance de la historia de la sala, siempre decidido por el servidor:
+   * k = 'talked' (alguien habló con el personaje npc) · 'freed' (Nojoch Tuunich recordó; by = nombres)
+   * · 'clue' (el guardián liberado señaló el camino del Cenote).
+   */
+  | { t: 'event'; e: 'story'; k: string; npc?: string; by: string | string[] }
   /**
    * Cinemática compartida: la dirige el servidor y la sala está en pausa en sus tres fases.
    * cine_prep: prepárense (wait = segundos máximos de espera) → cine: orden de inicio para todos
