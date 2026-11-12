@@ -8,9 +8,9 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 | Closed Alpha 0.1 | Publicada el 12 nov 2026; **sustituida por la 0.2**. Commit `12fadbe`: es el punto de rollback | Claro de los Aluxes jugable de 1 a 4, combate, emboscada, victoria y derrota, audio provisional, acceso por invitación |
 | Closed Alpha 0.2 | Publicada el 12 nov 2026; **sustituida por la 0.2.1**. Commit `c28e32c`: es el punto de rollback | Introducción «El llamado», Chiich Yaxché con modelo propio y diálogo, primer objetivo narrativo, cinemáticas locales y compartidas con voto, progreso del capítulo en el perfil |
 
-| **Closed Alpha 0.2.1** | **Publicada** el 12 nov 2026 en <https://alux-beta.onrender.com> (commit `94bb9c8`) | La 0.2 más las cinemáticas híbridas, **«El sello cede» producida con Kling** y los modelos de los personajes corregidos |
+| Closed Alpha 0.2.1 | Publicada el 12 nov 2026; **sustituida por la 0.3**. Commit `94bb9c8`: es el punto de rollback | La 0.2 más las cinemáticas híbridas, «El sello cede» producida con Kling y los modelos de los personajes corregidos |
 
-| Alpha 0.3 (candidata) | Rama `release/alpha-0.3-rc1`, **sin publicar** | Jefe Nojoch Tuunich completo (tres fases, modelo definitivo, cinemáticas de despertar y liberación), Pluma de Jade y pista del Cenote |
+| **Closed Alpha 0.3** | **Publicada** el 12 nov 2026 en <https://alux-beta.onrender.com> | Jefe Nojoch Tuunich completo (tres fases, modelo definitivo, cinemáticas de despertar y liberación con Kling), Pluma de Jade y pista del Cenote |
 
 ## Publicación en la rama `beta`
 
@@ -20,10 +20,21 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
 
-## Alpha 0.3 — El Guardián Dormido (candidata, sin publicar)
+## ALUX Closed Alpha 0.3 — El Guardián Dormido
 
-Rama candidata: `release/alpha-0.3-rc1`. **No está en `beta`**: se publica sólo con tu visto bueno.
-Diseño completo del jefe: [BOSS.md](BOSS.md).
+| | |
+| --- | --- |
+| **Código de la versión** | `44f99b77dafb` (rama candidata `release/alpha-0.3-rc1`), aprobado para publicar el 12 nov 2026 |
+| **Commit publicado en `beta`** | El siguiente a ese: añade este registro y el nombre de la versión en el juego y en el portal. Es el que informa `/healthz` |
+| **Rollback** | Publicar en `beta` el commit `94bb9c8` (0.2.1). Sin migraciones: los datos sirven en los dos sentidos |
+| **Qué cambia respecto a la 0.2.1** | Sólo juego, arte, pruebas y documentación (171 archivos). **Sin cambios** en infraestructura, `render.yaml`, migraciones ni dependencias |
+
+Aprobada para pruebas con jugadores reales: el combate del jefe, sus dos cinemáticas y la Pluma de
+Jade **no los ha jugado todavía ninguna persona**. Diseño completo del jefe: [BOSS.md](BOSS.md).
+
+Créditos de Kling de esta versión: las generaciones declararon 508 (280 + 228) y el saldo bajó 488
+(2 375 → 1 887). La diferencia de 20 está en dos vídeos cuya respuesta no informó del coste y se
+contaron a 32; uno costó menos. Vale el saldo. Registro: `art/cinematicas/jefe/kling/PRODUCCION.md`.
 
 | Novedad | Detalle |
 | --- | --- |
