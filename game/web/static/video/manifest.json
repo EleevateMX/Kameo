@@ -1,4 +1,32 @@
 {
   "v": 1,
-  "clips": {}
+  "clips": {
+    "sello_1": {
+      "src": {
+        "mp4": "sello_1.mp4",
+        "webm": "sello_1.webm"
+      },
+      "dur": 3.0,
+      "audio": false,
+      "v": "4f7cf2e247"
+    },
+    "sello_2": {
+      "src": {
+        "mp4": "sello_2.mp4",
+        "webm": "sello_2.webm"
+      },
+      "dur": 4.0,
+      "audio": false,
+      "v": "855744486e"
+    },
+    "sello_3": {
+      "src": {
+        "mp4": "sello_3.mp4",
+        "webm": "sello_3.webm"
+      },
+      "dur": 3.0,
+      "audio": false,
+      "v": "7d29903285"
+    }
+  }
 }

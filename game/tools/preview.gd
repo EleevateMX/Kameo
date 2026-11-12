@@ -61,8 +61,8 @@ const KEYFRAMES := {
 	"kf_sello_1b": {"pos": Vector3(16.4, 1.3, -4.2), "look": Vector3(26.0, 2.8, 0.0), "gate": 0.0, "foes": false},
 	"kf_sello_2a": {"pos": Vector3(15.5, 3.2, 4.0), "look": Vector3(26.0, 3.2, 0.0), "gate": 0.0, "foes": false},
 	"kf_sello_2b": {"pos": Vector3(17.5, 2.6, 2.2), "look": Vector3(27.0, 3.8, 0.0), "gate": 1.0, "foes": false},
-	"kf_sello_3a": {"pos": Vector3(14.5, 4.2, -5.5), "look": Vector3(19.0, 0.8, 0.5), "gate": 1.0, "foes": false},
-	"kf_sello_3b": {"pos": Vector3(15.6, 2.6, -3.6), "look": Vector3(17.8, 0.7, 0.6), "gate": 1.0, "foes": false},
+	"kf_sello_3a": {"pos": Vector3(20.4, 2.1, 0.0), "look": Vector3(28.0, 1.5, 0.0), "gate": 1.0, "foes": false},
+	"kf_sello_3b": {"pos": Vector3(24.6, 1.8, 0.6), "look": Vector3(28.0, 1.7, 0.0), "gate": 1.0, "foes": false},
 }
 var out := "user://"
 var only: Array = []
@@ -205,7 +205,8 @@ func _process(delta: float) -> bool:
 		cine.play(which, script, cam, hud, {"yaxche": Story.NPCS.yaxche.name})
 		if which == "sello":
 			hud.cine_skip_text("Enter  ·  votar para omitir  (1/3)")
-		cine.process(float(script.shots[0].dur) * 0.5)
+		cine.seek(float(script.shots[0].dur) * 0.5)
+		cine.process(0.0)
 	match str(s[0]):
 		"dialogo":
 			var lines := []

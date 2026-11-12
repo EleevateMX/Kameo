@@ -6,7 +6,8 @@ del motor que tiene debajo. No llevan interfaz, jugadores ni textos.
 
 | Carpeta | Escena | Archivos |
 | --- | --- | --- |
-| `sello/` | «El sello cede» | `plano_1a/1b` (altar → portal), `plano_2a/2b` (sellado → abierto), `plano_3a/3b` (anillo de la emboscada) |
+| `sello/` | «El sello cede» | `plano_1a/1b` (altar → portal), `plano_2a/2b` (sellado → abierto), `plano_3a/3b` (umbral → cristal del patio) |
+| `sello/kling/` | Producción con Kling | Originales, cuadros enriquecidos, secuencias montadas y [registro con prompts y costos](sello/kling/PRODUCCION.md) |
 
 Regenerar (las cámaras están en `KEYFRAMES`, en `game/tools/preview.gd`):
 
