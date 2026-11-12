@@ -168,9 +168,10 @@ npm run test:cine-coop
 ```
 
 Cinemáticas con vídeo ([docs/CINEMATICS.md](docs/CINEMATICS.md)), también con ALUX corriendo y con
-vídeos de prueba generados en local: la primera comprueba en un navegador la reproducción sobre el
-juego y cada fallo posible (archivo ausente o corrupto, descarga lenta, vídeo atascado, omitir a
-mitad); la segunda mete cuatro navegadores en una sala, dos con vídeo y dos sin él.
+vídeos de prueba generados en local: la primera comprueba en un navegador la reproducción de los
+vídeos reales del juego (caso `real`) y cada fallo posible (archivo ausente o corrupto, descarga
+lenta, vídeo atascado, omitir a mitad); la segunda mete cuatro navegadores en una sala, dos con
+vídeo y dos sin él, y sin tarjeta gráfica es inestable.
 
 ```bash
 scripts/test-beta-image.sh
@@ -218,6 +219,7 @@ docs/                     Arquitectura, protocolo, combate, simulación, rendimi
 - [Biblia narrativa: universo, personajes y capítulos](docs/STORY_BIBLE.md)
 - [Biblia de arte: HUD, personajes, escenario, capítulos y niveles de calidad](docs/ART_BIBLE.md)
 - [Cinemáticas: sistema, reglas en cooperativo, proceso con Kling y storyboards](docs/CINEMATICS.md)
+- [Nojoch Tuunich: diseño del primer jefe, sus cinemáticas y su recompensa](docs/BOSS.md)
 - [Playtest: guía de la sesión y resultados](docs/PLAYTEST.md)
 - [Versiones: qué lleva cada una y cuál está publicada](docs/RELEASES.md)
 - [Combate: formas, habilidades, enemigos y emboscada](docs/combate.md)

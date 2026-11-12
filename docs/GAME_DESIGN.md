@@ -53,7 +53,10 @@ planear, escudo), se añade ese tipo a la simulación compartida con sus pruebas
 En la historia, los dos enemigos actuales son los guardianes y los animales del claro tocados por el
 Silencio: por eso algunos se purifican y los de piedra sólo se detienen.
 
-## Jefe del Capítulo I: Nojoch Tuunich (diseño)
+## Jefe del Capítulo I: Nojoch Tuunich (resumen)
+
+**El diseño completo, con ataques, escenario, cinemáticas y recompensa, está en [BOSS.md](BOSS.md)**
+(pendiente de tu aprobación). Lo de abajo es el resumen original.
 
 Un coloso de piedra dormido en el patio del santuario. No es malvado: olvidó a quién cuida.
 Se le vence haciéndole recordar. Reutiliza sistemas que ya existen.

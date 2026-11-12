@@ -33,7 +33,7 @@ navegador en un `<video>` colocado encima del lienzo, y el juego lo dirige por u
 | Pieza | Archivo | Qué hace |
 | --- | --- | --- |
 | Guiones | `game/scripts/shared/story_def.gd` (`CUTSCENES`) | Planos: duración, cámara, texto, sonido y, si lo hay, `video` |
-| Reproductor | `game/scripts/client/cinematics/cutscene.gd` | Mueve la cámara plano a plano; si el plano tiene vídeo listo lo pone encima y vigila que avance |
+| Reproductor | `game/scripts/client/cinematics/cutscene.gd` | Mueve la cámara plano a plano; si el plano tiene vídeo listo lo pone encima y vigila que avance. Mide la escena con el reloj real: un navegador lento no se retrasa respecto al servidor |
 | Puente (juego) | `game/scripts/client/cinematics/video_bridge.gd` | Órdenes y consultas al navegador; fuera de la web responde «no hay vídeo» |
 | Puente (navegador) | `game/web/static/cine-video.js` | Manifiesto, precarga, `<video>` sobre el juego, subtítulos, registro de fallos |
 | Vídeos y manifiesto | `game/web/static/video/` | `manifest.json` y los archivos; se copian al portal al compilar |
@@ -43,14 +43,14 @@ navegador en un `<video>` colocado encima del lienzo, y el juego lo dirige por u
 Un plano con vídeo sólo añade un campo; el resto es el plano del motor que sirve de respaldo:
 
 ```gdscript
-{"dur": 3.5, "from": [Vector3(15.5, 3.2, 4.0), Vector3(26, 3.2, 0)], "to": [Vector3(17.5, 2.6, 2.2), Vector3(27, 3.8, 0)],
-	"text": "Cada alux en su altar, y el sello cede…", "sound": "santuario_abre", "video": "sello_1"}
+{"dur": 4.0, "from": [Vector3(15.5, 3.2, 4.0), Vector3(26, 3.2, 0)], "to": [Vector3(17.5, 2.6, 2.2), Vector3(27, 3.8, 0)],
+	"text": "…y el sello cede.", "sound": "santuario_abre", "video": "sello_2"}
 ```
 
-Y el vídeo se declara en `game/web/static/video/manifest.json` (hoy está vacío: no hay ninguno aprobado):
+Y el vídeo se declara en `game/web/static/video/manifest.json` (hoy contiene los tres planos de «El sello cede»):
 
 ```json
-{ "v": 1, "clips": { "sello_1": { "src": { "mp4": "sello_1.mp4", "webm": "sello_1.webm" }, "dur": 3.5, "audio": false, "v": "a1" } } }
+{ "v": 1, "clips": { "sello_2": { "src": { "mp4": "sello_2.mp4", "webm": "sello_2.webm" }, "dur": 4.0, "audio": false, "v": "855744486e" } } }
 ```
 
 Añadir o cambiar un vídeo es dejar los archivos y su entrada en el manifiesto; no hay que tocar el
@@ -60,8 +60,8 @@ juego. `v` es la versión: va en la dirección, así el navegador puede guardar 
 
 | Tema | Cómo se resuelve |
 | --- | --- |
-| Formatos | MP4 (H.264) y WebM (VP9). Se descarga sólo el que el navegador reproduce. Objetivo: 720p, ~1.5 Mbps. |
-| Precarga | Al entrar a la partida, con prioridad baja y de uno en uno. El archivo se baja entero antes de usarse: no hay cortes por red a mitad. |
+| Formatos | MP4 (H.264) y WebM (VP9), 720p. Se descarga sólo el que el navegador reproduce. «El sello cede» pesa 2.63 MB en MP4 o 2.03 MB en WebM. |
+| Precarga | En dos etapas. **Descarga** al entrar a la partida, con prioridad baja y de uno en uno: el archivo se baja entero, así no hay cortes por red a mitad. **Decodificación** sólo justo antes de la escena (durante la preparación) y se libera al terminar. Se midió por qué: con los decodificadores abiertos toda la partida, cuatro navegadores sin tarjeta gráfica en un mismo equipo dejaban de poder jugar. |
 | Caché | Vídeos con versión en la dirección y caché de un año; el manifiesto se revalida en cada visita. |
 | Sonido | Por defecto en silencio (suena el audio del juego, con los volúmenes del jugador). Un vídeo marcado `audio` suena sólo si el usuario ya interactuó con la página; si el navegador lo bloquea, se reproduce mudo. |
 | Subtítulos | Los mismos textos del guion, dibujados por la página sobre el vídeo (no van quemados). |
@@ -104,6 +104,8 @@ pantalla, y usan el mismo reproductor y los mismos vídeos.
   en el mismo encuadre que el plano del motor que tiene debajo.
 - **Sin teletransportes:** un vídeo no cambia de sitio a un personaje ni altera el mundo sin que la
   historia lo explique; lo que cambie (el sello abierto) tiene que estar ya cambiado en el juego.
+- **El mundo espera a la escena:** un plano puede pedir que el portal siga sellado (`hold_gate`); se
+  abre en el plano siguiente y, al volver al juego, ya está abierto del todo, como mostró el vídeo.
 
 ## Proceso con Kling
 
@@ -116,7 +118,7 @@ pantalla, y usan el mismo reproductor y los mismos vídeos.
 | 5 | Storyboard | Este documento |
 | 6 | Movimientos de cámara | Los `from`/`to` del guion: son los mismos del plano del motor |
 | 7 | Prompts por plano | Este documento |
-| 8 | **Presupuesto aprobado** → generar y evaluar tomas | Kling |
+| 8 | **Presupuesto aprobado** → enriquecer los cuadros clave (imagen a imagen), generar y evaluar tomas | Kling |
 | 9 | Corregir inconsistencias (repetir, recortar, descartar) | Kling + montaje |
 | 10 | Convertir a MP4 y WebM 720p, añadir al manifiesto, probar | `ffmpeg`, `npm run test:cine`, `npm run test:cine-coop` |
 
@@ -129,57 +131,54 @@ corrigieron sólo en el render y **no coinciden con los modelos del juego**: los
 prendas (en el juego quedan como ranuras) y el cabello del alux bajo el sombrero. Están anotados en
 [pendientes.md](pendientes.md).
 
-### Lo medido y lo que no
+### Lo medido
 
 | Dato | Valor | Origen |
 | --- | --- | --- |
-| Saldo | **2 659 créditos** | Consultado el 12 nov 2026 |
-| `kling-video-v3_0_turbo`, 1080p, 5 s, primer cuadro | **50 créditos** | Una toma de prueba |
-| Cualquier otro modelo, duración o resolución | **Sin medir** | — |
-| Peso para web | 0.85 MB por 5 s a 720p y 1.5 Mbps | Conversión de la toma de prueba |
+| Saldo | **2 375 créditos** | Consultado el 12 nov 2026, tras producir «El sello cede» |
+| Cuadro clave enriquecido (`gemini-3-pro-image`, 2K) | **20 créditos** | 5 generaciones |
+| Vídeo `kling-video-v3_0`, 1080p, sin audio, con o sin último cuadro | **8 créditos por segundo** | 7 generaciones |
+| Vídeo `kling-video-v3_0_turbo`, 1080p, sólo primer cuadro | 10 créditos por segundo | La toma de prueba del vínculo |
+| Tomas aprobadas a la primera, sin personajes | 6 de 7 | «El sello cede» |
+| Peso para web | 2.6 MB por 10 s (MP4, 720p) | «El sello cede» |
 
-Modelos disponibles que importan: `v3_0_turbo` (sólo primer cuadro, 3–15 s), `v3_0` y `v4_0` (primer
-y último cuadro: permiten terminar en la cámara exacta del juego) y los `omni` (varias imágenes de
-referencia: sirven para planos con personaje). Las estimaciones de abajo suponen el precio medido
-(10 créditos por segundo) y se corrigen con la primera toma real de cada modelo.
+Lo que da el salto visual es **enriquecer el cuadro clave antes de animarlo**: el vídeo hereda el
+aspecto de su primer cuadro. Registro completo, con cada prompt, costo y veredicto:
+[art/cinematicas/sello/kling/PRODUCCION.md](../art/cinematicas/sello/kling/PRODUCCION.md).
 
-![Cuatro cuadros de la toma de prueba](img/kling-prueba-vinculo.jpg)
+Sin medir: planos con personajes (se espera más repeticiones), sonido generado, 720p y 4K.
 
-La toma de prueba mantuvo el aspecto del juego (personajes y plaza). **No sirve como metraje final**:
-muestra a un alux con un aspecto fijo (regla 6) y la cabeza de Balam aún se va a retocar. Queda como
-referencia de movimiento.
+![Cuatro cuadros de la toma de prueba del vínculo](img/kling-prueba-vinculo.jpg)
 
-## Presupuestos (pendientes de tu aprobación)
+La toma de prueba del vínculo mantuvo el aspecto del juego (personajes y plaza). **No sirve como
+metraje final**: muestra a un alux con un aspecto fijo (regla 6) y la cabeza de Balam aún se va a
+retocar. Queda como referencia de movimiento.
 
-| | **C. El sello cede** | **A. El llamado de Chiich Yaxché** | **B. El vínculo de Balam** | **D. Despertar de Nojoch Tuunich** |
-| --- | --- | --- | --- | --- |
-| Duración | 10 s | 13 s | 20–24 s | 15–20 s |
-| Planos (generaciones por pasada) | 3 | 3 | 4 | 4 |
-| Modelo | `v3_0` con primer y último cuadro; si sale a más del doble del precio medido, `v3_0_turbo` | `v3_0`; el plano de la abuela con un `omni` y su hoja de personaje | `v3_0` y `omni` con la hoja de Balam | Por decidir con el modelo del jefe |
-| Costo estimado por generación | 40–50 | 50 | 50–60 | 50 |
-| Repeticiones previstas | hasta 2 por plano | hasta 2; 3 en el plano con personaje | hasta 2 por plano | hasta 2 por plano |
-| Estimado por pasada | 120–150 | 150 | 240 | 200 |
-| **Presupuesto máximo** | **500** | **550** | **750** | **700** |
-| Referencias | 6 cuadros clave del juego (`art/cinematicas/sello/`) | Hoja de Yaxché, cuadros de la gran ceiba y del brasero | Hoja de Balam, cuadros de la plaza de noche | Modelo del jefe (no existe) |
-| Resultado | 3 vídeos 1080p → 720p web (~2 MB), integrados con respaldo del motor | Sustituye el final de la introducción y enlaza con el diálogo | Escena del vínculo + transición con el motor al Balam jugable | Presentación compartida del jefe, terminando en la cámara de combate |
-| Bloqueos | **Ninguno** | Storyboard y cuadros clave por hacer | Cabeza de Balam, luz de noche, storyboard por adaptar a la regla 6 | Modelo y mecánica del jefe sin aprobar |
+## Presupuestos
 
-El presupuesto de C incluye una variante del plano 2 con los cuadros clave «enriquecidos» (materiales
-y luz más ricos, hechos con imagen a imagen) para que compares con evidencia qué aspecto prefieres
-antes de producir las demás.
+Con los precios medidos. Una pasada = todos los cuadros clave enriquecidos y una toma por plano.
 
-**Los cuatro máximos suman 2 500 créditos de 2 659.** No recomiendo aprobarlos juntos: con C se mide
-el precio real de los modelos y cuántas repeticiones hacen falta, y con eso se ajustan los otros tres.
+| | **C. El sello cede** | **A. El llamado de Chiich Yaxché** | **B. El vínculo de Balam** | **D. Despertar de Nojoch Tuunich** | **E. El guardián recuerda** |
+| --- | --- | --- | --- | --- | --- |
+| Duración | 10 s | 13 s | 20–24 s | 16 s | 12 s |
+| Planos | 3 | 3 | 4 | 4 | 3 |
+| Una pasada | — | ~165 | ~270 | ~230 | ~180 |
+| **Máximo** | **500 aprobados · 284 usados** | 400 | 600 | 450 | 350 |
+| Estado | **Producida e integrada** | Sin aprobar | Sin aprobar | Sin aprobar; diseño del jefe en [BOSS.md](BOSS.md) | Sin aprobar |
+| Bloqueos | — | Storyboard y cuadros clave por hacer | Cabeza de Balam, luz de noche, storyboard por adaptar a la regla 6 | Modelo y mecánica del jefe sin aprobar | Lo mismo |
+
+Los máximos de A y B bajan respecto a la primera estimación porque el precio real resultó menor,
+pero conservan margen: los planos con personaje fallan más que un escenario.
 
 ## Estado de cada cinemática
 
 | Id | Título | Clase | Dónde ocurre | Estado |
 | --- | --- | --- | --- | --- |
 | `llamado` | El llamado | Local | Al entrar por primera vez; se repite desde el menú | Versión del motor hecha (4 planos, 19 s). Componente Kling: cinemática A, sin presupuesto aprobado |
-| `sello` | El sello cede | Compartida | La primera vez que el grupo abre el santuario | Versión del motor hecha (2 planos, 7 s) y **lista para vídeo**: storyboard, cuadros clave y prompts preparados. Falta aprobar el presupuesto |
+| `sello` | El sello cede | Compartida | La primera vez que el grupo abre el santuario | **Producida con Kling e integrada** (3 planos, 10 s), con la versión del motor debajo. En la rama de trabajo; sin publicar |
 | `vinculo_balam` | El vínculo de Balam | Compartida o local, por decidir | Tras hablar con Chiich Yaxché | Storyboard aprobado, por adaptar a la regla 6; una toma de prueba; producción en 0.4 |
-| `guardian_despierta` | Despertar de Nojoch Tuunich | Compartida | Al entrar al patio del santuario | Bloqueada hasta aprobar modelo y mecánica del jefe (0.3) |
-| `pluma_de_jade` | La Pluma de Jade | Compartida | Al vencer al jefe | Planeada (0.4) |
+| `guardian_despierta` | Despertar de Nojoch Tuunich | Compartida | Al entrar al patio del santuario | Guion en [BOSS.md](BOSS.md); bloqueada hasta aprobar modelo y mecánica del jefe |
+| `guardian_recuerda` | El guardián recuerda | Compartida | Al vencer al jefe; entrega la Pluma de Jade | Guion en [BOSS.md](BOSS.md); misma condición |
 
 ## «El llamado» (hecha)
 
@@ -192,40 +191,43 @@ el precio real de los modelos y cuántas repeticiones hacen falta, y con eso se 
 
 Sólo se muestra sola la primera vez en cada navegador; después se puede repetir desde el menú.
 
-## C. «El sello cede»: storyboard definitivo (pendiente de aprobar)
+## C. «El sello cede» (producida con Kling)
 
 **Qué cuenta:** el grupo acaba de coordinarse por primera vez; el santuario responde, se abre… y lo
-que guardaba ya no los reconoce. **Duración:** 10 s en tres planos (hoy son 7 s en dos; las reglas del
-servidor no cambian, sólo la duración del guion). **Sin personajes:** los jugadores están sobre los
-altares con su propio aspecto, así que ningún plano los muestra, ni a los enemigos de cuerpo entero
-(sus modelos son provisionales y cambiarán en la 0.3).
+que guardaba ya no los reconoce. **10 s en tres planos**, compartida. **Sin personajes:** los
+jugadores están sobre los altares con su propio aspecto, así que ningún plano los muestra, ni a los
+enemigos (sus modelos son provisionales).
 
-![Cuadros clave: primer y último cuadro de cada plano, sacados del juego](img/storyboard-sello.jpg)
+![La secuencia que está en el juego: tratamiento enriquecido](img/sello-kling-final.jpg)
 
-| Plano | Duración | Qué pasa | Cámara (la misma del plano del motor) | Primer → último cuadro | Subtítulo |
-| --- | --- | --- | --- | --- | --- |
-| 1. Los altares responden | 3.0 s | Los glifos del altar se encienden en jade; la luz corre por el suelo hasta el santuario y sube por sus glifos. La cúpula del sello ondula. | Baja, avanza hacia el portal | `plano_1a` → `plano_1b` | «Cada alux en su altar…» |
-| 2. El sello cede | 3.5 s | La luz llega al sol tallado, que se enciende en oro. Los barrotes magenta parpadean, se quiebran y se hunden; la cúpula se deshace en motas. Una ola dorada sale del portal y deja ver el patio. | Avanza hacia el portal | `plano_2a` (sellado) → `plano_2b` (abierto) | «…y el sello cede.» |
-| 3. Los Olvidados despiertan | 3.5 s | Silencio. Vetas magenta trepan por la piedra, el anillo del suelo late, se levantan polvo y piedras, se junta una niebla oscura. En la sombra del portal se encienden pares de ojos. | Desciende hacia el anillo | `plano_3a` → `plano_3b` | «Pero quienes lo cuidaban ya no recuerdan a quién. ¡Los Olvidados despiertan!» |
+| Plano | Duración | Qué pasa | Cámara (la misma del plano del motor) | Subtítulo |
+| --- | --- | --- | --- | --- |
+| 1. La barrera reacciona | 3 s | Los glifos del altar se encienden en jade; la energía sube hacia el santuario y la rejilla de la cúpula se intensifica. | Baja, del altar hacia el portal sellado | «Cada alux en su altar…» |
+| 2. El sello se rompe | 4 s | Fracturas luminosas recorren la cúpula, que estalla en partículas; los barrotes se deshacen, el sol tallado se enciende y el portal queda abierto. | Avanza hacia el portal | «…y el sello cede.» |
+| 3. Algo despierta | 3 s | La cámara entra al patio. El cristal ancestral emite anillos de jade; vetas y niebla magenta invaden los muros y el cielo se oscurece. | Del umbral hacia el cristal | «Pero quienes lo cuidaban ya no recuerdan a quién. ¡Los Olvidados despiertan!» |
 
-Termina en negro y la partida vuelve con la cámara de cada jugador, justo antes de la emboscada.
+Termina en negro y la partida vuelve con la cámara de cada jugador, con el santuario ya abierto y
+justo antes de la emboscada.
 
-**Prompts** (en inglés; imagen a vídeo, con el cuadro clave como primer cuadro y, si el modelo lo
-admite, el último):
+**Dos tratamientos**, como se pidió. Se integró el B porque mantiene la continuidad: misma
+arquitectura, mismos glifos, mismo sello; cambian la luz, los materiales y la atmósfera.
 
-| Plano | Prompt |
-| --- | --- |
-| 1 | *The carved glyphs on the round stone altar in the foreground ignite with jade-green light. The light races as thin glowing lines across the ground toward the sealed stone sanctuary and climbs its carved glyph panels one by one. The translucent pink dome over the sanctuary ripples. Low camera slowly pushes forward toward the gate. Small floating jade motes, soft cinematic light.* |
-| 2 | *The jade light reaches the sun glyph above the gate, which flares gold. The magenta energy bars sealing the gate flicker, crack and sink into the ground, while the translucent pink dome breaks into drifting motes and dissolves. A wave of warm golden light bursts outward from the gate, revealing the inner courtyard and a jade crystal floating above a stone pedestal. Camera pushes slowly toward the open gate.* |
-| 3 | *Silence falls. Thin magenta veins of corruption creep across the stone pillars and the ground, and the magenta ring on the grass pulses brighter. Dust lifts, small stones tremble and rise, dark magenta mist gathers inside the ring. In the shadow of the gate, pairs of magenta eyes light up. Camera lowers slowly toward the ring. Ominous, no creatures fully visible.* |
+![A la izquierda, tratamiento A (fiel al juego); a la derecha, tratamiento B (enriquecido)](img/sello-kling-A-B.jpg)
 
-En los tres: *Stylized low-poly 3D animation, flat colours, clean shapes, same architecture, colours
-and layout as the first frame. No characters, no people, no animals, no text, no logos.*
-Negativo: *photorealistic, realistic textures, film grain, new buildings, camera shake, humans, text, watermark.*
+| | A. Fiel al videojuego | B. Fantasía enriquecida (en el juego) |
+| --- | --- | --- |
+| Primer cuadro | La captura del juego tal cual | La captura enriquecida con imagen a imagen |
+| Continuidad | Total: empieza y termina en cuadros del juego | Misma geometría y colores; cambia el acabado. La entrada y la salida van por fundido a negro |
+| Espectáculo | Efectos sobre un escenario plano | Luz de atardecer, rayos, piedra con musgo, partículas |
+| Créditos | 104 (una toma repetida) | 180 (5 cuadros, uno descartado, y 3 tomas a la primera) |
 
-**Al aprobarse:** se generan las tomas dentro del presupuesto, se eligen contigo, se convierten, se
-añaden al manifiesto, el guion pasa a tres planos de 10 s (con el plano 1 nuevo también en la versión
-del motor) y se repiten `npm run test:cine` y `npm run test:cine-coop`.
+Las dos secuencias montadas, los originales de Kling, los cuadros enriquecidos y todos los prompts
+están en `art/cinematicas/sello/kling/`. Para cambiar al tratamiento A bastaría con convertir sus
+tres tomas y sustituir los archivos de `game/web/static/video/`.
+
+**Diferencia con el estado real que conviene saber:** al terminar el plano 3 el vídeo deja niebla y
+vetas magenta en el patio; en el juego el patio no las tiene. No se ve el salto porque se vuelve por
+fundido a negro a la cámara del jugador, que está fuera, en su altar.
 
 ## A. «El llamado de Chiich Yaxché» (guion; sin presupuesto aprobado)
 
@@ -272,7 +274,7 @@ En todos: *same character design as the reference images, no text, no logos, no 
 2. Modelos definitivos del alux y de Balam (la cabeza de Balam todavía se va a retocar): si se
    produce antes, habrá que repetirla.
 3. Las capturas de primer cuadro, de noche; hoy el juego sólo tiene iluminación de día.
-4. Tu autorización del presupuesto (máximo 750). La toma de prueba ya está hecha.
+4. Tu autorización del presupuesto (máximo 600). La toma de prueba ya está hecha.
 5. ~~El reproductor de vídeo del navegador.~~ Hecho.
 6. Adaptar los planos 1, 2 y 4 a la regla 6: el alux del jugador no puede salir con un aspecto fijo.
    Propuesta: verlo sólo como sombra o desde su punto de vista, y hacer con el motor (con su aspecto
@@ -281,8 +283,7 @@ En todos: *same character design as the reference images, no text, no logos, no 
 **Respaldo dentro del motor:** la misma escena en tres planos con los modelos del juego y el efecto
 de transformación que ya existe. Se hará primero, así la escena existe aunque el vídeo no cargue.
 
-## D. «Despertar de Nojoch Tuunich» (bloqueada)
+## D y E. Nojoch Tuunich: despertar y despedida (bloqueadas)
 
-15–20 s: la piedra se resquebraja, los glifos del pecho se encienden uno a uno, el coloso abre los
-ojos y se incorpora; termina en la cámara con la que empieza el combate. **No se produce** hasta que
-el modelo y la mecánica del jefe estén aprobados: un vídeo hecho antes habría que repetirlo.
+Guiones plano a plano y presupuesto en [BOSS.md](BOSS.md). **No se producen** hasta que el modelo y
+la mecánica del jefe estén aprobados: un vídeo hecho antes habría que repetirlo.

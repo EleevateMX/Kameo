@@ -73,13 +73,15 @@ como pendiente debe darse por hecho.
   - Kling: storyboard de «El vínculo de Balam» aprobado y una toma de prueba hecha (50 créditos por
     5 s). Presupuestos por escena en [CINEMATICS.md](CINEMATICS.md), **todos sin aprobar**.
 - **Cinemáticas con vídeo (Alpha 0.3)**
-  - Hecho y probado con vídeos de prueba: reproducción en el navegador, respaldo del motor por
-    plano, fases de preparación y reanudación, reconexión, métricas.
-  - **No hay ningún vídeo de Kling en el juego.** «El sello cede» tiene storyboard, cuadros clave y
-    prompts; falta aprobar su presupuesto (máximo 500 créditos).
+  - Hecho: reproducción en el navegador, respaldo del motor por plano, fases de preparación y
+    reanudación, reconexión, métricas, y **«El sello cede» producida con Kling e integrada**.
+  - **Sin publicar:** la beta lleva la Alpha 0.2, donde esa escena todavía es la del motor.
   - Sin probar: Safari y Firefox, tarjeta gráfica, sonido dentro de un vídeo, personas.
-  - El precio de Kling sólo está medido para un modelo (`v3_0_turbo`, 50 créditos por 5 s a 1080p);
-    los modelos con último cuadro, que son los que alinean el final con el juego, están sin medir.
+  - El vídeo deja niebla y vetas magenta en el patio que el juego no tiene; no se nota porque se
+    vuelve por fundido a la cámara del jugador, fuera del patio.
+  - Las etiquetas de versión `alpha-0.1` y `alpha-0.2` no se pudieron subir desde este entorno
+    (el servicio de Git rechazó la subida de etiquetas). Los commits son `12fadbe` y `c28e32c`.
+  - Precios de Kling sin medir: planos con personajes, sonido generado, 720p y 4K.
   - La introducción («El llamado») es local y empieza nada más entrar: cuando tenga vídeo habrá
     que esperar su precarga unos segundos antes de empezarla. Sin hacer.
   - El último plano de una compartida se corta si el cliente iba atrasado respecto al servidor.
