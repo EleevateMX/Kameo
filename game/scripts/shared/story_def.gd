@@ -89,6 +89,11 @@ const DIALOGUES := {
 ##   sound     efecto al empezar el plano (opcional)
 ##   title     rótulo grande (opcional)
 ##   hold_gate el portal del santuario sigue sellado durante este plano (se abre en el siguiente)
+##   boss      cómo se ve el guardián en este plano (sólo presentación; el servidor no se entera):
+##             {anim, at (segundo de la animación en que empieza), speed, look (fase con la que se
+##             pinta: ojos, vetas y glifos), glow [de, a] (brillo de las vetas a lo largo del plano)}
+##   feather   la Pluma de Jade se ve en este plano (true) o todavía no (false)
+##   motes     color de las motas que se desprenden del guardián (el Silencio que se va)
 ##   video     id de un vídeo que sustituye al plano si el navegador lo tiene listo (opcional).
 ##             El plano del motor corre igual por debajo: es lo que se ve si el vídeo falta o falla.
 ##             Los archivos y su manifiesto están en game/web/static/video (docs/CINEMATICS.md).
@@ -107,6 +112,51 @@ const CUTSCENES := {
 			# 3. Algo despierta: hacia el cristal del interior
 			{"dur": 3.0, "from": [Vector3(20.4, 2.1, 0.0), Vector3(28.0, 1.5, 0.0)], "to": [Vector3(24.6, 1.8, 0.6), Vector3(28.0, 1.7, 0.0)],
 				"text": "Pero quienes lo cuidaban ya no recuerdan a quién. ¡Los Olvidados despiertan!", "sound": "enemigo_aviso", "video": "sello_3"},
+		],
+	},
+	## «El despertar de Nojoch Tuunich»: compartida. La empieza el servidor la primera vez que el
+	## grupo entra al patio con la emboscada superada. 16 s en cuatro planos. Termina con el
+	## guardián en pie frente al portal: exactamente donde empieza el combate.
+	"despertar": {
+		"title": "El despertar de Nojoch Tuunich", "shared": true,
+		"shots": [
+			# 1. El patio en silencio: desde el portal, el coloso sentado al fondo
+			{"dur": 4.0, "from": [Vector3(22.4, 2.0, 0.9), Vector3(31.6, 2.3, 0.0)], "to": [Vector3(24.6, 2.1, 0.7), Vector3(31.6, 2.5, 0.0)],
+				"text": "Al fondo del patio, algo duerme desde antes que la selva.", "sound": "cine_patio_silencio", "video": "despertar_1",
+				"boss": {"anim": "Sleep", "at": 0.0, "speed": 1.0, "look": 0, "glow": [0.15, 0.3]}},
+			# 2. Las grietas: el Silencio le recorre el pecho
+			{"dur": 4.0, "from": [Vector3(29.0, 2.2, 1.2), Vector3(31.6, 2.3, 0.0)], "to": [Vector3(29.5, 2.5, 0.5), Vector3(31.6, 2.6, 0.0)],
+				"text": "El Silencio se le metió en las grietas.", "sound": "cine_grietas", "video": "despertar_2",
+				"boss": {"anim": "Sleep", "at": 4.0, "speed": 1.0, "look": 0, "glow": [0.3, 2.4]}},
+			# 3. Los ojos: se encienden en magenta
+			{"dur": 4.0, "from": [Vector3(29.6, 3.5, -1.1), Vector3(31.7, 3.25, 0.0)], "to": [Vector3(29.9, 3.5, -0.7), Vector3(31.6, 3.5, 0.0)],
+				"text": "Nojoch Tuunich abre los ojos… y no reconoce a nadie.", "sound": "cine_ojos", "video": "despertar_3",
+				"boss": {"anim": "Awaken", "at": 0.0, "speed": 0.3, "look": 1, "glow": [1.8, 1.8]}},
+			# 4. En pie: contrapicado desde el portal; acaba erguido, de cara al grupo
+			{"dur": 4.0, "from": [Vector3(23.4, 1.5, -2.6), Vector3(30.8, 2.6, 0.2)], "to": [Vector3(24.2, 1.7, -1.6), Vector3(31.4, 3.1, 0.0)],
+				"title": "Nojoch Tuunich  ·  El Guardián Dormido", "text": "", "sound": "cine_en_pie", "video": "despertar_4",
+				"boss": {"anim": "Awaken", "at": 1.2, "speed": 0.55, "look": 1, "glow": [1.8, 1.7]}},
+		],
+	},
+	## «La liberación de Nojoch Tuunich»: compartida. La empieza el servidor cuando el contacto
+	## del ritual se completa. 12 s en tres planos, en la explanada. No aparece ningún alux: la
+	## pluma se entrega hacia la cámara, que es el grupo. Termina como queda el juego: el guardián
+	## de rodillas, sereno, con la Pluma de Jade flotando ante él.
+	"liberacion": {
+		"title": "La liberación de Nojoch Tuunich", "shared": true,
+		"shots": [
+			# 1. El Silencio se va: las vetas se apagan y se desprenden motas
+			{"dur": 4.0, "from": [Vector3(9.6, 1.8, 4.2), Vector3(15.3, 2.3, 0.0)], "to": [Vector3(10.6, 2.2, 3.0), Vector3(15.3, 2.5, 0.0)],
+				"text": "El Silencio lo suelta. Grieta a grieta.", "sound": "cine_silencio_se_va", "video": "liberacion_1",
+				"boss": {"anim": "Kneel", "at": 9.0, "speed": 0.0, "look": 3, "glow": [1.4, 0.0]}, "feather": false, "motes": "#ff339c"},
+			# 2. La serenidad: el rostro, los ojos de jade
+			{"dur": 4.0, "from": [Vector3(12.2, 3.2, -1.3), Vector3(15.0, 3.0, 0.0)], "to": [Vector3(12.7, 3.3, -0.7), Vector3(15.0, 3.1, 0.0)],
+				"who": "nojoch", "text": "…Recuerdo. Yo cuidaba este claro.", "sound": "glifo_restaurado", "video": "liberacion_2",
+				"boss": {"anim": "Remember", "at": 0.0, "speed": 0.6, "look": 4, "glow": [0.0, 0.0]}, "feather": false},
+			# 3. La entrega: la pluma flota de sus manos hacia el grupo
+			{"dur": 4.0, "from": [Vector3(9.4, 1.5, -0.9), Vector3(13.2, 2.2, 0.0)], "to": [Vector3(10.6, 1.8, -0.5), Vector3(13.0, 2.2, 0.0)],
+				"title": "La Pluma de Jade", "text": "La primera pluma de Kukulkán. Ahora la guardan ustedes.", "sound": "cine_pluma", "video": "liberacion_3",
+				"boss": {"anim": "Remember", "at": 2.4, "speed": 0.4, "look": 4, "glow": [0.0, 0.0]}, "feather": true},
 		],
 	},
 	## «El llamado»: introducción del Capítulo I. Local (cada jugador la ve al entrar; no detiene a nadie).

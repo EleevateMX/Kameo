@@ -20,7 +20,12 @@ const ANIMS := {
 	"sleep": ["Sleep", true], "rise": ["Awaken", false], "idle": ["Idle", true], "walk": ["Walk", true],
 	"slam_w": ["Slam", false], "sweep_w": ["Sweep", false], "summon_w": ["Summon", false],
 	"recover": ["Idle", true], "kneel": ["Kneel", false], "freed": ["Remember", false],
+	"transit": ["Walk", true], "rain_w": ["Summon", false], "rain": ["Idle", true],
+	"charge_w": ["Charge", true], "charge": ["Charge", true], "stunned": ["Stunned", true],
+	"bound": ["Kneel", false], "ritual": ["Kneel", false],
 }
+## Velocidad de la animación en algunos estados (el resto, 1).
+const SPEEDS := {"transit": 1.7, "charge_w": 0.55, "charge": 1.8, "walk": 1.0}
 
 var phase := Boss.ASLEEP
 var state := "sleep"
@@ -34,6 +39,13 @@ var _label: Label3D
 var _rubble := {}               # clave de posición -> disco en el suelo
 var _rubble_mat: StandardMaterial3D
 var _pulse := 0.0
+var _step_in := 0.0
+# Cinemática: mientras dure, la pose y el aspecto los dicta el plano, no el estado del combate
+var _cine := false
+var _cine_look := -1
+var _cine_glow := -1.0
+
+signal stepped
 
 
 func setup() -> void:
@@ -102,11 +114,40 @@ func apply(b: Array) -> void:
 	glyphs = int(b[7])
 	if new_state != state:
 		state = new_state
-		_play()
+		if not _cine:
+			_play()
 	if repaint:
 		_paint()
-	_label.visible = phase != Boss.ASLEEP
+	_label.visible = phase != Boss.ASLEEP and not _cine
 	_sync_rubble(b[13] if b.size() > 13 else [])
+
+
+## Pose de un plano de cinemática: animación `anim` en el segundo `t`, pintado como en la fase
+## `look` y con las vetas a `glow` de brillo (negativo: el de la fase).
+func cine_pose(anim: String, t: float, look: int, glow := -1.0) -> void:
+	_cine = true
+	_label.visible = false
+	if _anim != null and _anim.has_animation(anim):
+		var a := _anim.get_animation(anim)
+		if _anim.current_animation != anim:
+			_anim.play(anim, 0.0, 0.0)
+		var at := fmod(t, a.length) if a.loop_mode != Animation.LOOP_NONE else clampf(t, 0.0, a.length - 0.02)
+		_anim.seek(at, true)
+	if look != _cine_look or absf(glow - _cine_glow) > 0.02:
+		_cine_look = look
+		_cine_glow = glow
+		_paint()
+
+
+func cine_release() -> void:
+	if not _cine:
+		return
+	_cine = false
+	_cine_look = -1
+	_cine_glow = -1.0
+	_label.visible = phase != Boss.ASLEEP
+	_play()
+	_paint()
 
 
 func _play() -> void:
@@ -115,7 +156,7 @@ func _play() -> void:
 	var a: Array = ANIMS.get(state, ["Idle", true])
 	if not _anim.has_animation(a[0]):
 		return
-	_anim.play(a[0], 0.25)
+	_anim.play(a[0], 0.25, float(SPEEDS.get(state, 1.0)))
 	# Los golpes se ven desde el principio del gesto aunque el aviso llegue con algo de retraso
 	if not bool(a[1]):
 		_anim.seek(0.0, true)
@@ -123,6 +164,7 @@ func _play() -> void:
 
 ## Glifos, ojos y vetas según la fase.
 func _paint() -> void:
+	var phase := _cine_look if _cine_look >= 0 else self.phase
 	for i in Boss.GLYPHS:
 		var m: StandardMaterial3D = _mats.get("Glyph%d" % (i + 1))
 		if m == null:
@@ -135,6 +177,8 @@ func _paint() -> void:
 	var veins: StandardMaterial3D = _mats.get("Silence")
 	if veins != null:
 		var e: float = [0.25, 1.7, 2.6, 0.7, 0.0][clampi(phase, 0, 4)]
+		if _cine_glow >= 0.0:
+			e = _cine_glow
 		veins.emission_enabled = e > 0.0
 		veins.emission = MAGENTA
 		veins.emission_energy_multiplier = e
@@ -151,6 +195,7 @@ func _paint() -> void:
 	var heart: StandardMaterial3D = _mats.get("Heart")
 	if heart != null:
 		heart.emission_energy_multiplier = 0.5 if phase == Boss.ASLEEP else 1.4
+		heart.emission = JADE if phase == Boss.FREED or phase == Boss.RECUERDO else Color(1.0, 0.55, 0.3)
 
 
 func update_view(delta: float) -> void:
@@ -159,9 +204,19 @@ func update_view(delta: float) -> void:
 	# Las vetas laten mientras está olvidado
 	_pulse += delta
 	var veins: StandardMaterial3D = _mats.get("Silence")
-	if veins != null and veins.emission_enabled and phase != Boss.ASLEEP:
+	if veins != null and veins.emission_enabled and phase != Boss.ASLEEP and not _cine:
 		var base: float = [0.25, 1.7, 2.6, 0.7, 0.0][clampi(phase, 0, 4)]
 		veins.emission_energy_multiplier = base * (0.82 + 0.18 * sin(_pulse * (3.0 if phase != Boss.FURIA else 6.0)))
+	# Corazón expuesto: late fuerte mientras las cadenas lo sujetan
+	var heart: StandardMaterial3D = _mats.get("Heart")
+	if heart != null and phase == Boss.FURIA and not _cine:
+		heart.emission_energy_multiplier = 3.2 + 1.6 * sin(_pulse * 9.0) if state == "bound" else 1.4
+	# Pasos: tiembla un poco el suelo mientras camina o embiste (lo oye quien esté cerca)
+	if state == "walk" or state == "transit" or state == "charge":
+		_step_in -= delta
+		if _step_in <= 0.0:
+			_step_in = 0.62 if state == "walk" else (0.4 if state == "transit" else 0.2)
+			stepped.emit()
 
 
 ## Escombros del golpe de losa: discos en el suelo mientras duren.

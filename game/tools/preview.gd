@@ -14,6 +14,7 @@ const Story := preload("res://scripts/shared/story_def.gd")
 const Cutscene := preload("res://scripts/client/cinematics/cutscene.gd")
 const NpcView := preload("res://scripts/client/npc_view.gd")
 const BossView := preload("res://scripts/client/boss_view.gd")
+const BossArena := preload("res://scripts/client/boss_arena.gd")
 const BossDef := preload("res://scripts/shared/boss_def.gd")
 
 ## nombre, objetivo de cámara, giro, inclinación, distancia, mostrar HUD
@@ -48,14 +49,28 @@ var shots := [
 	["jefe_dormido", Vector3.ZERO, 0.0, 0.0, 1.0, false],
 	["jefe_fase1", Vector3.ZERO, 0.0, 0.0, 1.0, true],
 	["jefe_cerca", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	# Fases 2 y 3 en la explanada, con la interfaz, y el guardián liberado con la Pluma de Jade
+	["jefe_fase2", Vector3.ZERO, 0.0, 0.0, 1.0, true],
+	["jefe_embestida", Vector3.ZERO, 0.0, 0.0, 1.0, true],
+	["jefe_corazon", Vector3.ZERO, 0.0, 0.0, 1.0, true],
+	["jefe_fase3", Vector3.ZERO, 0.0, 0.0, 1.0, true],
+	["jefe_contacto", Vector3.ZERO, 0.0, 0.0, 1.0, true],
+	["jefe_liberado", Vector3.ZERO, 0.0, 0.0, 1.0, false],
 	# Cuadros clave de las dos cinemáticas del jefe (docs/BOSS.md)
-	["kf_despertar_1", Vector3.ZERO, 0.0, 0.0, 1.0, false],
-	["kf_despertar_2", Vector3.ZERO, 0.0, 0.0, 1.0, false],
-	["kf_despertar_3", Vector3.ZERO, 0.0, 0.0, 1.0, false],
-	["kf_despertar_4", Vector3.ZERO, 0.0, 0.0, 1.0, false],
-	["kf_liberacion_1", Vector3.ZERO, 0.0, 0.0, 1.0, false],
-	["kf_liberacion_2", Vector3.ZERO, 0.0, 0.0, 1.0, false],
-	["kf_liberacion_3", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_despertar_1a", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_despertar_1b", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_despertar_2a", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_despertar_2b", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_despertar_3a", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_despertar_3b", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_despertar_4a", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_despertar_4b", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_liberacion_1a", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_liberacion_1b", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_liberacion_2a", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_liberacion_2b", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_liberacion_3a", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_liberacion_3b", Vector3.ZERO, 0.0, 0.0, 1.0, false],
 	# El santuario unos segundos después de romperse el sello: lo que queda de la cinemática
 	["secuelas_1", Vector3.ZERO, 0.0, 0.0, 1.0, false],
 	["secuelas_2", Vector3.ZERO, 0.0, 0.0, 1.0, false],
@@ -83,21 +98,34 @@ const KEYFRAMES := {
 	"jefe_cerca": {"pos": Vector3(27.6, 2.9, 2.2), "look": Vector3(30.2, 3.4, 0.2), "gate": 1.0, "foes": false, "after": 60.0,
 		"boss": [1, 30.4, 0.0, -1.2, 2, 0.0, 100, 2, 3, 0, 0.0, 0.0, 0.0, []], "t": 1.0},
 	# «El despertar de Nojoch Tuunich»: la estatua, las grietas del pecho, los ojos y de pie
-	"kf_despertar_1": {"pos": Vector3(22.4, 2.0, 0.9), "look": Vector3(31.6, 2.3, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
-		"boss": [0, 32.0, 0.0, -1.5708, 0, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []]},
-	"kf_despertar_2": {"pos": Vector3(29.4, 2.3, 0.7), "look": Vector3(31.6, 2.3, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
-		"boss": [0, 32.0, 0.0, -1.5708, 0, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []]},
-	"kf_despertar_3": {"pos": Vector3(29.9, 3.4, -0.9), "look": Vector3(31.7, 3.25, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
-		"boss": [1, 32.0, 0.0, -1.5708, 1, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []], "anim": ["Awaken", 1.4]},
-	"kf_despertar_4": {"pos": Vector3(23.6, 2.6, -2.4), "look": Vector3(30.4, 2.9, 0.4), "gate": 1.0, "foes": false, "after": 60.0,
-		"boss": [1, 31.2, 0.0, -1.5708, 4, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []], "anim": ["Slam", 1.15]},
-	# «El guardián recuerda»: de rodillas con las vetas apagándose, las manos abiertas y de nuevo en su sitio, despierto
-	"kf_liberacion_1": {"pos": Vector3(24.2, 2.4, 2.6), "look": Vector3(29.2, 2.2, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
-		"boss": [3, 29.4, 0.0, -1.5708, 8, 0.0, 34, 4, 4, -1, 0.0, 0.0, 0.0, []], "anim": ["Kneel", 2.0]},
-	"kf_liberacion_2": {"pos": Vector3(26.2, 5.2, 0.0), "look": Vector3(28.6, 1.6, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
-		"boss": [4, 29.4, 0.0, -1.5708, 9, 0.0, 0, 4, 4, -1, 0.0, 0.0, 0.0, []], "anim": ["Remember", 3.0]},
-	"kf_liberacion_3": {"pos": Vector3(22.6, 2.2, -1.2), "look": Vector3(31.6, 2.4, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
-		"boss": [4, 32.0, 0.0, -1.5708, 0, 0.0, 0, 4, 4, -1, 0.0, 0.0, 0.0, []], "anim": ["Sleep", 0.0]},
+	# Las dos cinemáticas del jefe salen del propio guion (Story.CUTSCENES): primer y último cuadro de cada plano
+	"kf_despertar_1a": {"cine": ["despertar", 0, 0.0], "gate": 1.0, "foes": false, "after": 60.0, "boss": [0, 32.0, 0.0, -1.5708, 0, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []]},
+	"kf_despertar_1b": {"cine": ["despertar", 0, 1.0], "gate": 1.0, "foes": false, "after": 60.0, "boss": [0, 32.0, 0.0, -1.5708, 0, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []]},
+	"kf_despertar_2a": {"cine": ["despertar", 1, 0.0], "gate": 1.0, "foes": false, "after": 60.0, "boss": [0, 32.0, 0.0, -1.5708, 0, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []]},
+	"kf_despertar_2b": {"cine": ["despertar", 1, 1.0], "gate": 1.0, "foes": false, "after": 60.0, "boss": [0, 32.0, 0.0, -1.5708, 0, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []]},
+	"kf_despertar_3a": {"cine": ["despertar", 2, 0.0], "gate": 1.0, "foes": false, "after": 60.0, "boss": [1, 32.0, 0.0, -1.5708, 1, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []]},
+	"kf_despertar_3b": {"cine": ["despertar", 2, 1.0], "gate": 1.0, "foes": false, "after": 60.0, "boss": [1, 32.0, 0.0, -1.5708, 1, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []]},
+	"kf_despertar_4a": {"cine": ["despertar", 3, 0.0], "gate": 1.0, "foes": false, "after": 60.0, "boss": [1, 32.0, 0.0, -1.5708, 1, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []]},
+	"kf_despertar_4b": {"cine": ["despertar", 3, 1.0], "gate": 1.0, "foes": false, "after": 60.0, "boss": [1, 32.0, 0.0, -1.5708, 1, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []]},
+	"kf_liberacion_1a": {"cine": ["liberacion", 0, 0.0], "gate": 1.0, "foes": false, "after": 60.0, "boss": [4, 15.5, 0.0, -1.5708, 9, 0.0, 0, 4, 4, -1, 0.0, 0.0, 0.0, [], 0, 1, [], 0, 3, 3, 3, 100, 0, 3]},
+	"kf_liberacion_1b": {"cine": ["liberacion", 0, 1.0], "gate": 1.0, "foes": false, "after": 60.0, "boss": [4, 15.5, 0.0, -1.5708, 9, 0.0, 0, 4, 4, -1, 0.0, 0.0, 0.0, [], 0, 1, [], 0, 3, 3, 3, 100, 0, 3]},
+	"kf_liberacion_2a": {"cine": ["liberacion", 1, 0.0], "gate": 1.0, "foes": false, "after": 60.0, "boss": [4, 15.5, 0.0, -1.5708, 9, 0.0, 0, 4, 4, -1, 0.0, 0.0, 0.0, [], 0, 1, [], 0, 3, 3, 3, 100, 0, 3]},
+	"kf_liberacion_2b": {"cine": ["liberacion", 1, 1.0], "gate": 1.0, "foes": false, "after": 60.0, "boss": [4, 15.5, 0.0, -1.5708, 9, 0.0, 0, 4, 4, -1, 0.0, 0.0, 0.0, [], 0, 1, [], 0, 3, 3, 3, 100, 0, 3]},
+	"kf_liberacion_3a": {"cine": ["liberacion", 2, 0.0], "gate": 1.0, "foes": false, "after": 60.0, "boss": [4, 15.5, 0.0, -1.5708, 9, 0.0, 0, 4, 4, -1, 0.0, 0.0, 0.0, [], 0, 1, [], 0, 3, 3, 3, 100, 0, 3]},
+	"kf_liberacion_3b": {"cine": ["liberacion", 2, 1.0], "gate": 1.0, "foes": false, "after": 60.0, "boss": [4, 15.5, 0.0, -1.5708, 9, 0.0, 0, 4, 4, -1, 0.0, 0.0, 0.0, [], 0, 1, [], 0, 3, 3, 3, 100, 0, 3]},
+	# Fases 2 y 3 en la explanada
+	"jefe_fase2": {"pos": Vector3(6.6, 5.2, 6.4), "look": Vector3(15.0, 1.6, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
+		"boss": [2, 16.4, 0.6, -1.9, 2, 0.4, 66, 3, 3, 0, 0.0, 0.0, 0.0, [], 0, 1, [[0, 40.0], [1, 44.0], [5, 30.0]], 100, 0, 0, 1, 0, 0, 1]},
+	"jefe_embestida": {"pos": Vector3(7.0, 3.4, -6.6), "look": Vector3(14.6, 1.6, -1.2), "gate": 1.0, "foes": false, "after": 60.0,
+		"boss": [2, 18.6, 1.4, -2.16, 14, 0.4, 55, 3, 3, 0, 0.0, 0.0, -2.16, [], 0, 1, [[0, 40.0], [1, 44.0]], 100, 1, 0, 1, 0, 0, 1], "anim": ["Charge", 0.2]},
+	"jefe_corazon": {"pos": Vector3(19.6, 4.4, -5.6), "look": Vector3(13.6, 2.2, -1.6), "gate": 1.0, "foes": false, "after": 60.0,
+		"boss": [2, 13.6, -1.8, -1.9, 17, 6.0, 55, 3, 3, -1, 0.0, 0.0, 0.0, [], 3, 2, [[1, 44.0]], 62, 1, 0, 1, 0, 0, 1], "anim": ["Kneel", 9.0]},
+	"jefe_fase3": {"pos": Vector3(8.2, 4.6, 5.4), "look": Vector3(15.2, 1.8, 0.0), "gate": 1.0, "foes": true, "after": 60.0,
+		"boss": [3, 15.5, 0.0, -1.5708, 18, 0.0, 33, 3, 3, -1, 0.0, 0.0, 0.0, [], 0, 1, [], 0, 3, 1, 3, 0, 0, 3], "anim": ["Kneel", 9.0]},
+	"jefe_contacto": {"pos": Vector3(8.6, 3.6, -4.8), "look": Vector3(15.2, 1.8, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
+		"boss": [3, 15.5, 0.0, -1.5708, 18, 0.0, 33, 3, 3, -1, 0.0, 0.0, 0.0, [], 0, 1, [], 0, 3, 3, 3, 58, 3, 3], "anim": ["Kneel", 9.0]},
+	"jefe_liberado": {"pos": Vector3(8.8, 2.6, 2.8), "look": Vector3(14.6, 2.3, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
+		"boss": [4, 15.5, 0.0, -1.5708, 9, 0.0, 0, 4, 4, -1, 0.0, 0.0, 0.0, [], 0, 1, [], 0, 3, 3, 3, 100, 0, 3], "anim": ["Remember", 9.0]},
 	"secuelas_1": {"pos": Vector3(15.8, 2.6, 3.6), "look": Vector3(26.0, 2.6, 0.0), "gate": 1.0, "foes": false, "after": 3.0},
 	"secuelas_2": {"pos": Vector3(20.6, 2.1, 0.4), "look": Vector3(28.0, 1.6, 0.0), "gate": 1.0, "foes": false, "after": 3.0},
 	"secuelas_3": {"pos": Vector3(15.8, 2.6, 3.6), "look": Vector3(26.0, 2.6, 0.0), "gate": 1.0, "foes": false, "after": 60.0},
@@ -121,6 +149,7 @@ var foes: Array = []
 var time := 0.0
 var npc: NpcView
 var boss: BossView
+var arena: BossArena
 var cine := Cutscene.new()
 
 
@@ -175,6 +204,9 @@ func _setup() -> void:
 	boss = BossView.new()
 	world.add_child(boss)
 	boss.setup()
+	arena = BossArena.new()
+	world.add_child(arena)
+	arena.setup(false)
 	hud.set_overlay("")
 	hud.set_room("Q7KM2X")
 	hud.set_roster(roster, "0")
@@ -198,6 +230,8 @@ func _process(delta: float) -> bool:
 		av.animate(delta, true, false)
 	for v in foes:
 		v.update_view(time, delta)
+	if arena:
+		arena.update_view(0.5 if wait > 0 else delta, boss.position, {0: Vector3(13.2, 0.2, 2.6), 1: Vector3(13.4, 0.2, -2.6), 2: Vector3(17.9, 0.0, 2.6)})
 	if npc:
 		npc.update_view(delta, idx >= 0 and str(shots[idx][0]) == "objetivo_yaxche", avatars[0].global_position, idx >= 0 and str(shots[idx][0]) == "dialogo")
 	hud.set_compass(cam.rotation.y + PI, cam.global_position)
@@ -224,7 +258,12 @@ func _process(delta: float) -> bool:
 		(world.get_meta("builder") as WorldBuilder).preview_aftermath(float(key.after))
 	# El jefe: dormido en su sitio salvo que la toma diga otra cosa
 	var bstate: Array = key.get("boss", [0, BossDef.HOME.x, BossDef.HOME.y, BossDef.HOME_YAW, 0, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []])
+	bstate = bstate.duplicate()
+	bstate.append_array([0, 1, [], 100, 0, 0, 1, 0, 0, 1].slice(bstate.size() - 14))
+	boss.cine_release()
 	boss.apply(bstate)
+	arena.apply(bstate)
+	arena.cine_feather = -1
 	boss.position = Vector3(float(bstate[1]), World.terrain_h(float(bstate[1]), float(bstate[2])), float(bstate[2]))
 	boss.rotation.y = float(bstate[3])
 	if boss._anim != null and key.has("t"):
@@ -235,8 +274,26 @@ func _process(delta: float) -> bool:
 		boss._anim.pause()
 	boss._label.visible = boss._label.visible and not str(s[0]).begins_with("kf_")
 	if key.has("boss") and int(bstate[0]) in [1, 2, 3] and bool(s[5]):
-		hud.set_boss(true, BossDef.PHASE_NAMES[int(bstate[0])], float(bstate[6]) / 100.0, int(bstate[7]), int(bstate[8]), "No tiene vida: devuélvele la memoria")
-		hud.set_objective("Enciende los glifos del guardián  (%d/%d)" % [int(bstate[7]), int(bstate[8])], "alert", "Debilita a una criatura y tócala con F junto a él  ·  los golpes no le hacen nada")
+		var bst: String = BossDef.STATES[int(bstate[4])]
+		match int(bstate[0]):
+			1:
+				hud.set_boss(true, BossDef.PHASE_NAMES[1], float(bstate[6]) / 100.0, int(bstate[7]), int(bstate[8]), "No tiene vida: devuélvele la memoria")
+				hud.set_objective("Enciende los glifos del guardián  (%d/%d)" % [int(bstate[7]), int(bstate[8])], "alert", "Debilita a una criatura y tócala con F junto a él  ·  los golpes no le hacen nada")
+			2:
+				hud.set_boss(true, BossDef.PHASE_NAMES[2], float(bstate[6]) / 100.0, 0, 0, "corazones liberados %d/3" % int(bstate[18]),
+					"CORAZÓN EXPUESTO  ·  ¡garras de Balam!" if bst == "bound" else "CORAZÓN DE PIEDRA", float(bstate[17]) / 100.0, Color(1.0, 0.55, 0.3))
+				if bst == "bound":
+					hud.set_objective("¡Corazón expuesto!  (%d/3)" % int(bstate[18]), "success", "Golpéalo como Balam (2)  ·  quien pise un ancla, que no la suelte")
+				else:
+					hud.set_objective("Haz que embista contra una columna  (%d/3)" % int(bstate[18]), "alert", "Ponte detrás de ella cuando te apunte  ·  quedará aturdido")
+			3:
+				var open := int(bstate[19]) >= int(bstate[20])
+				hud.set_boss(true, BossDef.PHASE_NAMES[3], float(bstate[6]) / 100.0, 0, 0, "glifos de memoria %d/%d" % [int(bstate[19]), int(bstate[20])],
+					"CONTACTO  ·  2 de %d lo tocan" % int(bstate[23]), float(bstate[21]) / 100.0 if open else -1.0)
+				if open:
+					hud.set_objective("Tóquenlo todos a la vez  (2/%d)" % int(bstate[23]), "success", "Como alux, junto a él, mantén F  ·  un golpe corta el contacto")
+				else:
+					hud.set_objective("Enciende los glifos de memoria  (%d/%d)" % [int(bstate[19]), int(bstate[20])], "alert", "Purifica criaturas junto a él (F)  ·  son lo último que le queda al Silencio")
 		hud.set_altars(false, 0)
 	else:
 		hud.set_boss(false)
@@ -262,7 +319,19 @@ func _process(delta: float) -> bool:
 	hud.context_hint("")
 	hud.set_npc_mark("")
 	if not key.is_empty():
-		cam.look_at_from_position(key.pos, key.look, Vector3.UP)
+		if key.has("cine"):
+			# Un cuadro exacto de una cinemática del jefe: [id, plano, fracción del plano]
+			var shot: Dictionary = Story.CUTSCENES[str(key.cine[0])].shots[int(key.cine[1])]
+			var k := float(key.cine[2])
+			var e := k * k * (3.0 - 2.0 * k)
+			cam.look_at_from_position((shot.from[0] as Vector3).lerp(shot.to[0], e), (shot.from[1] as Vector3).lerp(shot.to[1], e), Vector3.UP)
+			var pose: Dictionary = shot.boss
+			boss.cine_pose(str(pose.anim), float(pose.at) + k * float(shot.dur) * float(pose.speed), int(pose.look), lerpf(float(pose.glow[0]), float(pose.glow[1]), k))
+			if shot.has("feather"):
+				arena.cine_feather = 1 if bool(shot.feather) else 0
+				arena._feather_k = (1.0 if bool(shot.feather) else 0.0) * clampf(0.35 + k * 0.65, 0.0, 1.0)
+		else:
+			cam.look_at_from_position(key.pos, key.look, Vector3.UP)
 		npc.visible = false
 	if str(s[0]).begins_with("cine_") or str(s[0]).begins_with("sello_"):
 		# Un plano de una cinemática, a mitad de su recorrido

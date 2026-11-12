@@ -333,6 +333,10 @@ var _boss_box: VBoxContainer
 var _boss_name: Label
 var _boss_gauge: Gauge
 var _boss_note: Label
+var _boss_sub: Gauge
+var _boss_sub_label: Label
+var _extra_key := ""
+var _extra_marks: Array = []
 var _fade_tween: Tween
 var _cine_sub: Label
 var _cine_who: Label
@@ -735,7 +739,7 @@ func _build_panels(root: Control) -> void:
 	sg.add_theme_constant_override("v_separation", 6)
 	mv.add_child(sg)
 	for def in [["sens", "Sensibilidad del ratón"], ["vol_master", "Volumen general"], ["vol_music", "Música"],
-			["vol_sfx", "Efectos"], ["vol_amb", "Ambiente"]]:
+			["vol_sfx", "Efectos"], ["vol_amb", "Ambiente"], ["shake", "Sacudida de cámara"]]:
 		sg.add_child(Kit.label(def[1], 14, Kit.LIME))
 		var sl := HSlider.new()
 		sl.min_value = 0.0
@@ -840,6 +844,17 @@ func _build_top(root: Control) -> void:
 	_boss_note.add_theme_constant_override("outline_size", 5)
 	_boss_note.add_theme_color_override("font_outline_color", Color(0.03, 0.06, 0.05, 0.9))
 	_boss_box.add_child(_boss_note)
+	# Segunda barra: el corazón expuesto (fase 2) o el contacto del ritual (fase 3)
+	_boss_sub_label = Kit.label("", 11, Kit.GOLD, Kit.bold_font())
+	_boss_sub_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_boss_sub_label.add_theme_constant_override("outline_size", 5)
+	_boss_sub_label.add_theme_color_override("font_outline_color", Color(0.03, 0.06, 0.05, 0.9))
+	_boss_sub_label.visible = false
+	_boss_box.add_child(_boss_sub_label)
+	_boss_sub = Gauge.new(Kit.JADE, 12.0, 260.0)
+	_boss_sub.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_boss_sub.visible = false
+	_boss_box.add_child(_boss_sub)
 
 
 func _build_bottom(root: Control) -> void:
@@ -1125,10 +1140,17 @@ func objective_text() -> String:
 ## Marca los altares en la brújula mientras haya que pisarlos (dorados los que ya están activos).
 ## Barra del jefe. No es vida: es Silencio, y baja cuando el grupo le devuelve la memoria.
 ## `note` explica qué hacer en la fase en curso ("" oculta todo).
-func set_boss(show: bool, phase_name := "", silence := 1.0, glyphs := 0, needed := 0, note := "") -> void:
+func set_boss(show: bool, phase_name := "", silence := 1.0, glyphs := 0, needed := 0, note := "",
+		sub_label := "", sub := -1.0, sub_color := Kit.JADE) -> void:
 	_boss_box.visible = show
 	if not show:
 		return
+	_boss_sub.visible = sub >= 0.0
+	_boss_sub_label.visible = sub >= 0.0
+	if sub >= 0.0:
+		_boss_sub_label.text = sub_label
+		_boss_sub.color = sub_color
+		_boss_sub.set_value(sub)
 	_boss_name.text = "NOJOCH TUUNICH  ·  %s" % phase_name
 	_boss_gauge.set_value(silence)
 	# (la tipografía del juego no trae rombos ni círculos: los glifos se cuentan con números)
@@ -1152,6 +1174,7 @@ func set_altars(show: bool, mask: int) -> void:
 	var marks := _base_marks.duplicate()
 	if _npc_on:
 		marks.append(["alux", Kit.GOLD, _npc_pos])
+	marks.append_array(_extra_marks)
 	if show:
 		for i in World.PLATES.size():
 			var on := (mask & (1 << i)) != 0
@@ -1373,6 +1396,15 @@ func set_npc_mark(key: String, pos := Vector2.ZERO) -> void:
 	_npc_pos = pos
 	_npc_on = not key.is_empty()
 	_altars_key = -2   # obliga a recomponer las marcas
+
+
+## Marcas de la brújula propias de un momento (anclas, columnas, el cenote…): [[icono, color, posición]].
+func set_extra_marks(key: String, marks: Array) -> void:
+	if key == _extra_key:
+		return
+	_extra_key = key
+	_extra_marks = marks
+	_altars_key = -2
 
 
 func show_intro() -> void:

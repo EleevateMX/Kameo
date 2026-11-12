@@ -109,10 +109,11 @@ const SILENCE_PER_EXPOSURE := 11.0
 ## después, todos los que sigan en pie lo tocan a la vez (alux, mantener F).
 const RITUAL := {"time": 3.0, "time_solo": 4.0, "range": 4.6, "decay": 1.2, "block": 1.0, "wave_every": 9.0, "first_wave": 2.5,
 	"far": 30.0}
-## Última resistencia: un pulso de Silencio que empuja a quien esté pegado a él (se esquiva).
-const PULSE := {"every": 11.0, "windup": 1.5, "radius": 5.4, "dmg": 10.0, "knock": 9.0}
+## Última resistencia: un pulso de Silencio que empuja a quien esté pegado a él. No llega al borde
+## del círculo de contacto: quien lo toca desde ahí (donde están los glifos) no tiene que soltarlo.
+const PULSE := {"every": 11.0, "windup": 1.5, "radius": 3.6, "dmg": 10.0, "knock": 9.0}
 ## Glifos del suelo alrededor de él (posición relativa): se encienden al purificar.
-const RITUAL_SPOTS: Array[Vector2] = [Vector2(0.0, -3.4), Vector2(3.4, 0.0), Vector2(0.0, 3.4), Vector2(-3.4, 0.0)]
+const RITUAL_SPOTS: Array[Vector2] = [Vector2(0.0, -4.1), Vector2(4.1, 0.0), Vector2(0.0, 4.1), Vector2(-4.1, 0.0)]
 ## Por dónde llegan las criaturas del Silencio en la fase 3.
 const RITUAL_GATES: Array[Vector2] = [Vector2(9.2, -6.6), Vector2(9.2, 6.6), Vector2(19.8, 5.6), Vector2(19.6, -3.2), Vector2(12.4, 8.2)]
 

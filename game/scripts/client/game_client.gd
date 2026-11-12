@@ -32,6 +32,7 @@ const FATAL_CODES := {
 }
 const JADE := Color(0.35, 1.0, 0.85)
 const GOLD := Color(1.0, 0.82, 0.3)
+const MAGENTA := Color(1.0, 0.2, 0.61)
 const QUALITY_NAMES := ["alta", "baja", "mínima"]
 ## Errores con los que tiene sentido reintentar recargando (los demás sólo ofrecen volver al portal)
 const RELOADABLE := ["version", "server_full", "rate_limited"]
@@ -79,6 +80,11 @@ var _remote := {}       # slot -> {buf: Array}
 var _enemies := {}      # id -> EnemyView
 var _boss: BossView     # Nojoch Tuunich (lo crea la primera instantánea que trae su estado)
 var _boss_state: Array = []
+var _arena: BossArena  # anclas, columnas, cadenas y glifos del combate con el guardián
+var _talk_npc := ""    # personaje con el que se puede hablar ahora mismo ("" si ninguno)
+var _touch_sfx := 0.0
+var _cine_staged := false
+var _motes_in := 0.0
 var _bolts := {}        # id del servidor -> {node, pos, dir, speed, life}
 var _local_bolts: Array = []   # chispas propias aún sin id del servidor
 var _builder: WorldBuilder
@@ -111,13 +117,14 @@ var _fps_time := 0.0
 
 # Partida: estado, resultado y ayudas
 var _audio: Audio
-var _settings := {"sens": 0.5, "vol_master": 0.8, "vol_music": 0.55, "vol_sfx": 0.9, "vol_amb": 0.7}
+var _settings := {"sens": 0.5, "vol_master": 0.8, "vol_music": 0.55, "vol_sfx": 0.9, "vol_amb": 0.7, "shake": 0.6}
 var _welcomed := false        # ya se entró alguna vez a la sala (distingue cargar de reconectar)
 var _votes := 0               # votos para otra ronda
 var _connected := 1
 var _lock := 0                # segundos que faltan para que los altares respondan
 var _voted := false
-var _result_kind := ""        # "victory" o "defeat" pendiente de mostrar
+var _result_kind := ""        # "victory", "defeat" o "freed" pendiente de mostrar
+var _feather_text := ""       # qué pasó con la Pluma de Jade ("" si aún no se sabe)
 var _result_in := 0.0
 var _reward_text := ""
 var _stats := {"t0": 0.0, "secs": 0.0, "purified": 0, "kills": 0, "falls": 0, "left": 0}
@@ -299,7 +306,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		# cualquier otra tecla empieza la partida y además hace lo suyo (moverse, transformarse…)
 	# Junto a un personaje, F es "hablar" (en cualquier forma)
 	if event.is_action_pressed("atk3") and _npc_near and _net == Net.PLAYING and not _hud.panel_open():
-		_open_dialogue(_npc.npc_id)
+		_open_dialogue(_talk_npc)
 		return
 	if event is InputEventMouseButton:
 		var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
@@ -333,7 +340,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_open_menu()
 	elif event.is_action_pressed("accept"):
 		if _hud.result_open():
-			_on_action("again" if _encounter == 2 else "retry")
+			# Enter sigue la aventura (el santuario, el guardián); otra ronda se pide con su botón
+			_on_action("close" if _encounter == 2 else "retry")
 		elif _hud.menu_open():
 			_close_menu(false)
 	elif event.is_action_pressed("recenter"):
@@ -368,15 +376,19 @@ func _sensitivity() -> float:
 func _load_settings() -> void:
 	if not _is_web:
 		return
+	var stored := {}
 	var raw: Variant = _js("(function(){try{return localStorage.getItem('alux_settings')||''}catch(e){return ''}})()")
-	if typeof(raw) != TYPE_STRING or raw.is_empty():
-		return
-	var json := JSON.new()
-	if json.parse(raw) == OK and typeof(json.data) == TYPE_DICTIONARY:
-		for key in _settings.keys():
-			var v: Variant = json.data.get(key)
-			if typeof(v) == TYPE_FLOAT or typeof(v) == TYPE_INT:
-				_settings[key] = clampf(float(v), 0.0, 1.0)
+	if typeof(raw) == TYPE_STRING and not raw.is_empty():
+		var json := JSON.new()
+		if json.parse(raw) == OK and typeof(json.data) == TYPE_DICTIONARY:
+			stored = json.data
+	for key in _settings.keys():
+		var v: Variant = stored.get(key)
+		if typeof(v) == TYPE_FLOAT or typeof(v) == TYPE_INT:
+			_settings[key] = clampf(float(v), 0.0, 1.0)
+	# Quien pide menos movimiento en su sistema empieza sin sacudidas de cámara (puede subirlas)
+	if not stored.has("shake") and bool(_js("(function(){try{return !!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)}catch(e){return false}})()")):
+		_settings.shake = 0.0
 
 
 func _save_settings() -> void:
@@ -582,7 +594,7 @@ func _on_cine_finished(id: String, _skipped: bool) -> void:
 
 
 func _open_dialogue(npc: String) -> void:
-	var lines: Array = Story.dialogue(npc, _story, _encounter)
+	var lines: Array = Story.dialogue(npc, _story, _encounter, _boss_phase())
 	if lines.is_empty():
 		return
 	var texts := []
@@ -602,7 +614,8 @@ func _on_dialogue_done(completed: bool) -> void:
 	_talking = ""
 	if completed and not npc.is_empty() and _ws != null and _net == Net.PLAYING:
 		_ws.send_text(JSON.stringify({"t": "talk", "n": npc}))
-		_npc.gesture("Bless")   # despedida: levanta el bastón
+		if npc == _npc.npc_id:
+			_npc.gesture("Bless")   # despedida: levanta el bastón
 
 
 ## Botones de la interfaz (menú, resultado, bienvenida y pantallas de error).
@@ -833,7 +846,7 @@ func _on_message(m: Dictionary) -> void:
 					_hud.show_intro()
 				_audio.loop("amb_selva", "Ambience", -4.0)
 				_audio.loop("amb_brasero", "Ambience", -60.0)
-			_audio.set_music("mus_emboscada" if _encounter == 1 else "mus_claro")
+			_refresh_music()
 			_net = Net.PLAYING
 		"roster":
 			_set_roster(m.players)
@@ -957,7 +970,16 @@ func _apply_world(w: Array, instant := false) -> void:
 		var detail := "Esc: jugar otra ronda o salir al portal"
 		if _votes > 0 and _connected > 1:
 			detail = "Otra ronda: %d de %d listos  ·  Esc para %s" % [_votes, _connected, "quitar tu voto" if _voted else "unirte"]
-		_hud.set_objective("Santuario liberado", "success", detail)
+		if (_story & Story.F_CLUE) != 0:
+			_hud.set_objective("Capítulo I completado", "success", "La Pluma de Jade señala el cenote  ·  " + detail)
+		elif _boss_phase() == BossDef.FREED:
+			_hud.set_objective("Habla con Nojoch Tuunich", "goal", "Recordó quién es  ·  acércate y pulsa F")
+		elif _votes > 0 and _connected > 1:
+			_hud.set_objective("Santuario abierto", "success", detail)
+		elif _boss_state.size() > 1 and float(_boss_state[1]) < 22.0:
+			_hud.set_objective("El guardián volvió a dormirse", "goal", "Acérquense a él cuando el grupo esté listo  ·  se retoma desde la fase alcanzada")
+		else:
+			_hud.set_objective("Entra al santuario", "goal", "Algo enorme duerme al fondo del patio")
 		_hud.update_menu(QUALITY_NAMES[_quality], _again_text())
 		if _hud.result_open() and _votes > 0 and _connected > 1:
 			_hud.set_result_note("Otra ronda: %d de %d listos" % [_votes, _connected])
@@ -989,11 +1011,12 @@ func _apply_world(w: Array, instant := false) -> void:
 ## Cambio de fase de la partida: 0 explorar · 1 emboscada · 2 victoria · 3 derrota.
 ## `instant` = se entra a una sala que ya estaba así (no se repiten avisos ni paneles).
 func _on_phase(from: int, to: int, instant: bool) -> void:
-	_audio.set_music("mus_emboscada" if to == 1 else "mus_claro")
+	_refresh_music()
 	_voted = false
 	if to == 1:
 		_stats = {"t0": _time, "secs": 0.0, "purified": 0, "kills": 0, "falls": 0, "left": 0}
 		_reward_text = ""
+		_feather_text = ""
 		_hud.hide_result()
 		return
 	if instant:
@@ -1027,6 +1050,14 @@ func _show_result() -> void:
 	_result_kind = ""
 	if (kind == "victory" and _encounter != 2) or (kind == "defeat" and _encounter != 3 and _lock <= 0):
 		return
+	if kind == "freed":
+		if _boss_phase() != BossDef.FREED:
+			return
+		if _cine.active or _frozen:
+			# la escena de la liberación va primero: el panel espera a que termine
+			_result_kind = "freed"
+			_result_in = 0.5
+			return
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_was_captured = false
 	_mouse_l = false
@@ -1034,13 +1065,18 @@ func _show_result() -> void:
 	_hud.hide_menu()
 	var secs := int(float(_stats.secs))
 	var time_text := "%d:%02d" % [secs / 60, secs % 60]
-	if kind == "victory":
+	if kind == "freed":
+		var stats := [["Tiempo", time_text], ["Criaturas purificadas", str(_stats.purified)], ["Caídas del grupo", str(_stats.falls)]]
+		stats.append(["Pluma de Jade", _feather_text if not _feather_text.is_empty() else "guardando…"])
+		_hud.show_result("victory", "CAPÍTULO I COMPLETADO", "Nojoch Tuunich recordó quién es y les confió la Pluma de Jade. Háblenle: sabe hacia dónde tira.", stats, [
+			["close", "Hablar con el guardián", true], ["again", "Jugar otra ronda", false], ["exit", "Salir al portal", false]])
+	elif kind == "victory":
 		var stats := [["Tiempo", time_text], ["Criaturas purificadas", str(_stats.purified)],
 			["Enemigos vencidos", str(_stats.kills)], ["Caídas del grupo", str(_stats.falls)]]
 		if not _reward_text.is_empty():
 			stats.append(["Sello del Claro", _reward_text])
-		_hud.show_result("victory", "¡VICTORIA!", "El santuario está libre y el claro vuelve a respirar.", stats, [
-			["again", "Jugar otra ronda", true], ["close", "Seguir explorando", false], ["exit", "Salir al portal", false]])
+		_hud.show_result("victory", "¡VICTORIA!", "El santuario está abierto y el claro vuelve a respirar. Pero al fondo del patio algo enorme sigue dormido…", stats, [
+			["close", "Entrar al santuario", true], ["again", "Jugar otra ronda", false], ["exit", "Salir al portal", false]])
 	else:
 		_hud.show_result("defeat", "DERROTA", "Todo el grupo cayó y el santuario se selló de nuevo. Reúnanse en el brasero, cúrense con F y vuelvan a pisar los altares.", [
 			["Tiempo", time_text], ["Enemigos que quedaban", str(_stats.left)], ["Caídas del grupo", str(_stats.falls)]], [
@@ -1125,13 +1161,37 @@ func _on_event(m: Dictionary) -> void:
 			if _cine.active and _cine.shared:
 				_cine.stop()
 		"story":
-			if str(m.get("k", "")) == "talked":
-				Audio.play("objetivo")
-				_hud.hint("%s habló con Chiich Yaxché  ·  nueva misión: los altares" % str(m.get("by", "Un alux")), 5.0)
+			match str(m.get("k", "")):
+				"talked":
+					Audio.play("objetivo")
+					_hud.hint("%s habló con Chiich Yaxché  ·  nueva misión: los altares" % str(m.get("by", "Un alux")), 5.0)
+				"freed":
+					_story |= Story.F_FREED
+				"clue":
+					_story |= Story.F_CLUE
+					Audio.play("pluma_jade", null, 0.0, 0.0)
+					_hud.banner("La Pluma de Jade señala el cenote", JADE, 5.0)
+					_hud.hint("%s escuchó al guardián  ·  el camino del capítulo II queda marcado en la brújula" % str(m.get("by", "Un alux")), 7.0)
+					_refresh_music()
 		"gate_open":
 			_hud.banner("¡El santuario se abre!", Color(0.5, 1.0, 0.85), 3.0)
 			Audio.play("santuario_abre", Vector3(World.SANCTUARY.x - 7.0, 1.0, World.SANCTUARY.y), 3.0)
 		"reward":
+			if str(m.get("reward", "")) == BossDef.REWARD:
+				# La Pluma de Jade: objeto ancestral, queda en el perfil de cada jugador
+				if not bool(m.get("saved", false)):
+					_feather_text = "no se pudo guardar"
+					_hud.toast("Pluma de Jade\nno se pudo guardar")
+				elif bool(m.get("new", false)):
+					_feather_text = "guardada en tu perfil"
+					_hud.toast("Pluma de Jade\nguardada en tu perfil")
+					Audio.play("pluma_jade", null, -2.0, 0.0)
+				else:
+					_feather_text = "ya la tenías"
+				if _hud.result_open() and _boss_phase() == BossDef.FREED:
+					_result_kind = "freed"
+					_result_in = 0.01
+				return
 			if str(m.get("reward", "")) != "sello_del_claro":
 				# Progreso del capítulo guardado en el perfil (sin panel: ya se avisó en la partida)
 				if bool(m.get("saved", false)) and bool(m.get("new", false)):
@@ -1333,84 +1393,342 @@ func _boss_phase() -> int:
 	return int(_boss_state[0]) if _boss_state.size() > 0 else BossDef.ASLEEP
 
 
+func _boss_action() -> String:
+	if _boss_state.size() < 5:
+		return "sleep"
+	return BossDef.STATES[clampi(int(_boss_state[4]), 0, BossDef.STATES.size() - 1)]
+
+
+static func _bits(mask: int) -> int:
+	var n := 0
+	for i in 8:
+		if (mask & (1 << i)) != 0:
+			n += 1
+	return n
+
+
+## Sacudida de cámara, moderada y a gusto del jugador (ajuste «Sacudida de cámara»).
+func _bump(amount: float) -> void:
+	_shake = maxf(_shake, amount)
+
+
+## Música según lo que está pasando: emboscada, cada fase del guardián o la calma del claro.
+func _refresh_music() -> void:
+	var want := "mus_claro"
+	if _encounter == 1:
+		want = "mus_emboscada"
+	elif _encounter == 2:
+		match _boss_phase():
+			BossDef.OLVIDO:
+				want = "mus_jefe"
+			BossDef.FURIA:
+				want = "mus_jefe_furia"
+			BossDef.RECUERDO:
+				want = "mus_recuerdo"
+			BossDef.FREED:
+				want = "mus_recuerdo" if (_story & Story.F_CLUE) == 0 else "mus_claro"
+	if not _audio.has(want):
+		want = "mus_emboscada" if want.begins_with("mus_jefe") else "mus_claro"
+	_audio.set_music(want)
+
+
 ## Estado del jefe que manda el servidor: lo dibuja y actualiza su barra. El cliente no decide nada.
 func _apply_boss(b: Array) -> void:
 	if b.size() < 10:
 		return
+	var before := _boss_phase()
 	_boss_state = b
 	if _boss == null:
 		_boss = BossView.new()
 		add_child(_boss)
 		_boss.setup()
+		_boss.stepped.connect(_on_boss_step)
+		_arena = BossArena.new()
+		add_child(_arena)
+		_arena.setup(_quality >= 1)
 	_boss.apply(b)
+	_arena.apply(b)
 	var phase := int(b[0])
 	var awake := phase in [BossDef.OLVIDO, BossDef.FURIA, BossDef.RECUERDO]
 	var note := ""
+	var sub_label := ""
+	var sub := -1.0
+	var sub_color := JADE
+	var full := b.size() >= 24
 	match phase:
 		BossDef.OLVIDO:
 			note = "No tiene vida: devuélvele la memoria"
 		BossDef.FURIA:
-			note = "El Silencio retrocede"
+			if full:
+				note = "corazones liberados %d/%d" % [int(b[18]), BossDef.EXPOSURES]
+				sub = float(b[17]) / 100.0
+				sub_label = "CORAZÓN EXPUESTO  ·  ¡garras de Balam!" if _boss_action() == "bound" else "CORAZÓN DE PIEDRA"
+				sub_color = Color(1.0, 0.55, 0.3)
+		BossDef.RECUERDO:
+			if full:
+				note = "glifos de memoria %d/%d" % [int(b[19]), int(b[20])]
+				if int(b[19]) >= int(b[20]):
+					sub = float(b[21]) / 100.0
+					sub_label = "CONTACTO  ·  %d de %d lo tocan" % [_bits(int(b[22])), int(b[23])]
 	_hud.set_boss(awake, BossDef.PHASE_NAMES[clampi(phase, 0, 4)], float(b[6]) / BossDef.SILENCE_MAX,
-		int(b[7]), int(b[8]) if phase == BossDef.OLVIDO else 0, note)
+		int(b[7]), int(b[8]) if phase == BossDef.OLVIDO else 0, note, sub_label, sub, sub_color)
+	if phase != before:
+		_refresh_music()
+	# Brújula: las anclas mientras hacen falta; el cenote cuando la pluma ya lo señala
+	var marks := []
+	var key := ""
+	if phase == BossDef.FURIA and (_boss_action() == "stunned" or _boss_action() == "bound") and full:
+		key = "anclas%d" % int(b[14])
+		for i in BossDef.ANCHORS.size():
+			marks.append(["goal", GOLD if (int(b[14]) & (1 << i)) != 0 else JADE, BossDef.ANCHORS[i]])
+	elif (_story & Story.F_CLUE) != 0:
+		key = "cenote"
+		marks.append(["goal", JADE, World.CENOTE])
+	elif phase == BossDef.FREED:
+		key = "nojoch"
+		marks.append(["alux", JADE, Vector2(float(b[1]), float(b[2]))])
+	_hud.set_extra_marks(key, marks)
+
+
+## Lo que una cinemática pide al escenario en el plano en curso: la pose y el aspecto del
+## guardián, las motas del Silencio y la Pluma de Jade. Al terminar, todo vuelve a seguir al estado
+## del servidor.
+func _update_cine_stage(delta: float) -> void:
+	if _boss == null:
+		return
+	var shot: Dictionary = _cine.current_shot() if _cine.active else {}
+	if not shot.has("boss"):
+		if _cine_staged:
+			_cine_staged = false
+			_boss.cine_release()
+			_arena.cine_feather = -1
+		return
+	_cine_staged = true
+	var pose: Dictionary = shot.boss
+	var glow: Array = pose.get("glow", [-1.0, -1.0])
+	_boss.cine_pose(str(pose.anim), float(pose.get("at", 0.0)) + _cine.shot_time() * float(pose.get("speed", 1.0)),
+		int(pose.get("look", -1)), lerpf(float(glow[0]), float(glow[1]), _cine.shot_k()))
+	if shot.has("feather"):
+		_arena.cine_feather = 1 if bool(shot.feather) else 0
+	if shot.has("motes") and not _cine.using_video():
+		_motes_in -= delta
+		if _motes_in <= 0.0:
+			_motes_in = 0.14 if _quality == 0 else 0.3
+			var a := randf() * TAU
+			var at := _boss.position + Vector3(cos(a) * randf_range(0.6, 1.9), randf_range(0.8, 3.6), sin(a) * randf_range(0.6, 1.9))
+			Fx.burst(self, at, Color(str(shot.motes)), 3, 1.4, 0.06, 1.3)
+
+
+func _on_boss_step() -> void:
+	var d := (_boss.position - _pred.pos).length()
+	if d < 26.0:
+		Audio.play("jefe_paso", _boss.position, -2.0, 0.12)
+	if d < 9.0:
+		_bump(0.05 if _boss_action() != "charge" else 0.09)
 
 
 func _boss_objective() -> void:
+	var b := _boss_state
+	var st := _boss_action()
 	match _boss_phase():
 		BossDef.OLVIDO:
-			_hud.set_objective("Enciende los glifos del guardián  (%d/%d)" % [int(_boss_state[7]), int(_boss_state[8])], "alert",
+			_hud.set_objective("Enciende los glifos del guardián  (%d/%d)" % [int(b[7]), int(b[8])], "alert",
 				"Debilita a una criatura y tócala con F junto a él  ·  los golpes no le hacen nada")
 		BossDef.FURIA:
-			_hud.set_objective("El guardián empieza a recordar", "success", "Continuará: la Furia de Nojoch Tuunich")
+			if b.size() < 24:
+				return
+			var hearts := "(%d/%d)" % [int(b[18]), BossDef.EXPOSURES]
+			if st == "kneel" or st == "transit":
+				_hud.set_objective("El Silencio lo arrastra a la explanada", "alert", "Síguelo fuera del santuario")
+			elif st == "bound":
+				_hud.set_objective("¡Corazón expuesto!  %s" % hearts, "success",
+					"Golpéalo como Balam (2)  ·  quien pise un ancla, que no la suelte" if _connected > 1 else "Golpéalo como Balam (2) antes de que se suelte")
+			elif st == "stunned":
+				_hud.set_objective("¡Aturdido!  Pisen las anclas  (%d/%d)" % [_bits(int(b[14])), int(b[15])], "success",
+					"Los discos de jade de la explanada: las cadenas lo sujetarán")
+			elif (b[16] as Array).is_empty():
+				_hud.set_objective("Despierta una columna  %s" % hearts, "alert",
+					"Como alux, toca con F uno de los glifos dorados del suelo")
+			elif st == "rain_w" or st == "rain":
+				_hud.set_objective("¡Lluvia de piedra!", "alert", "Refúgiate junto a una columna (círculo de jade)")
+			else:
+				_hud.set_objective("Haz que embista contra una columna  %s" % hearts, "alert",
+					"Ponte detrás de ella cuando te apunte  ·  quedará aturdido")
+		BossDef.RECUERDO:
+			if b.size() < 24:
+				return
+			if st != "ritual":
+				_hud.set_objective("El guardián se arrodilla", "success", "El Silencio se resiste por última vez")
+			elif int(b[19]) < int(b[20]):
+				_hud.set_objective("Enciende los glifos de memoria  (%d/%d)" % [int(b[19]), int(b[20])], "alert",
+					"Purifica criaturas junto a él (F)  ·  son lo último que le queda al Silencio")
+			else:
+				_hud.set_objective("Tóquenlo todos a la vez  (%d/%d)" % [_bits(int(b[22])), int(b[23])], "success",
+					"Como alux, junto a él, mantén F  ·  un golpe corta el contacto")
 		_:
 			_hud.set_objective("Nojoch Tuunich", "alert", "")
 
 
 func _on_boss_event(ev: Array) -> void:
 	var at := _boss.position if _boss != null else Vector3(BossDef.HOME.x, 0.0, BossDef.HOME.y)
+	var near := (at - _pred.pos).length()
 	match str(ev[1]):
 		"awake":
 			_hud.banner("Nojoch Tuunich despierta", Color(1.0, 0.45, 0.7), 4.0)
-			Audio.play("enemigo_aviso", null, 0.0, 0.0)
-			_audio.set_music("mus_emboscada")
+			Audio.play("jefe_despierta", at, 2.0, 0.0)
+			_bump(0.22)
+			_refresh_music()
 			# Qué significa su barra, una sola vez
-			_tip("silencio", "Su barra no es vida: es Silencio. Purifica criaturas a su lado (F) y recordará", 9.0)
+			if int(ev[2]) == BossDef.OLVIDO:
+				_tip("silencio", "Su barra no es vida: es Silencio. Purifica criaturas a su lado (F) y recordará", 9.0)
 		"tele":
 			match str(ev[2]):
 				"slam":
 					var p := Vector3(float(ev[4]), World.terrain_h(float(ev[4]), float(ev[5])) + 0.06, float(ev[5]))
 					Fx.telegraph(self, p, float(BossDef.SLAM.radius), float(ev[3]))
-					Audio.play("enemigo_aviso", at, -2.0)
+					Audio.play("jefe_aviso", at, -1.0)
 				"sweep":
 					Fx.slash(self, at + Vector3(0, 0.4, 0), float(ev[4]), float(BossDef.SWEEP.range), float(BossDef.SWEEP.arc), Color(1.0, 0.3, 0.65), float(ev[3]))
-					Audio.play("enemigo_aviso", at, -4.0)
+					Audio.play("jefe_aviso", at, -3.0)
 				"summon":
 					Fx.pillar(self, at, Color(1.0, 0.25, 0.65), 7.0, 1.6, float(ev[3]))
+					Audio.play("jefe_llamada", at, 0.0)
+				"rain":
+					_hud.banner("¡Lluvia de piedra!", Color(1.0, 0.6, 0.4), 2.2)
+					Audio.play("jefe_llamada", at, 1.0)
+					Fx.pillar(self, at, Color(1.0, 0.7, 0.4), 9.0, 2.0, float(ev[3]))
+					_tip("lluvia", "Lluvia de piedra: sólo estás a salvo junto a una columna despierta", 7.0)
+				"charge":
+					Audio.play("jefe_aviso", at, 1.0)
+					Audio.play("jefe_embestida", at, 0.0)
+					_tip("embestida", "Va a embestir en línea recta: quítate… o deja una columna en medio", 7.0)
+				"pulse":
+					Fx.telegraph(self, at + Vector3(0, 0.06, 0), float(ev[4]), float(ev[3]))
+					Audio.play("silencio_grieta", at, 2.0)
+					if near < float(ev[4]) + 1.0:
+						_hud.hint("¡Pulso de Silencio! Apártate o esquiva", 2.5)
 		"slam":
 			var p := Vector3(float(ev[2]), World.terrain_h(float(ev[2]), float(ev[3])) + 0.1, float(ev[3]))
 			Fx.ring(self, p, float(ev[4]), Color(1.0, 0.8, 0.5), 0.5)
 			Fx.burst(self, p + Vector3(0, 0.3, 0), Color(0.8, 0.75, 0.62), 22, 6.0, 0.12, 0.7)
-			Audio.play("enemigo_golpe", p, 2.0)
+			Audio.play("jefe_losa", p, 0.0)
+			_bump(clampf(0.34 - (p - _pred.pos).length() * 0.02, 0.06, 0.3))
 		"sweep":
 			Fx.slash(self, at + Vector3(0, 0.9, 0), float(ev[2]), float(BossDef.SWEEP.range), float(BossDef.SWEEP.arc), Color(1.0, 0.85, 0.6), 0.25)
-			Audio.play("enemigo_golpe", at, 0.0)
+			Audio.play("jefe_barrido", at, 0.0)
+			_bump(0.08)
 		"summon":
-			_hud.hint("El Silencio trae criaturas: son la llave de su memoria", 5.0)
+			if _boss_phase() == BossDef.OLVIDO:
+				_hud.hint("El Silencio trae criaturas: son la llave de su memoria", 5.0)
 		"glyph":
 			_hud.banner("Glifo encendido  %d/%d" % [int(ev[2]), int(ev[3])], JADE, 2.5)
-			Audio.play("objetivo")
+			Audio.play("glifo_restaurado", at, 2.0)
 			Fx.pillar(self, at, JADE, 7.0, 1.2, 0.7)
+			Fx.ring(self, at + Vector3(0, 0.1, 0), 4.0, JADE, 0.6)
 		"far":
 			if int(ev[2]) == _my_slot:
 				_hud.hint("Demasiado lejos del guardián: purifícala a su lado para encender un glifo", 5.0)
 		"phase":
-			_hud.banner("El guardián empieza a recordar", JADE, 4.0)
-			Audio.play("victoria", null, -2.0, 0.0)
-			_audio.set_music("mus_claro")
+			_refresh_music()
+			_bump(0.2)
+			if int(ev[2]) == BossDef.FURIA:
+				_hud.banner("FASE 2  ·  El corazón de piedra", Color(1.0, 0.55, 0.35), 4.5)
+				Audio.play("silencio_grieta", at, 3.0)
+				Fx.ring(self, at + Vector3(0, 0.1, 0), 7.0, MAGENTA, 0.8)
+			else:
+				_hud.banner("FASE 3  ·  La memoria restaurada", JADE, 4.5)
+				Audio.play("corazon_libre", at, 2.0)
+				Fx.ring(self, at + Vector3(0, 0.1, 0), 8.0, JADE, 0.9)
+		"transit":
+			Audio.play("jefe_paso", at, 2.0)
+		"arena":
+			if int(ev[2]) == BossDef.FURIA:
+				_tip("furia", "Sus golpes siguen sin hacerle nada. Despierta una columna (F como alux) y haz que choque con ella", 10.0)
+		"pillar":
+			_arena.pillar_fx(int(ev[2]), false)
+			var s: Vector2 = BossDef.PILLAR_SPOTS[clampi(int(ev[2]), 0, BossDef.PILLAR_SPOTS.size() - 1)]
+			Audio.play("pilar_sube", Vector3(s.x, 1.0, s.y), 1.0)
+		"pillar_max":
+			if int(ev[2]) == _my_slot:
+				_hud.hint("Ya hay tres columnas despiertas: no caben más", 3.5)
+		"pillar_down":
+			_arena.pillar_fx(int(ev[2]), true)
+		"rain":
+			Audio.play("lluvia_piedra", at, 0.0, 0.0)
+			_bump(0.1)
+		"charge":
+			Audio.play("jefe_paso", at, 3.0)
+			_bump(0.14)
+		"crash":
+			_arena.pillar_fx(int(ev[2]), true)
+			Audio.play("jefe_choque", at, 2.0)
+			Audio.play("jefe_aturdido", at, 0.0)
+			_bump(0.34)
+			_hud.banner("¡Aturdido!  Pisen las anclas", GOLD, 3.0)
+			_tip("anclas", "Aturdido: pisen los discos de jade de la explanada para sujetarlo con cadenas", 8.0)
+		"shake":
+			_hud.hint("Se sacude el aturdimiento… habrá que hacerlo chocar otra vez", 4.0)
+		"anchor":
+			if int(ev[3]) != 0:
+				var a: Vector2 = BossDef.ANCHORS[clampi(int(ev[2]), 0, BossDef.ANCHORS.size() - 1)]
+				var ap := Vector3(a.x, World.terrain_h(a.x, a.y), a.y)
+				Audio.play("ancla_activa", ap, 2.0)
+				Fx.pillar(self, ap, JADE, 6.0, 1.2, 0.5)
+		"bound":
+			_hud.banner("¡Cadenas de jade!  Corazón expuesto", JADE, 3.2)
+			Audio.play("cadenas_jade", at, 2.0)
+			Audio.play("corazon_expuesto", at, 0.0)
+			_tip("corazon", "El corazón de su espalda sólo lo alcanzan las garras de Balam (2). ¡Ahora!", 8.0)
+		"unbound":
+			Fx.ring(self, at + Vector3(0, 0.3, 0), float(BossDef.BOUND.shove_r), Color(1.0, 0.8, 0.5), 0.45)
+			Audio.play("jefe_barrido", at, 0.0)
+			if int(ev[2]) == 0:
+				_hud.hint("Las cadenas se sueltan: vuelve a aturdirlo", 4.0)
+		"clang":
+			Audio.play("golpe", at, -4.0)
+			if int(ev[2]) == _my_slot:
+				_tip("clang", "Es de piedra: los golpes no le hacen nada. Hay que exponer su corazón", 6.0)
+		"heart_hit":
+			var hp := at + Vector3(0, 3.0, 0)
+			Fx.burst(self, hp, Color(1.0, 0.6, 0.35), 10, 5.0, 0.09, 0.45)
+			Fx.number(self, hp + Vector3(0, 0.6, 0), str(int(ev[3])), Color(1.0, 0.75, 0.4), int(ev[3]) >= 30)
+			Audio.play("corazon_golpe", at, 2.0)
+			_bump(0.06 if int(ev[2]) != _my_slot else 0.1)
+		"heart":
+			_hud.banner("Corazón liberado  %d/%d" % [int(ev[2]), int(ev[3])], JADE, 3.5)
+			Audio.play("corazon_libre", at, 3.0)
+			Fx.pillar(self, at, JADE, 9.0, 1.8, 0.9)
+			Fx.ring(self, at + Vector3(0, 0.1, 0), 6.0, JADE, 0.7)
+			_bump(0.25)
+		"ritual":
+			_tip("ritual", "Se arrodilla. Enciende los glifos del suelo purificando criaturas junto a él (F)", 9.0)
+		"lit":
+			_hud.banner("Glifo de memoria  %d/%d" % [int(ev[2]), int(ev[3])], JADE, 2.5)
+			Audio.play("glifo_restaurado", at, 2.0)
+			Fx.pillar(self, at, JADE, 7.0, 1.2, 0.7)
+		"contact":
+			_hud.banner("¡Tóquenlo todos a la vez!", GOLD, 4.0)
+			Audio.play("objetivo")
+			_tip("contacto", "Como alux, junto a él, mantén F. Tienen que tocarlo todos los que sigan en pie", 9.0)
+		"pulse":
+			Fx.ring(self, at + Vector3(0, 0.2, 0), float(ev[2]), MAGENTA, 0.45)
+			Audio.play("jefe_losa", at, -3.0)
+			_bump(0.16)
+		"freed":
+			_hud.banner("Nojoch Tuunich recuerda", JADE, 5.0)
+			Audio.play("liberacion", null, 0.0, 0.0)
+			Fx.pillar(self, at, JADE, 14.0, 2.6, 1.6)
+			Fx.ring(self, at + Vector3(0, 0.1, 0), 12.0, JADE, 1.2)
+			_stats.secs = _time - float(_stats.t0)
+			_result_kind = "freed"
+			_result_in = 4.0
+			_refresh_music()
 		"fail":
 			_hud.banner("Nojoch Tuunich vuelve a dormirse", Color(1.0, 0.5, 0.5), 3.5)
 			Audio.play("derrota", null, 0.0, 0.0)
-			_audio.set_music("mus_claro")
+			_refresh_music()
+			if int(ev[2]) >= BossDef.FURIA:
+				_hud.hint("Se retoma desde esta fase: acércate a él cuando el grupo esté listo", 6.0)
 
 
 ## Ayuda de puntería: si hay un enemigo cerca de donde mira la cámara, se apunta a él.
@@ -1607,8 +1925,13 @@ func _process(delta: float) -> void:
 		_hud.set_low_hp(_hp < 30.0 and not _pred.dead)
 		_hud.set_compass(_cam_yaw, me.global_position)
 		_update_hints(delta)
-		_npc_near = not _pred.dead and _npc.distance_to(me.global_position) < _npc.talk_range
-		_npc.update_view(delta, _npc_near, me.global_position, _hud.dialogue_open())
+		var by_yaxche := not _pred.dead and _npc.distance_to(me.global_position) < _npc.talk_range
+		# Al guardián sólo se le puede hablar una vez liberado (y nunca en plena escena)
+		var by_nojoch := not _pred.dead and not by_yaxche and _boss != null and _boss_phase() == BossDef.FREED \
+			and (_boss.position - me.global_position).length() < float(Story.NPCS.nojoch.range)
+		_npc_near = by_yaxche or by_nojoch
+		_talk_npc = _npc.npc_id if by_yaxche else ("nojoch" if by_nojoch else "")
+		_npc.update_view(delta, by_yaxche, me.global_position, _hud.dialogue_open())
 		_audio.listener = me.global_position
 		_audio.set_loop_distance("amb_brasero", Vector3(0, 1.2, 0), -3.0)
 		_update_onboarding(delta, captured)
@@ -1638,6 +1961,15 @@ func _process(delta: float) -> void:
 		(_enemies[id] as EnemyView).update_view(_time, delta)
 	if _boss != null:
 		_boss.update_view(delta)
+		var where := {}
+		for slot in _avatars:
+			where[slot] = (_avatars[slot] as Node3D).global_position
+		_arena.update_view(delta, _boss.position, where)
+		# El contacto del ritual suena mientras este jugador lo mantiene
+		_touch_sfx -= delta
+		if _boss_state.size() >= 24 and _boss_phase() == BossDef.RECUERDO and (int(_boss_state[22]) & (1 << _my_slot)) != 0 and _touch_sfx <= 0.0:
+			_touch_sfx = 1.75
+			Audio.play("ritual_toque", null, -2.0, 0.0)
 
 	# Chispas en vuelo (las retira el servidor al impactar; aquí sólo avanzan)
 	for id in _bolts.keys():
@@ -1656,6 +1988,7 @@ func _process(delta: float) -> void:
 	_update_cine_flow(delta)
 	if not _cine.process(delta):
 		_update_camera()
+	_update_cine_stage(delta)
 	_update_perf(delta)
 	_debug_export(delta)
 
@@ -1698,9 +2031,10 @@ func _update_hints(delta: float) -> void:
 	var here := Vector2(_pred.pos.x, _pred.pos.z)
 	var text := ""
 	if _npc_near:
-		text = "" if _hud.dialogue_open() else "F  ·  Hablar con %s" % Story.NPCS[_npc.npc_id].name
+		text = "" if _hud.dialogue_open() else "F  ·  Hablar con %s" % Story.NPCS[_talk_npc].name
 	elif not _pred.dead:
 		var can_touch := _pred.form == "alux"
+		text = _boss_hint(here, can_touch)
 		for id in _enemies:
 			var v: EnemyView = _enemies[id]
 			if not v.purifiable():
@@ -1710,6 +2044,33 @@ func _update_hints(delta: float) -> void:
 		if text.is_empty() and _brazier_ready and _hp < Defs.MAX_HP - 1.0 and (here - Defs.BRAZIER).length() < Defs.BRAZIER_RANGE:
 			text = "F  ·  Tocar el brasero para curar al grupo" if can_touch else "1  ·  Vuelve a ser alux para tocar el brasero"
 	_hud.context_hint(text)
+
+
+## Qué se puede hacer aquí durante el combate con el guardián (según la forma del jugador).
+func _boss_hint(here: Vector2, can_touch: bool) -> String:
+	var b := _boss_state
+	if b.size() < 24 or _boss == null:
+		return ""
+	var st := _boss_action()
+	var to_boss := Vector2(_boss.position.x - here.x, _boss.position.z - here.y).length()
+	match _boss_phase():
+		BossDef.FURIA:
+			if st == "bound" and to_boss < 6.0:
+				return "Clic  ·  ¡Golpea el corazón!" if not can_touch else "2  ·  Llama a Balam para golpear el corazón"
+			if st == "stunned" or st == "bound":
+				for i in BossDef.ANCHORS.size():
+					if (int(b[14]) & (1 << i)) == 0 and (here - BossDef.ANCHORS[i]).length() < 4.0:
+						return "Pisa el ancla de jade"
+			if (b[16] as Array).size() < int(BossDef.PILLARS.count) and st != "kneel" and st != "transit":
+				for i in BossDef.PILLAR_SPOTS.size():
+					if not _arena.pillar_up(i) and (here - BossDef.PILLAR_SPOTS[i]).length() < float(BossDef.PILLARS.touch):
+						return "F  ·  Despertar la columna" if can_touch else "1  ·  Vuelve a ser alux para despertar la columna"
+		BossDef.RECUERDO:
+			if st == "ritual" and int(b[19]) >= int(b[20]) and to_boss < float(BossDef.RITUAL.range) + 1.5:
+				if to_boss > float(BossDef.RITUAL.range):
+					return "Acércate más al guardián"
+				return "Mantén F  ·  Tocar al guardián" if can_touch else "1  ·  Vuelve a ser alux para tocarlo"
+	return ""
 
 
 func _advance_bolt(b: Dictionary, delta: float) -> bool:
@@ -1730,7 +2091,7 @@ func _update_camera() -> void:
 		pos.y = ground
 	if _shake > 0.0:
 		_shake = maxf(0.0, _shake - get_process_delta_time())
-		pos += Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * _shake * 0.35
+		pos += Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * _shake * 0.35 * float(_settings.shake) / 0.6
 	_cam.global_position = pos
 	_cam.look_at(_cam_target, Vector3.UP)
 

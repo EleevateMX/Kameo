@@ -129,6 +129,15 @@ func using_video() -> bool:
 	return _video_on
 
 
+## Segundos transcurridos del plano en curso y fracción (0–1) de su duración.
+func shot_time() -> float:
+	return _t
+
+
+func shot_k() -> float:
+	return clampf(_t / _dur(_i), 0.0, 1.0) if active else 0.0
+
+
 ## Plano en curso ({} si no hay ninguno).
 func current_shot() -> Dictionary:
 	return _shots[_i] if active and _i >= 0 and _i < _shots.size() else {}
