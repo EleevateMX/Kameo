@@ -248,7 +248,7 @@ func animate(delta: float, grounded: bool, swim: bool) -> void:
 		if _stride > (1.5 if form == "alux" else 2.3):
 			_stride = 0.0
 			# el paso suena a lo que se pisa: hierba, losa o agua somera (con el paso genérico de respaldo)
-			Audio.play("paso_%s_1|paso_1" % Audio.ground_at(global_position), global_position, -2.0 if is_local else -10.0, 0.12)
+			Audio.play("paso_%s_1|paso_1" % Audio.ground_at(global_position), global_position, 4.0 if is_local else -5.0, 0.12)
 	if swim != _was_swim:
 		_was_swim = swim
 		if _has_last:

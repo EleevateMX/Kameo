@@ -265,7 +265,7 @@ que pide el código del juego. Pico, RMS y «RMS 50 ms» están medidos sobre lo
 | `ui_jugador_sale.wav` | 0.40 s | 22.05 | Un jugador se va: las mismas notas al revés (Re, La), más apagadas. | −12.0 | −21.1 | −17.4 |
 | `ui_invitacion.wav` | 0.50 s | 44.1 | Invitación o aviso social: llamada de tres notas (La, Fa, Do), corta-corta-larga. | −12.0 | −25.5 | −21.5 |
 | `ui_sala_creada.wav` | 0.70 s | 44.1 | Sala lista: acorde corto de Fa que se abre de abajo arriba sobre un toque de madera. | −12.0 | −25.2 | −20.7 |
-| `ui_prueba.wav` | 1.00 s | 22.05 | Sonido de prueba del menú «Probar sonido»: tres notas claras (Re, La, Re) de kalimba y campana. El 99 % de la energía está entre 500 y 2500 Hz. | −3.0 | −15.3 | −9.7 |
+| `ui_prueba.wav` | 1.00 s | 22.05 | Sonido de prueba del menú «Probar sonido»: tres notas claras (Re, La, Re) de kalimba y campana. Más del 99 % de la energía está entre 500 y 2500 Hz. | −3.0 | −15.3 | −9.7 |
 | `punto_control.wav` | 0.90 s | 22.05 | Punto de control: nota larga y cálida (Re) con su quinta y un destello a media nota. | −12.0 | −26.1 | −20.2 |
 
 **Cómo están hechos.**
@@ -310,9 +310,10 @@ Tres excepciones deliberadas a la regla de familia:
 
 **Uso.**
 
-- `audio.gd` ya alterna las variantes y manda al bus UI lo que empieza por `ui_` más
-  `objetivo`, `sin_energia`, `aliado_caido`, `aliado_revive` y `punto_control`; el manifiesto
-  usa ese mismo reparto.
+- Las variantes siguen la numeración que busca `audio.gd` (`chispa`, `chispa_2`, `chispa_3`;
+  `paso_hierba_1`, `_2`, `_3`). El manifiesto reparte los buses como `audio.gd`: al bus UI,
+  lo que empieza por `ui_` más `objetivo`, `sin_energia`, `aliado_caido`, `aliado_revive` y
+  `punto_control`; las `cine_*`, a Cinematics; el resto de efectos, a SFX.
 - `enemigo_paso` y los pasos se repiten mucho: conviene dejarles la variación de tono por
   defecto de `Audio.play`. `jefe_respira` no es un bucle (3 s, empieza y acaba en cero): se
   relanza cada 3 s o más, sin variación de tono.
@@ -416,8 +417,8 @@ por encima de 6 kHz, no empieza o acaba en cero, tiene silencio sobrante o salta
 costura; también si su frecuencia de muestreo no es la de la tabla o su pico se aparta más
 de 0.15 dB del pedido. A los efectos de la capa 0.3.1 les exige además que la banda de 2 a
 5 kHz no pase de −17 dBFS en su tramo más fuerte (`chispa` y `garras`, que viven ahí, miden
-−19.0 y −19.6; el más alto de los nuevos es `chispa_2`, con −18.6), que tengan cuerpo (RMS
-de 50 ms a menos de 22 dB del pico), que `ui_mover` no pase de 0.06 s y que `ui_prueba`
-tenga al menos el 80 % de su energía entre 500 y 2500 Hz. El tamaño se da en total y por
+−19.0 y −19.6; los más altos de los nuevos son `chispa_2` y `pilar_rompe`, con −18.6), que
+tengan cuerpo (RMS de 50 ms a menos de 22 dB del pico), que `ui_mover` no pase de 0.06 s y
+que `ui_prueba` tenga al menos el 80 % de su energía entre 500 y 2500 Hz. El tamaño se da en total y por
 capas; el exceso de la primera capa y del jefe se avisa pero no cuenta como error, y el de
 la capa 0.3.1 sí.
