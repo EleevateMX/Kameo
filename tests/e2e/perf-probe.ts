@@ -7,7 +7,7 @@ const page = await (await browser.newContext({ viewport: { width: w, height: h }
 await login(page, 'Medidor');
 await page.click('text=Crear sala privada');
 const code = (await page.textContent('.room-code'))!.trim();
-await page.goto(`${BASE}/game/index.html?room=${code}&debug=1${extra}`);
+await page.goto(`${BASE}/game/index.html?room=${code}&debug=1&cine=0${extra}`);
 await waitFor('jugando', async () => (await state(page))?.net === 'PLAYING', 240_000);
 // Fija el nivel pedido: sin esto, en equipos lentos «low» baja solo a «min» y se mediría otra cosa.
 const q = /q=(high|low|min)/.exec(extra)?.[1];

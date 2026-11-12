@@ -13,7 +13,7 @@ await page.fill('#dev-name', 'Depurador');
 await Promise.all([page.waitForURL('**/hub'), page.click('.dev-login button')]);
 await page.click('text=Crear sala privada');
 const code = (await page.textContent('.room-code'))!.trim();
-const url = `${BASE}/game/index.html?room=${code}&debug=1&q=low`;
+const url = `${BASE}/game/index.html?room=${code}&debug=1&cine=0&q=low`;
 const watch = async (label: string) => {
   for (let i = 0; i < 10; i++) {
     await new Promise((r) => setTimeout(r, 3000));

@@ -61,7 +61,7 @@ async function main() {
   assert.ok(pages[1].url().includes(`/game/index.html?room=${code}`), 'la invitación abre el juego');
 
   // 4) Los cuatro entran a la misma sala
-  await Promise.all(pages.map((p) => p.goto(`${BASE}/game/index.html?room=${code}&debug=1${QUALITY}`)));
+  await Promise.all(pages.map((p) => p.goto(`${BASE}/game/index.html?room=${code}&debug=1&cine=0${QUALITY}`)));
   const states = await Promise.all(pages.map((p, i) =>
     waitFor(`${NAMES[i]} jugando con 4 aluxes`, async () => {
       const s = await state(p);
@@ -198,7 +198,7 @@ async function main() {
     return s!.players.find((p) => p.id === leaverBefore.me)?.on === false;
   }, 15_000);
   await leaver.bringToFront();
-  await leaver.goto(`${BASE}/game/index.html?room=${code}&debug=1${QUALITY}`);
+  await leaver.goto(`${BASE}/game/index.html?room=${code}&debug=1&cine=0${QUALITY}`);
   const back = await waitFor('vuelve a la sala', async () => {
     const s = await state(leaver);
     return s && s.net === 'PLAYING' && s.players.some((p) => p.id === leaverBefore.me && p.on) ? s : false;

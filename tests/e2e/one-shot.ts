@@ -11,7 +11,7 @@ page.on('pageerror', (e) => console.log('[error]', e.message));
 await login(page, 'Ixchel');
 await page.click('text=Crear sala privada');
 const code = (await page.textContent('.room-code'))!.trim();
-await page.goto(`${BASE}/game/index.html?room=${code}&debug=1&q=${q}`);
+await page.goto(`${BASE}/game/index.html?room=${code}&debug=1&cine=0&q=${q}`);
 await waitFor('jugando', async () => (await state(page))?.net === 'PLAYING', 300_000);
 const f0 = (await state(page))!.frames;
 await waitFor('unos cuadros más', async () => (await state(page))!.frames >= f0 + 8, 300_000);

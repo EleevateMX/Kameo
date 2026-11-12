@@ -38,10 +38,28 @@ await page.click('text=Entrar al claro');
 await page.waitForURL('**/game/index.html**', { timeout: 60_000 });
 await page.goto(`${BASE}/game/index.html?room=${code}&debug=1&q=${QUALITY}`);
 await waitFor('el juego conecta', async () => (await state(page))?.net === 'PLAYING', 300_000);
-await waitFor('bienvenida visible', async () => (await ui(page)).intro === true, 30_000);
+
+// 2b) Introducción del capítulo: cinemática dentro del motor, con franjas y subtítulos
+await waitFor('cinemática de introducción', async () => (await state(page) as any)?.cine === 'llamado', 30_000);
 let s: any = await state(page);
+assert.equal(s.ui.cine, true, 'la interfaz entra en modo cine');
+assert.equal(s.ui.intro, false, 'la bienvenida espera a que termine la cinemática');
+const before0 = s.players[0];
+await page.keyboard.down('KeyW');
+await sleep(1500);
+await page.keyboard.up('KeyW');
+s = await state(page);
+assert.ok(Math.hypot(s.players[0].x - before0.x, s.players[0].z - before0.z) < 0.3, 'durante la cinemática el personaje no camina');
+assert.equal(s.cine, 'llamado', 'las teclas de juego no la interrumpen');
+await shot(page, '01a-cinematica.png');
+await page.keyboard.press('Enter');
+await waitFor('cinemática omitida', async () => (await state(page) as any)?.cine === '', 30_000);
+ok('Introducción «El llamado»: se reproduce, deja quieto al personaje y se omite con Enter');
+
+await waitFor('bienvenida visible', async () => (await ui(page)).intro === true, 30_000);
+s = await state(page);
 assert.equal(s.encounter, 0);
-assert.match(s.ui.objective, /Pisa un altar/, 'un jugador solo ve el objetivo en singular');
+assert.match(s.ui.objective, /Habla con Chiich Yaxché/, 'el primer objetivo es narrativo');
 await shot(page, '01-bienvenida.png');
 ok('Bienvenida con objetivo y controles; el personaje no se mueve mientras está abierta');
 
@@ -54,6 +72,30 @@ s = await state(page);
 assert.ok(s.audio.includes('amb_selva') && s.audio.includes('mus_claro'), `ambiente y música cargados (${s.audio.join(', ')})`);
 assert.equal(s.music, 'mus_claro');
 ok(`Audio: ${s.audio.length} sonidos cargados, música de exploración sonando`);
+
+// 3b) Primer objetivo narrativo: hablar con la abuela del claro
+assert.equal(s.story, 0, 'nadie ha hablado todavía con ella');
+assert.ok(await driveTo(page, -3.6, 2.0, { timeoutMs: 120_000, stop: 1.2 }), 'llega junto a Chiich Yaxché');
+await waitFor('a distancia de hablar', async () => (await state(page) as any).npc_near === true, 30_000);
+await page.keyboard.press('KeyF');
+await waitFor('diálogo abierto', async () => (await ui(page)).dialog === true, 30_000);
+await shot(page, '02a-dialogo.png');
+const where = (await state(page))!.players[0];
+await page.keyboard.down('KeyW');
+await sleep(1200);
+await page.keyboard.up('KeyW');
+const still = (await state(page))!.players[0];
+assert.ok(Math.hypot(still.x - where.x, still.z - where.z) < 0.3, 'mientras habla, el personaje no camina');
+for (let i = 0; i < 40 && (await ui(page)).dialog; i++) {
+  await page.keyboard.press('Enter');
+  await sleep(350);
+}
+assert.equal((await ui(page)).dialog, false, 'el diálogo termina');
+await waitFor('el servidor anota que ya habló', async () => ((await state(page) as any).story & 1) === 1, 30_000);
+s = await state(page);
+assert.match(s.ui.objective, /Pisa un altar/, 'tras hablar, el objetivo pasa a los altares');
+await shot(page, '02b-mision.png');
+ok('Diálogo con Chiich Yaxché: F abre, Enter avanza, el servidor anota el avance y el objetivo cambia a los altares');
 
 // 4) Menú: se abre con Esc, deja al personaje quieto, recentra la cámara y se cierra
 await page.keyboard.press('Escape');
@@ -159,9 +201,7 @@ ok('Reintentar: reaparece junto al brasero y el objetivo vuelve al principio');
 // 10) Salir al portal desde el menú
 await page.keyboard.press('Escape');
 await waitFor('menú abierto', async () => (await ui(page)).menu === true, 30_000);
-const box = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }));
-// El botón «Salir al portal» es el último del menú, centrado
-await page.mouse.click(box.w / 2, box.h / 2 + 175);
+await page.evaluate(() => { (window as any).ALUX_ACTION = 'exit'; });   // botón «Salir al portal»
 await page.waitForURL('**/hub', { timeout: 60_000 });
 await page.screenshot({ path: path.join(OUT, '10-portal-de-vuelta.png') });
 ok('Salir al portal desde el menú');

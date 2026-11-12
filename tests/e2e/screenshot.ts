@@ -33,7 +33,7 @@ await shot(page, 'centro-de-jugadores.png');
 // El juego se renderiza a tamaño normal (sin duplicar píxeles) para que el render por software alcance
 const game = await (await browser.newContext({ viewport: { width: 1280, height: 720 }, storageState: await ctx.storageState() })).newPage();
 game.on('console', (m) => { if (m.type() === 'error') console.log('[consola]', m.text().slice(0, 300)); });
-await game.goto(`${BASE}/game/index.html?room=${code}&debug=1&q=min`);
+await game.goto(`${BASE}/game/index.html?room=${code}&debug=1&cine=0&q=min`);
 await waitFor('el juego arranca', async () => (await state(game))?.net === 'PLAYING', 240_000);
 console.log('modelos .glb:', (await state(game))!.glb);
 

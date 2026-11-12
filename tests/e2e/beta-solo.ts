@@ -33,7 +33,7 @@ await page.screenshot({ path: path.join(OUT, '00-portal.png') });
 ok(`Portal por ${BASE.split(':')[0].toUpperCase()}: sesión con invitación y sala ${code} creada`);
 
 const t0 = Date.now();
-await page.goto(`${BASE}/game/index.html?room=${code}&debug=1&q=${QUALITY}`);
+await page.goto(`${BASE}/game/index.html?room=${code}&debug=1&cine=0&q=${QUALITY}`);
 await waitFor('el juego conecta', async () => (await state(page))?.net === 'PLAYING', 420_000);
 await waitFor('bienvenida visible', async () => (await ui(page)).intro === true, 60_000);
 let s: any = await state(page);
@@ -86,8 +86,7 @@ ok(`Rendimiento de este navegador (render por software, no representativo): ${s.
 
 await page.keyboard.press('Escape');
 await waitFor('menú abierto', async () => (await ui(page)).menu === true, 60_000);
-const box = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }));
-await page.mouse.click(box.w / 2, box.h / 2 + 170);   // «Salir al portal»
+await page.evaluate(() => { (window as any).ALUX_ACTION = 'exit'; });   // botón «Salir al portal»
 await page.waitForURL('**/hub', { timeout: 90_000 });
 ok('Salir al portal desde el menú');
 
