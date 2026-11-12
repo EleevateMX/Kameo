@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "tracks": {
+    "cine_sello_fx": {
+      "file": "cine_sello_fx.mp3",
+      "bus": "Cinematics",
+      "loop": null,
+      "seconds": 11.5,
+      "bytes": 186037,
+      "lufs": -17.9,
+      "peak_db": -2.8
+    },
+    "cine_sello_mus": {
+      "file": "cine_sello_mus.mp3",
+      "bus": "Music",
+      "loop": null,
+      "seconds": 11.5,
+      "bytes": 157709,
+      "lufs": -21.9,
+      "peak_db": -9.0
+    },
+    "cine_despertar_fx": {
+      "file": "cine_despertar_fx.mp3",
+      "bus": "Cinematics",
+      "loop": null,
+      "seconds": 17.5,
+      "bytes": 258654,
+      "lufs": -17.9,
+      "peak_db": -3.4
+    },
+    "cine_despertar_mus": {
+      "file": "cine_despertar_mus.mp3",
+      "bus": "Music",
+      "loop": null,
+      "seconds": 17.5,
+      "bytes": 202205,
+      "lufs": -21.9,
+      "peak_db": -9.0
+    },
+    "cine_liberacion_fx": {
+      "file": "cine_liberacion_fx.mp3",
+      "bus": "Cinematics",
+      "loop": null,
+      "seconds": 13.5,
+      "bytes": 189084,
+      "lufs": -17.8,
+      "peak_db": -3.5
+    },
+    "cine_liberacion_mus": {
+      "file": "cine_liberacion_mus.mp3",
+      "bus": "Music",
+      "loop": null,
+      "seconds": 13.5,
+      "bytes": 169153,
+      "lufs": -21.9,
+      "peak_db": -8.9
+    },
+    "cine_llamado_fx": {
+      "file": "cine_llamado_fx.mp3",
+      "bus": "Cinematics",
+      "loop": null,
+      "seconds": 20.5,
+      "bytes": 287372,
+      "lufs": -17.9,
+      "peak_db": -3.6
+    },
+    "cine_llamado_mus": {
+      "file": "cine_llamado_mus.mp3",
+      "bus": "Music",
+      "loop": null,
+      "seconds": 20.5,
+      "bytes": 286979,
+      "lufs": -21.9,
+      "peak_db": -10.1
+    }
+  },
+  "cutscenes": {
+    "sello": {
+      "fx": "cine_sello_fx",
+      "mus": "cine_sello_mus",
+      "seconds": 10.0,
+      "shots": [
+        0.0,
+        3.0,
+        7.0
+      ]
+    },
+    "despertar": {
+      "fx": "cine_despertar_fx",
+      "mus": "cine_despertar_mus",
+      "seconds": 16.0,
+      "shots": [
+        0.0,
+        4.0,
+        8.0,
+        12.0
+      ]
+    },
+    "liberacion": {
+      "fx": "cine_liberacion_fx",
+      "mus": "cine_liberacion_mus",
+      "seconds": 12.0,
+      "shots": [
+        0.0,
+        4.0,
+        8.0
+      ]
+    },
+    "llamado": {
+      "fx": "cine_llamado_fx",
+      "mus": "cine_llamado_mus",
+      "seconds": 19.0,
+      "shots": [
+        0.0,
+        5.0,
+        9.5,
+        14.5
+      ]
+    }
+  }
+}

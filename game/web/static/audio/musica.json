@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "tracks": {
+    "mus_claro": {
+      "file": "mus_claro.mp3",
+      "bus": "Music",
+      "loop": [
+        0.5,
+        58.1
+      ],
+      "seconds": 58.6,
+      "bytes": 918960,
+      "lufs": -20.0,
+      "peak_db": -7.2,
+      "bpm": 75,
+      "key": "re menor pentatónica"
+    },
+    "mus_exploracion": {
+      "file": "mus_exploracion.mp3",
+      "bus": "Music",
+      "loop": [
+        0.5,
+        58.1
+      ],
+      "seconds": 58.6,
+      "bytes": 934645,
+      "lufs": -20.0,
+      "peak_db": -6.9,
+      "bpm": 75,
+      "key": "re menor pentatónica"
+    },
+    "mus_peligro": {
+      "file": "mus_peligro.mp3",
+      "bus": "Music",
+      "loop": [
+        0.5,
+        38.9
+      ],
+      "seconds": 39.4,
+      "bytes": 555632,
+      "lufs": -20.0,
+      "peak_db": -5.8,
+      "bpm": 75,
+      "key": "re (dron, con segunda menor y tritono)"
+    },
+    "mus_emboscada": {
+      "file": "mus_emboscada.mp3",
+      "bus": "Music",
+      "loop": [
+        0.5,
+        38.9
+      ],
+      "seconds": 39.4,
+      "bytes": 769367,
+      "lufs": -18.0,
+      "peak_db": -2.7,
+      "bpm": 150,
+      "key": "re menor"
+    },
+    "mus_jefe": {
+      "file": "mus_jefe.mp3",
+      "bus": "Music",
+      "loop": [
+        0.5,
+        56.5
+      ],
+      "seconds": 57.0,
+      "bytes": 869745,
+      "lufs": -18.0,
+      "peak_db": -5.2,
+      "bpm": 120,
+      "key": "re menor"
+    },
+    "mus_jefe_furia": {
+      "file": "mus_jefe_furia.mp3",
+      "bus": "Music",
+      "loop": [
+        0.5,
+        45.3
+      ],
+      "seconds": 45.8,
+      "bytes": 783835,
+      "lufs": -18.0,
+      "peak_db": -5.6,
+      "bpm": 150,
+      "key": "re menor"
+    },
+    "mus_recuerdo": {
+      "file": "mus_recuerdo.mp3",
+      "bus": "Music",
+      "loop": [
+        0.5,
+        58.1
+      ],
+      "seconds": 58.6,
+      "bytes": 920642,
+      "lufs": -20.0,
+      "peak_db": -8.1,
+      "bpm": 75,
+      "key": "fa mayor"
+    },
+    "mus_liberacion": {
+      "file": "mus_liberacion.mp3",
+      "bus": "Music",
+      "loop": [
+        0.5,
+        51.7
+      ],
+      "seconds": 52.2,
+      "bytes": 834908,
+      "lufs": -20.0,
+      "peak_db": -8.0,
+      "bpm": 75,
+      "key": "fa mayor pentatónica"
+    },
+    "mus_victoria": {
+      "file": "mus_victoria.mp3",
+      "bus": "Music",
+      "loop": null,
+      "seconds": 10.5,
+      "bytes": 138036,
+      "lufs": -18.0,
+      "peak_db": -3.4,
+      "bpm": 120,
+      "key": "fa mayor"
+    },
+    "mus_lobby": {
+      "file": "mus_lobby.mp3",
+      "bus": "Music",
+      "loop": [
+        0.5,
+        58.1
+      ],
+      "seconds": 58.6,
+      "bytes": 920643,
+      "lufs": -20.0,
+      "peak_db": -7.2,
+      "bpm": 75,
+      "key": "fa mayor"
+    }
+  }
+}

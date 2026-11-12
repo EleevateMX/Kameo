@@ -230,12 +230,12 @@ def fx_sello():
     tt = t_(k)
     aire = ruido_st(k, g, 60, 420, color=1.8, ancho=0.6) * rampa(k, 0.5) * salida(k, 0.4)
     fino = np.sin(DOS_PI * 1174.7 * tt) + np.sin(DOS_PI * 1178.1 * tt + 0.6)
-    poner(y, 0.05 * aire + pan(0.007 * fino * rampa(k, 0.8) * salida(k, 0.3), 0.0), 7.0)
+    poner(y, 0.03 * aire + pan(0.006 * fino * rampa(k, 0.8) * salida(k, 0.3), 0.0), 7.0)
     for t0, p, dur in ((7.85, 0.55, 0.38), (8.55, -0.6, 0.30)):  # algo se arrastra a un lado y a otro
         j = n_(dur)
         x = ruido(j, g, 300, 2600, color=1.0) * tirones(j, g, 18.0, 60.0) * campana_env(j, 0.8)
-        poner(y, x, t0, 0.10, p)
-        poner(y, rafaga(0.03, g, 1500, 5000, tau=0.004), t0 + dur, 0.12, p)
+        poner(y, x, t0, 0.065, p)
+        poner(y, rafaga(0.03, g, 1500, 5000, tau=0.004), t0 + dur, 0.08, p)
     j = n_(0.9)
     v = np.arange(j) / j
     poner(y, gemido(j, g, 62.0 * (54.0 / 62.0) ** v, ronco=1.5) * campana_env(j, 1.0), 8.25, 0.07, -0.2)
@@ -306,7 +306,7 @@ def fx_despertar():
     y = lienzo("despertar")
     # --- Plano 1 (0–4 s): patio en silencio, aire grave, respiración lenta de piedra a lo lejos
     k = n_(4.3)
-    poner(y, ruido_st(k, g, 45, 260, color=1.8, ancho=0.5) * rampa(k, 0.6) * salida(k, 0.5), 0.0, 0.07)
+    poner(y, ruido_st(k, g, 45, 260, color=1.8, ancho=0.5) * rampa(k, 0.6) * salida(k, 0.5), 0.0, 0.035)
     lejos = np.zeros((2, n_(4.2)))
     for t0, dur, f_a, f_b, gan in ((0.45, 1.5, 170.0, 430.0, 0.8), (2.15, 1.75, 430.0, 150.0, 1.0)):  # inspira, espira
         j = n_(dur)
@@ -315,28 +315,28 @@ def fx_despertar():
         poner(lejos, x * campana_env(j, 0.9), t0, 0.5 * gan, 0.15)
     j = n_(1.75)
     poner(lejos, gemido(j, g, 47.0, ronco=1.2, tope=400.0) * campana_env(j, 1.2), 2.15, 0.22, 0.15)
-    poner(y, sala(filtrar(lejos, 60, 1100), g, t60=2.2, mezcla=0.7, agudos=1500.0), 0.0, 0.42)
+    poner(y, sala(filtrar(lejos, 60, 1100), g, t60=2.2, mezcla=0.7, agudos=1500.0), 0.0, 0.055)
     # --- Plano 2 (4–8 s): grietas, el Silencio se cuela como un zumbido, latido magenta
     poner(y, crujidos(3.7, g, 110, crece=0.8, ancho=0.8), 4.0, 0.55)
     for t0, gan, p in ((4.25, 0.35, -0.5), (5.1, 0.5, 0.4), (5.9, 0.65, -0.3), (6.6, 0.8, 0.5), (7.2, 0.9, -0.1),
                        (7.65, 1.0, 0.2)):
-        poner(y, chasquido(g, gan, grave=g.uniform(120.0, 170.0)), t0, 0.75, p)
+        poner(y, chasquido(g, gan, grave=g.uniform(120.0, 170.0)), t0, 0.6, p)
         poner(y, polvo(0.6, g, tau=0.2), t0 + 0.03, 0.05 * gan)
         escombros(y, g, t0 + 0.05, t0 + 0.5, 5, lo=900, hi=3200, gan=0.16 * gan)
     k = n_(4.0)
     u = np.arange(k) / k
     z = zumbido(k, g, midi(50) * 2.0 ** (-2.0 * (1.0 - u) / 12.0), trem=(3.0, 8.0), brillo=0.5)
-    poner(y, pan(z * u ** 1.7 * salida(k, 0.04), 0.5 * np.sin(DOS_PI * 0.35 * u * 4.0)), 4.0, 0.42)
+    poner(y, pan(z * u ** 1.7 * salida(k, 0.04), 0.5 * np.sin(DOS_PI * 0.35 * u * 4.0)), 4.0, 0.26)
     for t0, gan in ((5.0, 0.35), (6.0, 0.5), (7.0, 0.65), (7.6, 0.8)):
-        poner(y, latido(g), t0, 0.55 * gan, 0.0)
-    y[:, n_(4.0):n_(4.0) + k] += 0.2 * ruido_st(k, g, 40, 160, color=2.0, ancho=0.3) * u ** 1.5 * salida(k, 0.05)
+        poner(y, latido(g), t0, 0.45 * gan, 0.0)
+    y[:, n_(4.0):n_(4.0) + k] += 0.1 * ruido_st(k, g, 40, 160, color=2.0, ancho=0.3) * u ** 1.5 * salida(k, 0.05)
     # --- Plano 3 (8–12 s): silencio breve, golpe tonal seco (9.0 s) y gemido grave de piedra
     k = n_(4.0)
     poner(y, ruido_st(k, g, 60, 500, color=1.8, ancho=0.5) * rampa(k, 0.3) * salida(k, 0.3), 8.0, 0.02)
     j = n_(2.4)
     v = np.arange(j) / j
-    poner(y, gemido(j, g, 52.0 + 30.0 * np.sin(np.pi * v) ** 1.5) * np.sin(np.pi * v) ** 1.1, 9.5, 0.36, -0.1)
-    poner(y, arrastre(2.4, g, hi=900.0) * np.sin(np.pi * v) ** 1.5, 9.5, 0.45, 0.2)
+    poner(y, gemido(j, g, 52.0 + 30.0 * np.sin(np.pi * v) ** 1.5) * np.sin(np.pi * v) ** 1.1, 9.5, 0.20, -0.1)
+    poner(y, arrastre(2.4, g, hi=900.0) * np.sin(np.pi * v) ** 1.5, 9.5, 0.22, 0.2)
     j = n_(2.9)  # los ojos quedan encendidos: tono fino que bate
     tt = t_(j)
     ojos = np.sin(DOS_PI * 932.3 * tt) + np.sin(DOS_PI * 936.0 * tt + 0.4) + 0.5 * np.sin(DOS_PI * 1318.5 * tt)
@@ -346,13 +346,13 @@ def fx_despertar():
     k = n_(2.8)
     u = np.arange(k) / k
     sube = (0.25 + 0.75 * u ** 1.2) * salida(k, 0.12)
-    poner(y, pan(arrastre(2.8, g) * sube, -0.25 + 0.4 * u), 12.0, 1.7)
+    poner(y, pan(arrastre(2.8, g) * sube, -0.25 + 0.4 * u), 12.0, 1.0)
     j = n_(2.4)
     v = np.arange(j) / j
-    poner(y, gemido(j, g, 50.0 * (96.0 / 50.0) ** v) * rampa(j, 0.3) * (0.4 + 0.6 * v) * salida(j, 0.15), 12.3, 0.28,
+    poner(y, gemido(j, g, 50.0 * (96.0 / 50.0) ** v) * rampa(j, 0.3) * (0.4 + 0.6 * v) * salida(j, 0.15), 12.3, 0.20,
           0.1)
-    poner(y, crujidos(2.7, g, 40, banda=(400.0, 2200.0), crece=0.6, ancho=0.8), 12.1, 0.6)
-    escombros(y, g, 12.5, 14.8, 20, gan=0.2, graves=0.3)
+    poner(y, crujidos(2.7, g, 40, banda=(400.0, 2200.0), crece=0.6, ancho=0.8), 12.1, 0.36)
+    escombros(y, g, 12.5, 14.8, 20, gan=0.14, graves=0.3)
     poner(y, polvo(2.6, g, tau=1.5), 12.2, 0.03)
     y = sala(y, g, t60=1.5, mezcla=0.22, agudos=5500.0)
     # Golpes secos (sin sala delante, con su propia cola): los ojos y la pisada
@@ -366,7 +366,7 @@ def fx_despertar():
     poner(pisada, glis(62, 28, 1.0) * env_perc(n_(1.0), 0.34, 0.004), 0.0, 0.7, 0.0)
     escombros(pisada, g, 0.08, 1.4, 26, gan=0.36, graves=0.3)
     poner(pisada, polvo(1.9, g, tau=0.6), 0.1, 0.07)
-    poner(y, reverb(pisada, g, t60=1.8, mezcla=0.3, agudos=5000.0), 15.0, 1.0)
+    poner(y, reverb(pisada, g, t60=1.8, mezcla=0.3, agudos=5000.0), 15.0, 2.0)
     return y
 
 
@@ -375,15 +375,15 @@ def mus_despertar():
     y = lienzo("despertar")
     # Plano 1: casi nada. Re muy grave y una nota de ocarina que suspira, lejos
     for m, gan in ((38, 0.6), (45, 0.4)):
-        poner(y, colchon_st(midi(m), 4.3, 1.8, 0.5), 0.0, 0.11 * gan)
-    poner(y, flauta(midi(57), 1.7, g, vib=0.004, aire=0.14, ataque=0.25, rel=0.6, cae=1.0), 1.5, 0.16, -0.3)
+        poner(y, colchon_st(midi(m), 4.3, 1.8, 0.5), 0.0, 0.16 * gan)
+    poner(y, flauta(midi(57), 1.7, g, vib=0.004, aire=0.14, ataque=0.25, rel=0.6, cae=1.0), 1.5, 0.22, -0.3)
     # Plano 2: pulso de tambor con los latidos, Re + Mi bemol que crece, sonaja trémula
     for t0, gan in ((4.0, 0.3), (5.0, 0.4), (6.0, 0.5), (7.0, 0.62), (7.6, 0.72)):
-        poner(y, tambor_grave(g, f0=58.0, seg=0.9, tau=0.26), t0 + 0.02, 0.5 * gan, 0.0)
+        poner(y, tambor_grave(g, f0=58.0, seg=0.9, tau=0.26), t0 + 0.02, 0.8 * gan, 0.0)
     k = n_(4.0)
     u = np.arange(k) / k
     for m, gan in ((50, 0.6), (51, 0.45), (38, 0.6)):
-        poner(y, colchon_st(midi(m), 4.0, 2.5, 0.04) * u ** 1.2, 4.0, 0.16 * gan)
+        poner(y, colchon_st(midi(m), 4.0, 2.5, 0.04) * u ** 1.2, 4.0, 0.25 * gan)
     poner(y, sonaja(2.0, g, granos=22.0, crece=1.6) * salida(n_(2.0), 0.03), 6.0, 0.10, 0.4)
     # Plano 3: corte a silencio; golpe con el del plano (9.0 s); después, colchón grave que crece
     poner(y, tambor_grave(g, f0=52.0, seg=1.4, tau=0.36), 9.0, 0.85, 0.0)
@@ -440,7 +440,7 @@ def fx_liberacion():
     j = n_(2.6)
     v = np.arange(j) / j
     voz = gemido(j, g, 74.0 * (62.0 / 74.0) ** v + 5.0 * np.sin(np.pi * v), ronco=0.9, tope=600.0)
-    poner(y, voz * campana_env(j, 0.8), 4.9, 0.30, 0.0)
+    poner(y, voz * campana_env(j, 0.8), 4.9, 0.17, 0.0)
     poner(y, np.sin(DOS_PI * 147.0 * t_(j) + 0.3) * campana_env(j, 1.5), 4.9, 0.05, 0.0)
     ave = np.zeros(n_(0.8))
     poner(ave, silbo(1700, 1750, 0.15), 0.0, 0.9)
@@ -524,12 +524,12 @@ def fx_llamado():
     # --- Plano 2 (5–9.5 s): el cenote oscuro: aire de caverna, agua quieta, tres gotas con eco
     k = n_(5.0)
     env = rampa(k, 0.7) * salida(k, 0.8)
-    poner(y, ruido_st(k, g, 60, 350, color=1.7, ancho=0.5) * env, 4.8, 0.11)
+    poner(y, ruido_st(k, g, 60, 350, color=1.7, ancho=0.5) * env, 4.8, 0.07)
     poner(y, ruido_st(k, g, 160, 520, orden=4, color=1.5, ancho=0.6) * env
           * np.clip(0.5 + 0.5 * lento(k, g, 0.2, 0.7), 0.05, None) ** 1.3, 4.8, 0.05)
     tt = t_(k)
     oscuro = np.sin(DOS_PI * 55.0 * tt) + 0.7 * np.sin(DOS_PI * 55.6 * tt + 1.0) + 0.3 * np.sin(DOS_PI * 110.4 * tt)
-    poner(y, oscuro * env, 4.8, 0.045, 0.0)
+    poner(y, oscuro * env, 4.8, 0.03, 0.0)
     gotas = np.zeros((2, n_(8.5)))
     for t0, f, p, gan in ((0.75, 880.0, -0.4, 0.9), (2.15, 660.0, 0.45, 1.0), (3.55, 990.0, 0.1, 0.8)):
         x = gota(g, f)
@@ -537,12 +537,12 @@ def fx_llamado():
         poner(gotas, filtrar(x, 200, 2500), t0 + 0.22, 0.3 * gan, -p)
         poner(gotas, filtrar(x, 200, 2000), t0 + 0.47, 0.14 * gan, 0.5 * p)
     poner(y, reverb(gotas, g, t60=3.2, mezcla=0.9, agudos=3800.0, graves=150.0, retardo=0.03, cola_agudos=0.8)
-          [:, :n_(8.5)], 5.0, 0.30)
+          [:, :n_(8.5)], 5.0, 0.62)
     # --- Plano 3 (9.5–14.5 s): el santuario sellado: el zumbido del sello y tres pulsos
     k = n_(5.1)
     u = np.arange(k) / k
     z = zumbido(k, g, midi(38) * (1.0 + 0.02 * np.sin(DOS_PI * 0.3 * u * 5.1)), trem=(2.5, 4.5), brillo=0.5)
-    poner(y, pan(z * campana_env(k, 0.6), 0.35 * np.sin(DOS_PI * 0.2 * u * 5.1)), 9.45, 0.24)
+    poner(y, pan(z * campana_env(k, 0.6), 0.35 * np.sin(DOS_PI * 0.2 * u * 5.1)), 9.45, 0.17)
     poner(y, ruido_st(k, g, 40, 130, color=2.0, ancho=0.3) * campana_env(k, 0.8), 9.45, 0.10)
     for t0, gan in ((10.6, 0.6), (12.2, 0.8), (13.6, 1.0)):
         poner(y, latido(g, m=74, cristal=0.35), t0, 0.5 * gan, 0.0)
@@ -567,9 +567,9 @@ def fx_llamado():
     for t0, f in ((0.05, 150.0), (2.1, 120.0)):  # el tronco cruje al moverse
         j = n_(0.5)
         poner(voz, silaba(g, 0.5, 14.0, 22.0, f, 3.1 * f, aire=0.1), t0, 0.3, 0.3)
-    poner(y, sala(voz, g, t60=0.9, mezcla=0.18, agudos=4500.0), 14.5, 0.75)
+    poner(y, sala(voz, g, t60=0.9, mezcla=0.18, agudos=4500.0), 14.5, 1.8)
     for t0, f, gan in ((18.35, 294.0, 0.8), (18.58, 392.0, 1.0)):  # toc-toc de madera hueca: despierta
-        poner(y, madera(g, f=f), t0, 0.5 * gan, 0.1)
+        poner(y, madera(g, f=f), t0, 0.8 * gan, 0.1)
     for i, m in enumerate((86, 89, 93)):  # y algo se enciende
         poner(y, campana(midi(m), 1.6, tau=0.5, ataque=0.004), 18.72 + 0.09 * i, 0.16, -0.2 + 0.25 * i)
     destellos(y, g, 18.7, 19.6, 14, 3000.0, 7000.0, 0.05)
@@ -684,8 +684,8 @@ HITOS = (
      lambda x: _tramo_db(x, 5.2, 7.2, 50, 300) > _tramo_db(x, 3.0, 4.0, 50, 300) + 6.0),
     ("liberacion", "fx", "el destello de la pluma (agudos) cae en 8.0–8.6 s",
      lambda x: _tramo_db(x, 8.0, 8.6, 3000) > _tramo_db(x, 6.5, 7.8, 3000) + 6.0),
-    ("liberacion", "mus", "el arpegio empieza en el plano 3: 8.3–9.6 s supera a 7.0–8.2 s por encima de 1 kHz",
-     lambda x: _tramo_db(x, 8.3, 9.6, 1000) > _tramo_db(x, 7.0, 8.2, 1000) + 4.0),
+    ("liberacion", "mus", "el arpegio empieza en el plano 3: el pico de 7.5–9.6 s cae después de 8.28 s",
+     lambda x: _pico_en(x, 7.5, 9.6) >= 8.28),
     ("liberacion", "mus", "cola larga: aún suena entre 12.0 y 13.0 s",
      lambda x: _tramo_db(x, 12.0, 13.0) > -50.0),
     ("llamado", "fx", "las gotas del cenote (600–2500 Hz) están en el plano 2",

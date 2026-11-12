@@ -1,0 +1,142 @@
+[
+  {
+    "id": "mus_claro",
+    "archivo": "game/web/static/audio/mus_claro.mp3",
+    "tipo": "música",
+    "bus": "Music",
+    "duracion_s": 58.6,
+    "bytes": 918960,
+    "origen": "síntesis propia: art/audio/gen_musica.py, función mus_claro()",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      2847809201
+    ]
+  },
+  {
+    "id": "mus_exploracion",
+    "archivo": "game/web/static/audio/mus_exploracion.mp3",
+    "tipo": "música",
+    "bus": "Music",
+    "duracion_s": 58.6,
+    "bytes": 934645,
+    "origen": "síntesis propia: art/audio/gen_musica.py, función mus_exploracion()",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      1152968814
+    ]
+  },
+  {
+    "id": "mus_peligro",
+    "archivo": "game/web/static/audio/mus_peligro.mp3",
+    "tipo": "música",
+    "bus": "Music",
+    "duracion_s": 39.4,
+    "bytes": 555632,
+    "origen": "síntesis propia: art/audio/gen_musica.py, función mus_peligro()",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      2259610730
+    ]
+  },
+  {
+    "id": "mus_emboscada",
+    "archivo": "game/web/static/audio/mus_emboscada.mp3",
+    "tipo": "música",
+    "bus": "Music",
+    "duracion_s": 39.4,
+    "bytes": 769367,
+    "origen": "síntesis propia: art/audio/gen_musica.py, función mus_emboscada()",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      2296180283
+    ]
+  },
+  {
+    "id": "mus_jefe",
+    "archivo": "game/web/static/audio/mus_jefe.mp3",
+    "tipo": "música",
+    "bus": "Music",
+    "duracion_s": 57.0,
+    "bytes": 869745,
+    "origen": "síntesis propia: art/audio/gen_musica.py, función mus_jefe()",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      3012687264
+    ]
+  },
+  {
+    "id": "mus_jefe_furia",
+    "archivo": "game/web/static/audio/mus_jefe_furia.mp3",
+    "tipo": "música",
+    "bus": "Music",
+    "duracion_s": 45.8,
+    "bytes": 783835,
+    "origen": "síntesis propia: art/audio/gen_musica.py, función mus_jefe_furia()",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      2220555415
+    ]
+  },
+  {
+    "id": "mus_recuerdo",
+    "archivo": "game/web/static/audio/mus_recuerdo.mp3",
+    "tipo": "música",
+    "bus": "Music",
+    "duracion_s": 58.6,
+    "bytes": 920642,
+    "origen": "síntesis propia: art/audio/gen_musica.py, función mus_recuerdo()",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      4252003205
+    ]
+  },
+  {
+    "id": "mus_liberacion",
+    "archivo": "game/web/static/audio/mus_liberacion.mp3",
+    "tipo": "música",
+    "bus": "Music",
+    "duracion_s": 52.2,
+    "bytes": 834908,
+    "origen": "síntesis propia: art/audio/gen_musica.py, función mus_liberacion()",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      1103906051
+    ]
+  },
+  {
+    "id": "mus_victoria",
+    "archivo": "game/web/static/audio/mus_victoria.mp3",
+    "tipo": "música",
+    "bus": "Music",
+    "duracion_s": 10.5,
+    "bytes": 138036,
+    "origen": "síntesis propia: art/audio/gen_musica.py, función mus_victoria()",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      3193017749
+    ]
+  },
+  {
+    "id": "mus_lobby",
+    "archivo": "game/web/static/audio/mus_lobby.mp3",
+    "tipo": "música",
+    "bus": "Music",
+    "duracion_s": 58.6,
+    "bytes": 920643,
+    "origen": "síntesis propia: art/audio/gen_musica.py, función mus_lobby()",
+    "licencia": "original del proyecto ALUX, sin material de terceros",
+    "semilla": [
+      20261112,
+      2232106967
+    ]
+  }
+]
