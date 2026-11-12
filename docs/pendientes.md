@@ -1,13 +1,15 @@
 # Pendientes y validaciones que faltan
 
-Estado tras la build de playtest del Claro de los Aluxes. Nada de lo que aparece aquí como pendiente
-debe darse por hecho.
+Estado tras el primer incremento de la Alpha 0.2. El plan por versiones está en
+[ROADMAP.md](ROADMAP.md); aquí va lo que falta por hacer o por validar. Nada de lo que aparece aquí
+como pendiente debe darse por hecho.
 
 ## Lo primero que falta para la beta con personas
 
-- **Crear los servicios en Render.** Todo está preparado y probado en local con la misma imagen
-  ([beta.md](beta.md)), pero el despliegue necesita tu cuenta y tu aprobación del costo. Hasta
-  entonces no hay URL pública.
+- **Primera sesión con testers reales.** La Closed Alpha 0.1 está publicada en
+  <https://alux-beta.onrender.com> y comprobada desde fuera con un jugador; falta jugarla con cuatro
+  personas a la vez. Las invitaciones ya están generadas.
+- **Aviso de pago en Render.** Seguía activo en la última captura; puede suspender el servicio.
 - **Nadie ha escuchado el audio.** Está generado por código y sólo se ha medido (niveles, espectro,
   bucles sin corte). Hay que oírlo en el juego y ajustar la mezcla o sustituir lo que suene mal.
 - **Nadie ha jugado la build con GPU ni por Internet.** Todo se ha probado con render por software
@@ -40,7 +42,7 @@ debe darse por hecho.
 
 ## Juego
 
-- **Arte** (detalle en [direccion-artistica.md](direccion-artistica.md))
+- **Arte** (detalle en [ART_BIBLE.md](ART_BIBLE.md))
   - **Enemigos: siguen hechos con primitivas** (sólo se recolorearon). Es lo que más desentona ahora.
   - Alux y Balam: segunda pasada hecha (rostro, manos, ropa, rosetas, animaciones nuevas). Quedan:
     cabeza de Balam (nariz pesada, perfil algo de oso), uniones visibles de cerca en las articulaciones,
@@ -55,9 +57,19 @@ debe darse por hecho.
   - Audio provisional sintetizado (38 archivos): suficiente para probar, no definitivo. Sin voces,
     sin sonido posicional real (sólo se atenúa por distancia) y sin música adaptativa.
   - Cinemática de introducción: aplazada hasta tener modelos definitivos (decisión del proyecto).
+- **Historia (Alpha 0.2)**
+  - Hecho: introducción dentro del motor, Chiich Yaxché con diálogo y primer objetivo narrativo.
+  - El modelo de Chiich Yaxché es provisional (el del alux con piezas añadidas).
+  - Las cinemáticas compartidas con voto para omitir están diseñadas, no implementadas.
+  - El avance de la historia vive en la sala: se pierde al cerrarla y no se guarda en el perfil.
+  - Los planos de cinemática sólo mueven la cámara, ponen texto y lanzan un sonido; todavía no
+    animan personajes ni tienen fundidos.
+  - Los diálogos son lineales, sin voces, y sólo en español.
+  - Nombres de espíritus y antagonista: propuestos, sin aprobar ni revisar con un hablante de maya.
+  - Ningún vídeo de Kling producido; el storyboard de «El vínculo de Balam» espera aprobación.
 - **Partida**
   - Hecho: ciclo completo (bienvenida, altares, emboscada, victoria o derrota, otra ronda, salir),
-    menú con ajustes y avisos de conexión. Detalle en [playtest.md](playtest.md).
+    menú con ajustes y avisos de conexión. Detalle en [PLAYTEST.md](PLAYTEST.md).
   - La derrota exige que todo el grupo conectado esté caído a la vez; con cuatro jugadores será rara.
     Falta decidir con pruebas si hace falta otra condición (tiempo límite, vidas del grupo).
   - Otra ronda necesita el voto de todos: si alguien se queda ausente sin desconectarse, bloquea.

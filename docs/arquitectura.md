@@ -54,13 +54,16 @@ Detalle de mensajes y defensas: [protocolo.md](protocolo.md).
 
 ## Plan por fases
 
+> El plan vigente, por versiones y capítulos, está en [ROADMAP.md](ROADMAP.md). La tabla de abajo
+> es el plan original de seis fases y se conserva como referencia de lo ya construido.
+
 | Fase | Contenido | Estado |
 | --- | --- | --- |
 | 1. Infraestructura y acceso | Monorepo, portal, Discord, esquema de datos, Docker, sesiones | Hecho. Pendiente de credenciales reales: Discord y Supabase alojado (ver [pendientes.md](pendientes.md)) |
 | 2. Primera sala multijugador | Escenario 3D, 4 aluxes, movimiento sincronizado, nombres, reconexión | Hecho y verificado con 4 navegadores |
 | 3. Transformaciones y combate | Habilidades de alux y Balam, energía, enfriamientos, enemigos con IA, vida, caída y reaparición | Hecho y verificado con bots y navegadores ([combate.md](combate.md)) |
 | 4. Primer capítulo | Selva, cenote, acertijos, misiones, jefe, guardado de grupo | Empezada: acertijo de los altares + emboscada cooperativa con recompensa. Falta jefe, misiones y más zonas |
-| 5. Calidad | Modelos, animaciones, sonido, accesibilidad, rendimiento | Empezada: alux y Balam modelados en Blender en dos pasadas, escenario e interfaz rediseñados y tres niveles de calidad ([direccion-artistica.md](direccion-artistica.md)). Enemigos provisionales. Audio provisional generado por código. Sin medición con GPU |
+| 5. Calidad | Modelos, animaciones, sonido, accesibilidad, rendimiento | Empezada: alux y Balam modelados en Blender en dos pasadas, escenario e interfaz rediseñados y tres niveles de calidad ([ART_BIBLE.md](ART_BIBLE.md)). Enemigos provisionales. Audio provisional generado por código. Sin medición con GPU |
 | 6. Beta privada | Despliegue, telemetría, respaldos | Despliegue con Docker probado en local; falta un servidor real con dominio |
 
 El detalle de lo que queda por validar está en [pendientes.md](pendientes.md).

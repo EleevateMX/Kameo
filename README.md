@@ -22,12 +22,22 @@ Y esta es una captura del juego real en el navegador, en una sesión viva contra
 
 ![Juego real en el navegador](docs/img/juego-real-navegador.jpg)
 
+## Hacia dónde va
+
+ALUX se desarrolla por capítulos: cinco regiones, cinco espíritus guardianes y un final. El plan, la
+historia y las reglas de producción están en [docs/ROADMAP.md](docs/ROADMAP.md),
+[docs/STORY_BIBLE.md](docs/STORY_BIBLE.md) y [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md).
+
+| Introducción «El llamado» | Chiich Yaxché, la abuela del claro |
+| --- | --- |
+| ![Introducción](docs/img/alpha02-llamado-1.jpg) | ![Diálogo](docs/img/alpha02-dialogo.jpg) |
+
 ## Build de playtest
 
 El Claro de los Aluxes se puede jugar de principio a fin en una sesión de 10–15 minutos, de 1 a 4
 jugadores: portal → sala → bienvenida con los controles → altares → emboscada → victoria o derrota →
 otra ronda o salir. La guía para quien organiza o juega la prueba está en
-[docs/playtest.md](docs/playtest.md).
+[docs/PLAYTEST.md](docs/PLAYTEST.md).
 
 ## Qué funciona hoy (Fases 1–3 y parte de la 4)
 
@@ -35,7 +45,7 @@ otra ronda o salir. La guía para quien organiza o juega la prueba está en
   creación del alux (nombre, color, accesorio), salas privadas por código, partida pública e invitaciones.
 - **Juego 3D** (Godot 4, exportado a WebAssembly/WebGL 2): el Claro de los Aluxes, con plaza enlosada y
   brasero, pirámide con escalinata, cenote para nadar, mirador, ceiba sagrada y santuario sellado
-  ([docs/direccion-artistica.md](docs/direccion-artistica.md)).
+  ([docs/ART_BIBLE.md](docs/ART_BIBLE.md)).
 - **Interfaz propia**: panel de grupo con retratos, placa de objetivo, brújula, barras de vida y energía,
   ranuras de habilidad con enfriamiento y selector de forma, todo dibujado por código.
 - **Multijugador con servidor autoritativo** (Godot sin ventana, WebSocket): hasta 4 jugadores por sala,
@@ -68,7 +78,7 @@ Lo que falta y lo que aún no se ha podido validar está en [docs/pendientes.md]
 | Cámara | Mover el ratón (clic para capturarlo) | Q / E |
 | Habilidad primaria | Clic izquierdo | J |
 | Habilidad secundaria | Clic derecho | K |
-| Habilidad especial | | F |
+| Habilidad especial · tocar · hablar | | F |
 | Transformarse | | 1 Alux · 2 Balam |
 | Recentrar la cámara | | R |
 | Menú (volumen, sensibilidad, otra ronda, salir) | | Esc · P |
@@ -190,15 +200,19 @@ docs/                     Arquitectura, protocolo, combate, simulación, rendimi
 
 - [Arquitectura y plan por fases](docs/arquitectura.md)
 - [Beta privada: despliegue en Render, invitaciones, métricas, rollback y respaldo](docs/beta.md)
-- [Build de playtest: cómo se juega una sesión y qué observar](docs/playtest.md)
-- [Dirección artística: HUD, personajes, escenario y niveles de calidad](docs/direccion-artistica.md)
+- [Hoja de ruta: versiones, dependencias y decisiones pendientes](docs/ROADMAP.md)
+- [Diseño de juego: pilares, formas, jefe y progresión](docs/GAME_DESIGN.md)
+- [Biblia narrativa: universo, personajes y capítulos](docs/STORY_BIBLE.md)
+- [Biblia de arte: HUD, personajes, escenario, capítulos y niveles de calidad](docs/ART_BIBLE.md)
+- [Cinemáticas: sistema, reglas en cooperativo, proceso con Kling y storyboards](docs/CINEMATICS.md)
+- [Playtest: guía de la sesión y resultados](docs/PLAYTEST.md)
+- [Versiones: qué lleva cada una y cuál está publicada](docs/RELEASES.md)
 - [Combate: formas, habilidades, enemigos y emboscada](docs/combate.md)
 - [Protocolo de red y reglas anti-trampas](docs/protocolo.md)
 - [Simulación de movimiento: garantías y pruebas](docs/simulacion.md)
 - [Rendimiento: cómo medirlo](docs/rendimiento.md)
 - [Despliegue de una beta](docs/despliegue.md)
 - [Pendientes y validaciones que faltan](docs/pendientes.md)
-- [Historia y origen de la idea](docs/historia.md)
 
 ALUX es un proyecto original. Su punto de partida fue el recuerdo de los juegos de transformaciones
 elementales de los 2000, pero el mundo, los personajes y la historia son propios.

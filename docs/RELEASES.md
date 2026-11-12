@@ -35,7 +35,8 @@ valor al estado del mundo. Un cliente de la 0.1 seguiría funcionando contra est
 | Simulación | 427 840 comprobaciones sin violaciones (el mundo compartido no cambió) |
 | Servidor con bots | 12 de 12, con la prueba nueva: hablar sólo cuenta estando a su lado y lo sabe toda la sala |
 | Flujo en navegador | Pasa: la introducción se reproduce y deja quieto al personaje, se omite, se habla con la abuela, el servidor anota el avance y el resto de la partida sigue igual |
-| Cuatro navegadores | RESULTADO_E2E |
+| Cuatro navegadores | Pasa: movimiento, transformación, combate sincronizado, reconexión, sala llena y recarga |
+| Rendimiento (render por software, 640×360, un jugador, mismo día y máquina) | Sin diferencia medible: 7.2 FPS en mínima y 5.0 en baja, frente a 7.2 y 4.9 de la versión anterior. Unas 25–30 llamadas de dibujo más (el personaje y la interfaz nueva). |
 
 ![La introducción y el diálogo en un navegador real](img/alpha02-navegador.jpg)
 

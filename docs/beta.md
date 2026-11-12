@@ -8,7 +8,7 @@ respaldar los datos.
 > misma disposición que usa Render (`scripts/test-beta-image.sh`): migraciones, acceso sólo con
 > invitación, HTTPS/WSS a través de dos proxies, las dos pruebas con navegadores reales, métricas
 > y persistencia tras reiniciar. **Desplegada en <https://alux-beta.onrender.com>** desde el 12 de
-> noviembre de 2026; lo comprobado contra el servicio real está en [versiones.md](versiones.md).
+> noviembre de 2026; lo comprobado contra el servicio real está en [RELEASES.md](RELEASES.md).
 > Falta la prueba con testers reales (cuatro a la vez, Edge, audio a oído, FPS con tarjeta gráfica).
 
 ![Portada de la beta: sólo se entra con un código de invitación personal](img/beta-portada.jpg)
@@ -91,7 +91,7 @@ commit se publicaría. Después:
 git push origin claude/tender-johnson-c2gk0s:beta
 ```
 
-Qué commit corresponde a cada versión publicada: [versiones.md](versiones.md).
+Qué commit corresponde a cada versión publicada: [RELEASES.md](RELEASES.md).
 
 Genera una invitación por tester (ejemplo para cuatro personas, válidas 14 días):
 
@@ -230,7 +230,7 @@ Lo que sólo se puede validar con personas, en sus computadoras:
 | Audio y controles | Preguntar a cada tester si oyó ambiente, música y efectos, y si algún control falló. |
 | FPS, latencia, memoria, carga | Se registran solos (abajo). F3 los muestra en pantalla. |
 
-Guía de la sesión y qué observar: [playtest.md](playtest.md).
+Guía de la sesión y qué observar: [PLAYTEST.md](PLAYTEST.md).
 
 **Métricas automáticas.** Cada navegador envía un resumen cada minuto y al terminar cada ronda:
 calidad gráfica elegida (y si la eligió el juego o el jugador), FPS medio y percentil 5, latencia
