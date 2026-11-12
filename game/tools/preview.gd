@@ -29,11 +29,17 @@ var shots := [
 	["cine_3", Vector3.ZERO, 0.0, 0.0, 1.0, true],
 	["cine_4", Vector3.ZERO, 0.0, 0.0, 1.0, true],
 	["dialogo", Vector3(-4.4, 1.15, 1.5), -1.94, 0.16, 4.6, true],
+	["sello_1", Vector3.ZERO, 0.0, 0.0, 1.0, true],
+	["sello_2", Vector3.ZERO, 0.0, 0.0, 1.0, true],
+	["ref_yaxche", Vector3(-5.2, 0.95, 1.2), 1.2 + PI + 0.25, 0.08, 2.9, false],
 	["objetivo_yaxche", Vector3(2.6, 1.25, 2.6), PI, 0.42, 7.0, true],
 	["bienvenida", Vector3(2.6, 1.25, 2.6), PI, 0.42, 7.0, true],
 	["menu", Vector3(2.6, 1.25, 2.6), PI, 0.42, 7.0, true],
 	["esperando", Vector3(2.6, 1.25, 2.6), PI, 0.42, 7.0, true],
 	["reconectando", Vector3(2.6, 1.25, 2.6), PI, 0.42, 7.0, true],
+	# Cuadros limpios (sin nombres ni interfaz) para usar como referencia o primer cuadro de un vídeo
+	["ref_balam", Vector3(-3.4, 0.7, -1.6), 0.9 + PI - 0.75, 0.1, 3.4, false],
+	["ref_alux", Vector3(2.6, 0.9, 2.6), 0.3 + PI - 0.35, 0.08, 2.6, false],
 	["retrato_alux", Vector3(2.6, 0.95, 2.6), 0.3 + PI - 0.35, 0.1, 2.3, false],
 	["retrato_balam", Vector3(-3.4, 0.75, -1.6), 0.9 + PI - 0.6, 0.12, 2.9, false],
 	["combate", Vector3(14.0, 1.2, -1.0), PI * 0.5, 0.35, 8.0, true],
@@ -154,23 +160,31 @@ func _process(delta: float) -> bool:
 	hud.hide_result()
 	hud.set_net("")
 	hud.banner("", Color.WHITE, 0.01)
+	for av in avatars:
+		av.is_local = str(s[0]).begins_with("ref_")   # sin nombre sobre la cabeza en los cuadros de referencia
+		av._apply()
+	if npc:
+		npc.visible = not str(s[0]).begins_with("ref_") or str(s[0]) == "ref_yaxche"
 	hud.set_cine(false)
 	hud.hide_dialogue()
 	hud.context_hint("")
 	hud.set_npc_mark("")
-	if str(s[0]).begins_with("cine_"):
-		# Un plano de la introducción, a mitad de su recorrido
-		var n := int(str(s[0]).trim_prefix("cine_")) - 1
-		var script: Dictionary = Story.CUTSCENES["llamado"].duplicate(true)
+	if str(s[0]).begins_with("cine_") or str(s[0]).begins_with("sello_"):
+		# Un plano de una cinemática, a mitad de su recorrido
+		var which := "llamado" if str(s[0]).begins_with("cine_") else "sello"
+		var n := int(str(s[0]).get_slice("_", 1)) - 1
+		var script: Dictionary = Story.CUTSCENES[which].duplicate(true)
 		script.shots = [script.shots[n]]
-		cine.play("llamado", script, cam, hud, {"yaxche": Story.NPCS.yaxche.name})
+		cine.play(which, script, cam, hud, {"yaxche": Story.NPCS.yaxche.name})
+		if which == "sello":
+			hud.cine_skip_text("Enter  ·  votar para omitir  (1/3)")
 		cine.process(float(script.shots[0].dur) * 0.5)
 	match str(s[0]):
 		"dialogo":
 			var lines := []
 			for l in Story.dialogue("yaxche", 0, 0):
 				lines.append(str(l[1]))
-			hud.show_dialogue(Story.NPCS.yaxche.name, Story.NPCS.yaxche.title, lines, Color(1.0, 0.82, 0.3))
+			hud.show_dialogue(Story.NPCS.yaxche.name, Story.NPCS.yaxche.title, lines, Color(1.0, 0.82, 0.3), "yaxche")
 			hud.advance_dialogue()
 			hud.advance_dialogue()
 			hud.advance_dialogue()

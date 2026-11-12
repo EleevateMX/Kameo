@@ -42,7 +42,7 @@ func play(p_id: String, script: Dictionary, cam: Camera3D, hud: Node, names := {
 	if not active:
 		finished.emit(id, false)
 		return
-	hud.set_cine(true, not shared)
+	hud.set_cine(true, true)
 	_next()
 
 

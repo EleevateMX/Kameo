@@ -135,6 +135,9 @@ var _talking := ""            # id del personaje con el que se está hablando
 var _cine := Cutscene.new()
 var _cine_on := true          # ?cine=0 las desactiva (pruebas automáticas)
 var _intro_after_cine := false
+var _frozen := false          # hay una cinemática compartida: la sala está en pausa
+var _skip_votes := 0
+var _skip_voted := false
 
 # Métricas de la sesión (beta): se envían a la API cada minuto y al terminar una ronda
 var _m := {"sid": "", "fps": [], "ping_sum": 0.0, "ping_n": 0, "ping_max": 0.0, "load_ms": -1.0, "seconds": 0.0,
@@ -251,7 +254,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Cinemática: sólo se puede omitir (Enter o Esc); nada más llega al juego
 	if _cine.active:
 		if event.is_action_pressed("accept") or event.is_action_pressed("menu"):
-			_cine.skip()
+			if _cine.shared:
+				# Compartida: omitirla es un voto; decide el servidor cuando vota la mayoría
+				if not _skip_voted and _ws != null and _net == Net.PLAYING:
+					_skip_voted = true
+					_ws.send_text(JSON.stringify({"t": "skip"}))
+					Audio.play("ui_click")
+			else:
+				_cine.skip()
 		return
 	# Diálogo: cualquier tecla de acción o clic pasa a la línea siguiente; Esc lo cierra
 	if _hud.dialogue_open():
@@ -470,7 +480,7 @@ func _open_dialogue(npc: String) -> void:
 	_mouse_l = false
 	_mouse_r = false
 	_hud.context_hint("")
-	_hud.show_dialogue(str(Story.NPCS[npc].name), str(Story.NPCS[npc].title), texts, GOLD)
+	_hud.show_dialogue(str(Story.NPCS[npc].name), str(Story.NPCS[npc].title), texts, GOLD, npc)
 	Audio.play("ui_abrir")
 
 
@@ -480,6 +490,7 @@ func _on_dialogue_done(completed: bool) -> void:
 	_talking = ""
 	if completed and not npc.is_empty() and _ws != null and _net == Net.PLAYING:
 		_ws.send_text(JSON.stringify({"t": "talk", "n": npc}))
+		_npc.gesture("Bless")   # despedida: levanta el bastón
 
 
 ## Botones de la interfaz (menú, resultado, bienvenida y pantallas de error).
@@ -780,6 +791,14 @@ func _apply_world(w: Array, instant := false) -> void:
 	_connected = int(w[8]) if w.size() > 8 else 1
 	_lock = int(w[9]) if w.size() > 9 else 0
 	_story = int(w[10]) if w.size() > 10 else 0
+	_frozen = w.size() > 11 and int(w[11]) > 0
+	_skip_votes = int(w[12]) if w.size() > 12 else 0
+	if _cine.active and _cine.shared:
+		if not _frozen and not instant:
+			_cine.stop()   # el servidor ya la dio por terminada
+		else:
+			var need := Story.skip_votes_needed(_connected)
+			_hud.cine_skip_text("Votaste omitir  (%d/%d)" % [_skip_votes, need] if _skip_voted else ("Enter  ·  omitir" if _connected <= 1 else "Enter  ·  votar para omitir  (%d/%d)" % [_skip_votes, need]))
 	var talked := (_story & Story.F_TALKED) != 0
 	_hud.set_npc_mark("" if talked else "yaxche", Story.npc_pos("yaxche"))
 	for i in World.PLATES.size():
@@ -968,6 +987,22 @@ func _reconcile(state: Array, ack: int) -> void:
 
 func _on_event(m: Dictionary) -> void:
 	match m.get("e"):
+		"cine":
+			# Cinemática compartida: la empieza el servidor para todos
+			_skip_voted = false
+			if _cine_on and Story.CUTSCENES.has(str(m.get("id", ""))):
+				if _cine.active:
+					_intro_after_cine = false
+					_cine.stop()
+				_hud.hide_intro()
+				_hud.hide_result()
+				_hud.hide_dialogue()
+				_play_cutscene(str(m.id))
+			else:
+				_hud.hint("El grupo está viendo una escena: la partida sigue en unos segundos", 5.0)
+		"cine_end":
+			if _cine.active and _cine.shared:
+				_cine.stop()
 		"story":
 			if str(m.get("k", "")) == "talked":
 				Audio.play("objetivo")
@@ -976,6 +1011,11 @@ func _on_event(m: Dictionary) -> void:
 			_hud.banner("¡El santuario se abre!", Color(0.5, 1.0, 0.85), 3.0)
 			Audio.play("santuario_abre", Vector3(World.SANCTUARY.x - 7.0, 1.0, World.SANCTUARY.y), 3.0)
 		"reward":
+			if str(m.get("reward", "")) != "sello_del_claro":
+				# Progreso del capítulo guardado en el perfil (sin panel: ya se avisó en la partida)
+				if bool(m.get("saved", false)) and bool(m.get("new", false)):
+					_hud.toast("Capítulo I\nprogreso guardado en tu perfil")
+				return
 			if not bool(m.get("saved", false)):
 				_reward_text = "no se pudo guardar"
 				_hud.toast("Sello del Claro\nno se pudo guardar el progreso")
@@ -1208,7 +1248,7 @@ func _physics_process(_delta: float) -> void:
 	var jump := Input.is_action_pressed("jump")
 	# Con la bienvenida, el menú o un resultado abiertos el personaje se queda quieto
 	# (se sigue enviando la entrada vacía: mantiene viva la conexión)
-	if _hud.panel_open():
+	if _hud.panel_open() or _frozen:
 		move = Vector2.ZERO
 		buttons = 0
 		jump = false
@@ -1621,6 +1661,7 @@ func _debug_export(delta: float) -> void:
 		"dmg_enemies": _seen_enemy_dmg, "dmg_players": _seen_player_dmg,
 		"perf": _perf_stats(), "quality": ["high", "low", "min"][_quality],
 		"story": _story, "npc_near": _npc_near, "cine": _cine.id if _cine.active else "",
+		"frozen": _frozen, "skip_votes": _skip_votes, "skip_voted": _skip_voted,
 		"ui": {"intro": _hud.intro_open(), "menu": _hud.menu_open(), "result": _hud.result_open(), "help": _hud.help_open(),
 			"dialog": _hud.dialogue_open(), "cine": _hud.cine_open(),
 			"objective": _hud.objective_text(), "captured": Input.mouse_mode == Input.MOUSE_MODE_CAPTURED},

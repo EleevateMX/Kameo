@@ -352,7 +352,7 @@ var _hurt_color := Color(0.9, 0.1, 0.15)
 
 
 func _ready() -> void:
-	for f in ["alux", "balam"]:
+	for f in ["alux", "balam", "yaxche"]:
 		var path := "res://assets/ui/portrait_%s.png" % f
 		if ResourceLoader.exists(path):
 			_portraits[f] = load(path)
@@ -1207,6 +1207,7 @@ func set_cine(on: bool, skippable := true) -> void:
 	_cine = on
 	_play.visible = not on
 	_cine_skip.visible = on and skippable
+	_cine_skip.text = "Enter  ·  omitir"
 	if not on:
 		_cine_who.get_parent().visible = false
 		_cine_title.visible = false
@@ -1218,6 +1219,11 @@ func set_cine(on: bool, skippable := true) -> void:
 
 func cine_open() -> bool:
 	return _cine
+
+
+## Texto del aviso de omitir (en las compartidas muestra el recuento de votos).
+func cine_skip_text(text: String) -> void:
+	_cine_skip.text = text
 
 
 ## Subtítulo de una cinemática ("" lo quita). `who` es el nombre de quien habla, si habla alguien.
@@ -1387,6 +1393,8 @@ func menu_open() -> bool:
 
 
 func banner(text: String, color := Kit.GOLD, seconds := 4.0) -> void:
+	if _cine:
+		return   # durante una cinemática no se superponen avisos
 	_banner.text = text
 	_banner.add_theme_color_override("font_color", color)
 	_banner_time = seconds

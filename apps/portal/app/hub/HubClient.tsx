@@ -141,7 +141,7 @@ export function HubClient({ initialProfile, baseUrl }: { initialProfile: PlayerP
             ))}
             {Object.entries(REWARDS).map(([key, r]) => {
               const have = profile.rewards.includes(key);
-              return <li key={key} className={have ? '' : 'locked'}><span className="tag seal">{have ? 'Sello' : 'Pendiente'}</span>{r.title}</li>;
+              return <li key={key} className={have ? '' : 'locked'}><span className="tag seal">{have ? 'Capítulo I' : 'Pendiente'}</span>{r.title}</li>;
             })}
           </ul>
         </section>
