@@ -8,13 +8,15 @@ signal form_requested(form: String)
 signal action(id: String)
 ## Ajustes del menú: sens, vol_master, vol_music, vol_sfx, vol_amb (0–1)
 signal setting_changed(key: String, value: float)
+## El jugador terminó de leer un diálogo (completed = llegó hasta el final).
+signal dialogue_done(completed: bool)
 
 const Defs := preload("res://scripts/shared/combat_def.gd")
 const World := preload("res://scripts/shared/world_def.gd")
 const Kit := preload("res://scripts/client/ui/ui_kit.gd")
 
 ## Nombre de la build, visible en el menú para que quien pruebe pueda citarla al reportar.
-const BUILD := "ALUX Closed Alpha 0.1"
+const BUILD := "ALUX Alpha 0.2 (en desarrollo)"
 const FORM_ACCENT := {"alux": Kit.JADE, "balam": Kit.AMBER}
 const KEY_HINTS := ["Clic · J", "Clic der. · K", "F"]
 
@@ -322,8 +324,28 @@ var _sliders := {}            # clave -> HSlider
 var _overlay_buttons: HBoxContainer
 var _shade: ColorRect
 var _low_hp := false
+var _play: Control            # todo lo que se oculta durante una cinemática
+var _bars: Array[ColorRect] = []
+var _cine := false
+var _cine_k := 0.0
+var _cine_sub: Label
+var _cine_who: Label
+var _cine_title: Label
+var _cine_skip: Label
+var _dialog: Plaque
+var _dialog_medal: Medallion
+var _dialog_name: Label
+var _dialog_role: Label
+var _dialog_text: Label
+var _dialog_foot: Label
+var _dialog_lines: Array = []
+var _dialog_i := 0
+var _dialog_chars := 0.0
 var _base_marks: Array = []
 var _altars_key := -2
+var _npc_mark := ""
+var _npc_pos := Vector2.ZERO
+var _npc_on := false
 var _pulse := 0.0
 var _hurt := 0.0
 var _hurt_color := Color(0.9, 0.1, 0.15)
@@ -346,10 +368,15 @@ func _ready() -> void:
 	_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_vignette)
 
-	_build_party(root)
-	_build_top(root)
-	_build_bottom(root)
-	_build_hints(root)
+	# Capa de juego: grupo, objetivo, barra y avisos. Se oculta entera durante una cinemática.
+	_play = Control.new()
+	_play.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_play.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_play)
+	_build_party(_play)
+	_build_top(_play)
+	_build_bottom(_play)
+	_build_hints(_play)
 
 	# Aviso grande
 	_banner = Kit.label("", 38, Kit.GOLD, Kit.title_font())
@@ -399,7 +426,8 @@ func _ready() -> void:
 	_perf.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_perf.visible = false
 
-	_build_status(root)
+	_build_status(_play)
+	_build_story(root)
 	_build_panels(root)
 
 	# Pantalla de conexión
@@ -428,6 +456,89 @@ func _ready() -> void:
 	_overlay_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	_overlay_buttons.add_theme_constant_override("separation", 12)
 	col.add_child(_overlay_buttons)
+
+
+## Cinemáticas (franjas, subtítulos, rótulo) y caja de diálogo.
+func _build_story(root: Control) -> void:
+	for top in [true, false]:
+		var bar := ColorRect.new()
+		bar.color = Color(0.01, 0.02, 0.02)
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bar.set_anchors_preset(Control.PRESET_TOP_WIDE if top else Control.PRESET_BOTTOM_WIDE)
+		bar.grow_vertical = Control.GROW_DIRECTION_END if top else Control.GROW_DIRECTION_BEGIN
+		bar.custom_minimum_size = Vector2(0, 0)
+		bar.visible = false
+		root.add_child(bar)
+		_bars.append(bar)
+	_cine_title = Kit.label("", 30, Kit.GOLD, Kit.title_font())
+	_cine_title.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE)
+	_cine_title.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_cine_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cine_title.position.y = 104
+	_cine_title.add_theme_constant_override("outline_size", 10)
+	_cine_title.add_theme_color_override("font_outline_color", Color(0.03, 0.06, 0.05, 0.9))
+	_cine_title.visible = false
+	root.add_child(_cine_title)
+	var sub := VBoxContainer.new()
+	sub.add_theme_constant_override("separation", 2)
+	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(sub)
+	sub.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE)
+	sub.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	sub.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	sub.position.y -= 100
+	_cine_who = Kit.label("", 15, Kit.GOLD, Kit.bold_font())
+	_cine_who.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.add_child(_cine_who)
+	_cine_sub = Kit.label("", 21, Color(1, 0.98, 0.92), Kit.bold_font())
+	_cine_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cine_sub.custom_minimum_size = Vector2(860, 0)
+	_cine_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_cine_sub.add_theme_constant_override("outline_size", 8)
+	_cine_sub.add_theme_color_override("font_outline_color", Color(0.02, 0.04, 0.04, 0.95))
+	sub.add_child(_cine_sub)
+	_cine_who.get_parent().visible = false
+	_cine_skip = Kit.label("Enter  ·  omitir", 12, Color(1, 1, 1, 0.6), Kit.bold_font())
+	_cine_skip.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 18)
+	_cine_skip.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_cine_skip.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_cine_skip.visible = false
+	root.add_child(_cine_skip)
+
+	# Caja de diálogo
+	_dialog = Plaque.new(16, Kit.GOLD, 18.0)
+	_dialog.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_dialog)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 16)
+	_dialog.add_child(row)
+	_dialog_medal = Medallion.new(84)
+	_dialog_medal.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	row.add_child(_dialog_medal)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 4)
+	row.add_child(col)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 10)
+	col.add_child(head)
+	_dialog_name = Kit.label("", 19, Kit.GOLD, Kit.title_font())
+	head.add_child(_dialog_name)
+	_dialog_role = Kit.label("", 12, Color(1, 1, 1, 0.55))
+	_dialog_role.size_flags_vertical = Control.SIZE_SHRINK_END
+	head.add_child(_dialog_role)
+	_dialog_text = Kit.label("", 17, Kit.LIME)
+	_dialog_text.custom_minimum_size = Vector2(640, 78)
+	_dialog_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_dialog_text.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	col.add_child(_dialog_text)
+	_dialog_foot = Kit.label("", 12, Color(1, 1, 1, 0.55), Kit.bold_font())
+	_dialog_foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	col.add_child(_dialog_foot)
+	_dialog.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE)
+	_dialog.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_dialog.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_dialog.position.y -= 132
+	_dialog.visible = false
 
 
 ## Botón con el estilo de las placas. `primary` lo destaca en oro.
@@ -604,6 +715,7 @@ func _build_panels(root: Control) -> void:
 	two.add_child(rec)
 	_menu_quality = _button("Calidad gráfica: alta  (F4)", "quality")
 	mv.add_child(_menu_quality)
+	mv.add_child(_button("Ver la introducción del capítulo", "replay_intro"))
 	var sg := GridContainer.new()
 	sg.columns = 2
 	sg.add_theme_constant_override("h_separation", 14)
@@ -826,6 +938,23 @@ func _process(delta: float) -> void:
 	if _banner_time > 0.0:
 		_banner_time -= delta
 		_banner.modulate.a = clampf(_banner_time, 0.0, 1.0)
+	# Franjas de cine: entran y salen deslizándose
+	_cine_k = move_toward(_cine_k, 1.0 if _cine else 0.0, delta * 2.6)
+	var h := 76.0 * (1.0 - pow(1.0 - _cine_k, 3.0))
+	for bar in _bars:
+		bar.visible = _cine_k > 0.001
+		bar.custom_minimum_size.y = h
+		bar.size.y = h
+		if bar.anchor_top == 1.0:
+			bar.position.y = get_viewport().get_visible_rect().size.y - h
+	# Diálogo: el texto aparece letra a letra
+	if _dialog.visible and _dialog_i < _dialog_lines.size():
+		var full := str(_dialog_lines[_dialog_i])
+		if int(_dialog_chars) < full.length():
+			_dialog_chars = minf(float(full.length()), _dialog_chars + delta * 48.0)
+			_dialog_text.visible_characters = int(_dialog_chars)
+			if int(_dialog_chars) >= full.length():
+				_dialog_text.visible_characters = -1
 	_pulse += delta
 	_hurt = maxf(0.0, _hurt - delta * 1.3)
 	# con poca vida queda un latido rojo en los bordes hasta que el jugador se cura
@@ -967,6 +1096,8 @@ func set_altars(show: bool, mask: int) -> void:
 		return
 	_altars_key = key
 	var marks := _base_marks.duplicate()
+	if _npc_on:
+		marks.append(["alux", Kit.GOLD, _npc_pos])
 	if show:
 		for i in World.PLATES.size():
 			var on := (mask & (1 << i)) != 0
@@ -1064,8 +1195,105 @@ func _sync_shade() -> void:
 	_shade.visible = _intro.visible or _result.visible or _menu.visible
 
 
+## ¿Hay algo abierto que deja quieto al personaje? (paneles, diálogo o cinemática)
 func panel_open() -> bool:
-	return _intro.visible or _result.visible or _menu.visible
+	return _intro.visible or _result.visible or _menu.visible or _dialog.visible or _cine
+
+
+# ───────────────────────── Cinemáticas y diálogos ─────────────────────────
+
+## Entra o sale del modo cine: franjas negras y la interfaz de juego oculta.
+func set_cine(on: bool, skippable := true) -> void:
+	_cine = on
+	_play.visible = not on
+	_cine_skip.visible = on and skippable
+	if not on:
+		_cine_who.get_parent().visible = false
+		_cine_title.visible = false
+	else:
+		hide_dialogue()
+		_banner_time = 0.0
+		_banner.modulate.a = 0.0
+
+
+func cine_open() -> bool:
+	return _cine
+
+
+## Subtítulo de una cinemática ("" lo quita). `who` es el nombre de quien habla, si habla alguien.
+func cine_subtitle(who: String, text: String) -> void:
+	(_cine_who.get_parent() as Control).visible = not text.is_empty()
+	_cine_who.text = who
+	_cine_who.visible = not who.is_empty()
+	_cine_sub.text = text
+
+
+func cine_title(text: String) -> void:
+	_cine_title.text = text
+	_cine_title.visible = not text.is_empty()
+	if not text.is_empty():
+		_cine_title.modulate.a = 0.0
+		_cine_title.create_tween().tween_property(_cine_title, "modulate:a", 1.0, 0.8)
+
+
+## Abre un diálogo. lines: textos de un mismo personaje, en orden.
+func show_dialogue(speaker: String, role: String, lines: Array, accent := Kit.GOLD, portrait := "alux") -> void:
+	_dialog_lines = lines
+	_dialog_i = -1
+	_dialog_name.text = speaker
+	_dialog_role.text = role
+	_dialog.set_accent(accent)
+	_dialog_medal.portrait = _portraits.get(portrait)
+	_dialog_medal.configure(portrait, accent, accent, 1.0)
+	_dialog_medal.queue_redraw()
+	_dialog.visible = true
+	_hint_time = 0.0
+	_next_line()
+
+
+func _next_line() -> void:
+	_dialog_i += 1
+	if _dialog_i >= _dialog_lines.size():
+		_dialog.visible = false
+		dialogue_done.emit(true)
+		return
+	_dialog_text.text = str(_dialog_lines[_dialog_i])
+	_dialog_chars = 0.0
+	_dialog_text.visible_characters = 0
+	var last := _dialog_i == _dialog_lines.size() - 1
+	_dialog_foot.text = "%d / %d      Enter  ·  F  ·  clic:  %s" % [_dialog_i + 1, _dialog_lines.size(), "terminar" if last else "continuar"]
+
+
+## Avanza el diálogo: primero completa la línea que se está escribiendo; después pasa a la siguiente.
+func advance_dialogue() -> void:
+	if not _dialog.visible:
+		return
+	if _dialog_text.visible_characters >= 0:
+		_dialog_chars = 9999.0
+		_dialog_text.visible_characters = -1
+	else:
+		_next_line()
+
+
+func hide_dialogue() -> void:
+	if _dialog.visible:
+		_dialog.visible = false
+		dialogue_done.emit(false)
+
+
+func dialogue_open() -> bool:
+	return _dialog.visible
+
+
+## Marca de un personaje en la brújula ("" la quita).
+func set_npc_mark(key: String, pos := Vector2.ZERO) -> void:
+	var want := key + str(pos)
+	if want == _npc_mark:
+		return
+	_npc_mark = want
+	_npc_pos = pos
+	_npc_on = not key.is_empty()
+	_altars_key = -2   # obliga a recomponer las marcas
 
 
 func show_intro() -> void:

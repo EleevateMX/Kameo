@@ -12,6 +12,9 @@ const WorldBuilder := preload("res://scripts/client/world_builder.gd")
 const Hud := preload("res://scripts/client/hud.gd")
 const Fx := preload("res://scripts/client/fx.gd")
 const Audio := preload("res://scripts/client/audio.gd")
+const Story := preload("res://scripts/shared/story_def.gd")
+const Cutscene := preload("res://scripts/client/cinematics/cutscene.gd")
+const NpcView := preload("res://scripts/client/npc_view.gd")
 
 const PROTOCOL := 2
 const INTERP_DELAY := 0.13
@@ -124,6 +127,15 @@ var _prev_buttons := 0
 var _net_note_t := 0.0
 var _travelled := 0.0
 
+# Historia: progreso de la sala, personaje con quien hablar y cinemáticas
+var _story := 0               # banderas Story.F_* que dicta el servidor
+var _npc: NpcView
+var _npc_near := false
+var _talking := ""            # id del personaje con el que se está hablando
+var _cine := Cutscene.new()
+var _cine_on := true          # ?cine=0 las desactiva (pruebas automáticas)
+var _intro_after_cine := false
+
 # Métricas de la sesión (beta): se envían a la API cada minuto y al terminar una ronda
 var _m := {"sid": "", "fps": [], "ping_sum": 0.0, "ping_n": 0, "ping_max": 0.0, "load_ms": -1.0, "seconds": 0.0,
 	"q_changes": 0, "wins": 0, "losses": 0, "falls": 0, "renderer": "", "report_in": 30.0}
@@ -144,6 +156,11 @@ func _ready() -> void:
 	_hud.form_requested.connect(func(f: String) -> void: _want_form = f)
 	_hud.action.connect(_on_action)
 	_hud.setting_changed.connect(_on_setting)
+	_hud.dialogue_done.connect(_on_dialogue_done)
+	_cine.finished.connect(_on_cine_finished)
+	_npc = NpcView.new()
+	add_child(_npc)
+	_npc.setup("yaxche")
 	_hud.set_overlay("Preparando el Claro de los Aluxes…")
 	_audio = Audio.new()
 	add_child(_audio)
@@ -165,6 +182,7 @@ func _ready() -> void:
 			_quality_locked = q == "min"
 		elif q == "high":
 			_quality_locked = true
+		_cine_on = int(_js("(window.ALUX && window.ALUX.cine === false) ? 0 : 1")) == 1
 		_load_settings()
 	_apply_settings()
 
@@ -230,6 +248,20 @@ func _setup_input() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Cinemática: sólo se puede omitir (Enter o Esc); nada más llega al juego
+	if _cine.active:
+		if event.is_action_pressed("accept") or event.is_action_pressed("menu"):
+			_cine.skip()
+		return
+	# Diálogo: cualquier tecla de acción o clic pasa a la línea siguiente; Esc lo cierra
+	if _hud.dialogue_open():
+		if event.is_action_pressed("menu"):
+			_hud.hide_dialogue()
+		elif event.is_action_pressed("accept") or event.is_action_pressed("atk3") or event.is_action_pressed("atk1") \
+				or event.is_action_pressed("jump") or (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+			_hud.advance_dialogue()
+			Audio.play("ui_click", null, -6.0)
+		return
 	# Con la bienvenida abierta, cualquier tecla de juego o clic empieza la partida
 	if _hud.intro_open():
 		if event is InputEventMouseButton:
@@ -242,6 +274,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action("menu") or event.is_action("accept"):
 			return
 		# cualquier otra tecla empieza la partida y además hace lo suyo (moverse, transformarse…)
+	# Junto a un personaje, F es "hablar" (en cualquier forma)
+	if event.is_action_pressed("atk3") and _npc_near and _net == Net.PLAYING and not _hud.panel_open():
+		_open_dialogue(_npc.npc_id)
+		return
 	if event is InputEventMouseButton:
 		var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 		if event.button_index == MOUSE_BUTTON_LEFT:
@@ -390,10 +426,69 @@ func _start_playing(capture: bool) -> void:
 	_tip_clock = 0.0
 
 
+# ───────────────────────── Historia: cinemáticas y diálogos ─────────────────────────
+
+func _seen(key: String) -> bool:
+	return _is_web and str(_js("(function(){try{return localStorage.getItem('alux_seen_%s')||''}catch(e){return ''}})()" % key)) == "1"
+
+
+func _mark_seen(key: String) -> void:
+	if _is_web:
+		_js("(function(){try{localStorage.setItem('alux_seen_%s','1')}catch(e){}})()" % key)
+
+
+## Reproduce una cinemática hecha en el motor. Las locales no detienen la partida de nadie:
+## sólo dejan quieto a este jugador mientras la ve.
+func _play_cutscene(id: String) -> void:
+	if _cine.active or not Story.CUTSCENES.has(id):
+		return
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_mouse_l = false
+	_mouse_r = false
+	_hud.hide_menu()
+	var names := {}
+	for npc in Story.NPCS:
+		names[npc] = Story.NPCS[npc].name
+	_cine.play(id, Story.CUTSCENES[id], _cam, _hud, names)
+
+
+func _on_cine_finished(id: String, _skipped: bool) -> void:
+	_mark_seen(id)
+	if _intro_after_cine:
+		_intro_after_cine = false
+		_hud.show_intro()
+
+
+func _open_dialogue(npc: String) -> void:
+	var lines: Array = Story.dialogue(npc, _story, _encounter)
+	if lines.is_empty():
+		return
+	var texts := []
+	for line in lines:
+		texts.append(str(line[1]))
+	_talking = npc
+	_mouse_l = false
+	_mouse_r = false
+	_hud.context_hint("")
+	_hud.show_dialogue(str(Story.NPCS[npc].name), str(Story.NPCS[npc].title), texts, GOLD)
+	Audio.play("ui_abrir")
+
+
+## Al terminar de leer se avisa al servidor: es él quien anota el avance de la historia.
+func _on_dialogue_done(completed: bool) -> void:
+	var npc := _talking
+	_talking = ""
+	if completed and not npc.is_empty() and _ws != null and _net == Net.PLAYING:
+		_ws.send_text(JSON.stringify({"t": "talk", "n": npc}))
+
+
 ## Botones de la interfaz (menú, resultado, bienvenida y pantallas de error).
 func _on_action(id: String) -> void:
 	Audio.play("ui_click")
 	match id:
+		"replay_intro":
+			_close_menu(false)
+			_play_cutscene("llamado")
 		"start":
 			_start_playing(true)
 		"menu":
@@ -605,7 +700,12 @@ func _on_message(m: Dictionary) -> void:
 				# Primera entrada de esta sesión: bienvenida con el objetivo y los controles
 				_welcomed = true
 				_metrics_begin()
-				_hud.show_intro()
+				# La primera vez, la introducción del capítulo; después, directo a los controles
+				if _cine_on and not _seen("llamado"):
+					_intro_after_cine = true
+					_play_cutscene("llamado")
+				else:
+					_hud.show_intro()
 				_audio.loop("amb_selva", "Ambience", -4.0)
 				_audio.loop("amb_brasero", "Ambience", -60.0)
 			_audio.set_music("mus_emboscada" if _encounter == 1 else "mus_claro")
@@ -679,6 +779,9 @@ func _apply_world(w: Array, instant := false) -> void:
 	_votes = int(w[7]) if w.size() > 7 else 0
 	_connected = int(w[8]) if w.size() > 8 else 1
 	_lock = int(w[9]) if w.size() > 9 else 0
+	_story = int(w[10]) if w.size() > 10 else 0
+	var talked := (_story & Story.F_TALKED) != 0
+	_hud.set_npc_mark("" if talked else "yaxche", Story.npc_pos("yaxche"))
 	for i in World.PLATES.size():
 		var on := (_plates_mask & (1 << i)) != 0
 		_builder.set_plate(i, on)
@@ -718,6 +821,9 @@ func _apply_world(w: Array, instant := false) -> void:
 			("Los altares despiertan en %d s" % _lock) if _lock > 0 else "Reúnanse en el brasero")
 	elif _lock > 0:
 		_hud.set_objective("Nueva ronda", "wait", "Los altares despiertan en %d s" % _lock)
+	elif not talked:
+		# Primer objetivo del capítulo: escuchar a la abuela del claro
+		_hud.set_objective("Habla con Chiich Yaxché", "goal", "Te espera junto al brasero  ·  acércate y pulsa F")
 	else:
 		var here := Vector2(_pred.pos.x, _pred.pos.z)
 		var on_plate := false
@@ -862,6 +968,10 @@ func _reconcile(state: Array, ack: int) -> void:
 
 func _on_event(m: Dictionary) -> void:
 	match m.get("e"):
+		"story":
+			if str(m.get("k", "")) == "talked":
+				Audio.play("objetivo")
+				_hud.hint("%s habló con Chiich Yaxché  ·  nueva misión: los altares" % str(m.get("by", "Un alux")), 5.0)
 		"gate_open":
 			_hud.banner("¡El santuario se abre!", Color(0.5, 1.0, 0.85), 3.0)
 			Audio.play("santuario_abre", Vector3(World.SANCTUARY.x - 7.0, 1.0, World.SANCTUARY.y), 3.0)
@@ -1103,6 +1213,8 @@ func _physics_process(_delta: float) -> void:
 		buttons = 0
 		jump = false
 		_want_form = ""
+	if _npc_near:
+		buttons &= ~Sim.A_SPECIAL   # junto a un personaje, F es "hablar", no una habilidad
 	_explain_denied(buttons)
 	_prev_buttons = buttons
 	_seq += 1
@@ -1210,6 +1322,10 @@ func _process(delta: float) -> void:
 		var forced := str(_js("window.ALUX_CAM_YAW === undefined ? '' : String(window.ALUX_CAM_YAW)"))
 		if forced.is_valid_float():
 			_cam_yaw = forced.to_float()
+		var act := str(_js("window.ALUX_ACTION || ''"))
+		if not act.is_empty():
+			_js("window.ALUX_ACTION = ''")
+			_on_action(act)   # (pruebas) pulsa un botón de la interfaz por su id
 		var q := str(_js("window.ALUX_SET_QUALITY || ''"))
 		if q == "low" or q == "high" or q == "min":
 			_js("window.ALUX_SET_QUALITY = ''")
@@ -1242,6 +1358,8 @@ func _process(delta: float) -> void:
 		_hud.set_low_hp(_hp < 30.0 and not _pred.dead)
 		_hud.set_compass(_cam_yaw, me.global_position)
 		_update_hints(delta)
+		_npc_near = not _pred.dead and _npc.distance_to(me.global_position) < _npc.talk_range
+		_npc.update_view(delta, _npc_near, me.global_position, _hud.dialogue_open())
 		_audio.listener = me.global_position
 		_audio.set_loop_distance("amb_brasero", Vector3(0, 1.2, 0), -3.0)
 		_update_onboarding(delta, captured)
@@ -1281,7 +1399,8 @@ func _process(delta: float) -> void:
 		_gate_anim = minf(1.0, _gate_anim + delta * 0.8)
 	_builder.update(_time, delta, _gate_anim)
 
-	_update_camera()
+	if not _cine.process(delta):
+		_update_camera()
 	_update_perf(delta)
 	_debug_export(delta)
 
@@ -1295,7 +1414,9 @@ func _update_onboarding(delta: float, captured: bool) -> void:
 	_travelled += step
 	if _tip_clock > 7.0 and _travelled < 2.0:
 		_tip("move", "Muévete con W A S D  ·  Espacio salta", 6.0)
-	if _travelled > 12.0 and _encounter == 0 and _tip_clock > 9.0:
+	if _encounter == 0 and (_story & Story.F_TALKED) == 0 and _tip_clock > 12.0:
+		_tip("yaxche", "Chiich Yaxché te espera junto al brasero: acércate y pulsa F para hablar", 7.0)
+	if _travelled > 12.0 and _encounter == 0 and _tip_clock > 9.0 and (_story & Story.F_TALKED) != 0:
 		_tip("altars", "Los altares brillan en la brújula de arriba: camina hacia uno y quédate encima", 7.0)
 	if _encounter == 0 and not _tips.has("fight"):
 		for id in _enemies:
@@ -1321,7 +1442,9 @@ func _update_hints(delta: float) -> void:
 	_hint_in = 0.25
 	var here := Vector2(_pred.pos.x, _pred.pos.z)
 	var text := ""
-	if not _pred.dead:
+	if _npc_near:
+		text = "" if _hud.dialogue_open() else "F  ·  Hablar con %s" % Story.NPCS[_npc.npc_id].name
+	elif not _pred.dead:
 		var can_touch := _pred.form == "alux"
 		for id in _enemies:
 			var v: EnemyView = _enemies[id]
@@ -1497,7 +1620,9 @@ func _debug_export(delta: float) -> void:
 		"frames": Engine.get_process_frames(), "rejoins": _rejoins, "glb": (_avatars.get(_my_slot) as Avatar).uses_glb if _avatars.has(_my_slot) else false,
 		"dmg_enemies": _seen_enemy_dmg, "dmg_players": _seen_player_dmg,
 		"perf": _perf_stats(), "quality": ["high", "low", "min"][_quality],
+		"story": _story, "npc_near": _npc_near, "cine": _cine.id if _cine.active else "",
 		"ui": {"intro": _hud.intro_open(), "menu": _hud.menu_open(), "result": _hud.result_open(), "help": _hud.help_open(),
+			"dialog": _hud.dialogue_open(), "cine": _hud.cine_open(),
 			"objective": _hud.objective_text(), "captured": Input.mouse_mode == Input.MOUSE_MODE_CAPTURED},
 		"votes": _votes, "connected": _connected, "lock": _lock, "voted": _voted,
 		"stats": _stats, "audio": _audio.loaded(), "music": _audio.music(), "settings": _settings,

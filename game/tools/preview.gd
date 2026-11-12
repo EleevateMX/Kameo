@@ -10,6 +10,9 @@ const Avatar := preload("res://scripts/client/avatar.gd")
 const EnemyView := preload("res://scripts/client/enemy_view.gd")
 const World := preload("res://scripts/shared/world_def.gd")
 const Fx := preload("res://scripts/client/fx.gd")
+const Story := preload("res://scripts/shared/story_def.gd")
+const Cutscene := preload("res://scripts/client/cinematics/cutscene.gd")
+const NpcView := preload("res://scripts/client/npc_view.gd")
 
 ## nombre, objetivo de cámara, giro, inclinación, distancia, mostrar HUD
 var shots := [
@@ -22,6 +25,11 @@ var shots := [
 	["panoramica", Vector3(0, 3.0, 0), PI * 0.85, 0.62, 44.0, false],
 	["horizonte", Vector3(5.0, 2.6, -3.0), 2.36, -0.08, 8.0, false],
 	["brasero", Vector3(0.0, 1.6, 0.0), 2.6, 0.18, 5.5, false],
+	["cine_1", Vector3.ZERO, 0.0, 0.0, 1.0, true],
+	["cine_3", Vector3.ZERO, 0.0, 0.0, 1.0, true],
+	["cine_4", Vector3.ZERO, 0.0, 0.0, 1.0, true],
+	["dialogo", Vector3(-4.4, 1.15, 1.5), -1.94, 0.16, 4.6, true],
+	["objetivo_yaxche", Vector3(2.6, 1.25, 2.6), PI, 0.42, 7.0, true],
 	["bienvenida", Vector3(2.6, 1.25, 2.6), PI, 0.42, 7.0, true],
 	["menu", Vector3(2.6, 1.25, 2.6), PI, 0.42, 7.0, true],
 	["esperando", Vector3(2.6, 1.25, 2.6), PI, 0.42, 7.0, true],
@@ -43,6 +51,8 @@ var hud: Hud
 var avatars: Array = []
 var foes: Array = []
 var time := 0.0
+var npc: NpcView
+var cine := Cutscene.new()
 
 
 func _initialize() -> void:
@@ -90,6 +100,9 @@ func _setup() -> void:
 		var max_hp: float = 60.0 if e[0] == "piedra" else 40.0
 		v.push_state(0.0, e[1] + Vector3(0, World.terrain_h(e[1].x, e[1].z), 0), e[2], e[3], max_hp, e[4])
 		foes.append(v)
+	npc = NpcView.new()
+	world.add_child(npc)
+	npc.setup("yaxche")
 	hud.set_overlay("")
 	hud.set_room("Q7KM2X")
 	hud.set_roster(roster, "0")
@@ -113,6 +126,8 @@ func _process(delta: float) -> bool:
 		av.animate(delta, true, false)
 	for v in foes:
 		v.update_view(time, delta)
+	if npc:
+		npc.update_view(delta, idx >= 0 and str(shots[idx][0]) == "objetivo_yaxche", avatars[0].global_position, idx >= 0 and str(shots[idx][0]) == "dialogo")
 	hud.set_compass(cam.rotation.y + PI, cam.global_position)
 	if wait > 0:
 		wait -= 1
@@ -139,7 +154,30 @@ func _process(delta: float) -> bool:
 	hud.hide_result()
 	hud.set_net("")
 	hud.banner("", Color.WHITE, 0.01)
+	hud.set_cine(false)
+	hud.hide_dialogue()
+	hud.context_hint("")
+	hud.set_npc_mark("")
+	if str(s[0]).begins_with("cine_"):
+		# Un plano de la introducción, a mitad de su recorrido
+		var n := int(str(s[0]).trim_prefix("cine_")) - 1
+		var script: Dictionary = Story.CUTSCENES["llamado"].duplicate(true)
+		script.shots = [script.shots[n]]
+		cine.play("llamado", script, cam, hud, {"yaxche": Story.NPCS.yaxche.name})
+		cine.process(float(script.shots[0].dur) * 0.5)
 	match str(s[0]):
+		"dialogo":
+			var lines := []
+			for l in Story.dialogue("yaxche", 0, 0):
+				lines.append(str(l[1]))
+			hud.show_dialogue(Story.NPCS.yaxche.name, Story.NPCS.yaxche.title, lines, Color(1.0, 0.82, 0.3))
+			hud.advance_dialogue()
+			hud.advance_dialogue()
+			hud.advance_dialogue()
+		"objetivo_yaxche":
+			hud.set_npc_mark("yaxche", Story.npc_pos("yaxche"))
+			hud.set_objective("Habla con Chiich Yaxché", "goal", "Te espera junto al brasero  ·  acércate y pulsa F")
+			hud.context_hint("F  ·  Hablar con Chiich Yaxché")
 		"bienvenida":
 			hud.show_intro()
 		"menu":
