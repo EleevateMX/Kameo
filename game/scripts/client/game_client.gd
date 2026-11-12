@@ -8,6 +8,7 @@ const World := preload("res://scripts/shared/world_def.gd")
 const Defs := preload("res://scripts/shared/combat_def.gd")
 const Avatar := preload("res://scripts/client/avatar.gd")
 const EnemyView := preload("res://scripts/client/enemy_view.gd")
+const BossDef := preload("res://scripts/shared/boss_def.gd")
 const WorldBuilder := preload("res://scripts/client/world_builder.gd")
 const Hud := preload("res://scripts/client/hud.gd")
 const Fx := preload("res://scripts/client/fx.gd")
@@ -76,6 +77,8 @@ var _mouse_r := false
 var _avatars := {}      # slot -> Avatar
 var _remote := {}       # slot -> {buf: Array}
 var _enemies := {}      # id -> EnemyView
+var _boss: BossView     # Nojoch Tuunich (lo crea la primera instantánea que trae su estado)
+var _boss_state: Array = []
 var _bolts := {}        # id del servidor -> {node, pos, dir, speed, life}
 var _local_bolts: Array = []   # chispas propias aún sin id del servidor
 var _builder: WorldBuilder
@@ -806,6 +809,7 @@ func _on_message(m: Dictionary) -> void:
 			_apply_world(m.w, true)
 			_set_roster(m.players)
 			_apply_enemies(m.get("e", []))
+			_apply_boss(m.get("b", []))
 			_hud.set_room(_room)
 			_hud.set_overlay("")
 			_prev_buttons = 0
@@ -947,6 +951,8 @@ func _apply_world(w: Array, instant := false) -> void:
 	if _encounter == 1:
 		_hud.set_objective("¡Emboscada!  Quedan %d enemigo%s" % [_wave_left, "" if _wave_left == 1 else "s"], "alert",
 			"Véncelos o purifícalos  ·  si cae todo el grupo, se pierde" if _connected > 1 else "Véncelos o purifícalos  ·  si caes, se pierde")
+	elif _encounter == 2 and _boss_phase() in [BossDef.OLVIDO, BossDef.FURIA, BossDef.RECUERDO]:
+		_boss_objective()
 	elif _encounter == 2:
 		var detail := "Esc: jugar otra ronda o salir al portal"
 		if _votes > 0 and _connected > 1:
@@ -1085,6 +1091,7 @@ func _on_snapshot(m: Dictionary) -> void:
 				buf.pop_front()
 	_hud.set_team(_team)
 	_apply_enemies(m.get("e", []))
+	_apply_boss(m.get("b", []))
 	for ev in m.get("ev", []):
 		_on_combat_event(ev)
 
@@ -1303,6 +1310,8 @@ func _on_combat_event(ev: Array) -> void:
 			Fx.burst(self, Vector3(0, 1.4, 0), Color(1.0, 0.8, 0.35), 26, 5.0, 0.08, 0.9)
 			if int(ev[1]) == _my_slot:
 				_hud.hint("El brasero cura al grupo  ·  tarda %d s en volver a encenderse" % int(Defs.BRAZIER_CD), 4.0)
+		"boss":
+			_on_boss_event(ev)
 		"enc":
 			match str(ev[1]):
 				"start":
@@ -1316,6 +1325,92 @@ func _on_combat_event(ev: Array) -> void:
 					_respawn_at = minf(_respawn_at, _time + Defs.RESPAWN_TIME_DEFEAT)
 					_hud.banner("El grupo ha caído", Color(1.0, 0.5, 0.5), 3.0)
 					Audio.play("derrota", null, 0.0, 0.0)
+
+
+# ───────────────────────── Jefe: Nojoch Tuunich (presentación) ─────────────────────────
+
+func _boss_phase() -> int:
+	return int(_boss_state[0]) if _boss_state.size() > 0 else BossDef.ASLEEP
+
+
+## Estado del jefe que manda el servidor: lo dibuja y actualiza su barra. El cliente no decide nada.
+func _apply_boss(b: Array) -> void:
+	if b.size() < 10:
+		return
+	_boss_state = b
+	if _boss == null:
+		_boss = BossView.new()
+		add_child(_boss)
+		_boss.setup()
+	_boss.apply(b)
+	var phase := int(b[0])
+	var awake := phase in [BossDef.OLVIDO, BossDef.FURIA, BossDef.RECUERDO]
+	var note := ""
+	match phase:
+		BossDef.OLVIDO:
+			note = "No tiene vida: devuélvele la memoria"
+		BossDef.FURIA:
+			note = "El Silencio retrocede"
+	_hud.set_boss(awake, BossDef.PHASE_NAMES[clampi(phase, 0, 4)], float(b[6]) / BossDef.SILENCE_MAX,
+		int(b[7]), int(b[8]) if phase == BossDef.OLVIDO else 0, note)
+
+
+func _boss_objective() -> void:
+	match _boss_phase():
+		BossDef.OLVIDO:
+			_hud.set_objective("Enciende los glifos del guardián  (%d/%d)" % [int(_boss_state[7]), int(_boss_state[8])], "alert",
+				"Debilita a una criatura y tócala con F junto a él  ·  los golpes no le hacen nada")
+		BossDef.FURIA:
+			_hud.set_objective("El guardián empieza a recordar", "success", "Continuará: la Furia de Nojoch Tuunich")
+		_:
+			_hud.set_objective("Nojoch Tuunich", "alert", "")
+
+
+func _on_boss_event(ev: Array) -> void:
+	var at := _boss.position if _boss != null else Vector3(BossDef.HOME.x, 0.0, BossDef.HOME.y)
+	match str(ev[1]):
+		"awake":
+			_hud.banner("Nojoch Tuunich despierta", Color(1.0, 0.45, 0.7), 4.0)
+			Audio.play("enemigo_aviso", null, 0.0, 0.0)
+			_audio.set_music("mus_emboscada")
+			# Qué significa su barra, una sola vez
+			_tip("silencio", "Su barra no es vida: es Silencio. Purifica criaturas a su lado (F) y recordará", 9.0)
+		"tele":
+			match str(ev[2]):
+				"slam":
+					var p := Vector3(float(ev[4]), World.terrain_h(float(ev[4]), float(ev[5])) + 0.06, float(ev[5]))
+					Fx.telegraph(self, p, float(BossDef.SLAM.radius), float(ev[3]))
+					Audio.play("enemigo_aviso", at, -2.0)
+				"sweep":
+					Fx.slash(self, at + Vector3(0, 0.4, 0), float(ev[4]), float(BossDef.SWEEP.range), float(BossDef.SWEEP.arc), Color(1.0, 0.3, 0.65), float(ev[3]))
+					Audio.play("enemigo_aviso", at, -4.0)
+				"summon":
+					Fx.pillar(self, at, Color(1.0, 0.25, 0.65), 7.0, 1.6, float(ev[3]))
+		"slam":
+			var p := Vector3(float(ev[2]), World.terrain_h(float(ev[2]), float(ev[3])) + 0.1, float(ev[3]))
+			Fx.ring(self, p, float(ev[4]), Color(1.0, 0.8, 0.5), 0.5)
+			Fx.burst(self, p + Vector3(0, 0.3, 0), Color(0.8, 0.75, 0.62), 22, 6.0, 0.12, 0.7)
+			Audio.play("enemigo_golpe", p, 2.0)
+		"sweep":
+			Fx.slash(self, at + Vector3(0, 0.9, 0), float(ev[2]), float(BossDef.SWEEP.range), float(BossDef.SWEEP.arc), Color(1.0, 0.85, 0.6), 0.25)
+			Audio.play("enemigo_golpe", at, 0.0)
+		"summon":
+			_hud.hint("El Silencio trae criaturas: son la llave de su memoria", 5.0)
+		"glyph":
+			_hud.banner("Glifo encendido  %d/%d" % [int(ev[2]), int(ev[3])], JADE, 2.5)
+			Audio.play("objetivo")
+			Fx.pillar(self, at, JADE, 7.0, 1.2, 0.7)
+		"far":
+			if int(ev[2]) == _my_slot:
+				_hud.hint("Demasiado lejos del guardián: purifícala a su lado para encender un glifo", 5.0)
+		"phase":
+			_hud.banner("El guardián empieza a recordar", JADE, 4.0)
+			Audio.play("victoria", null, -2.0, 0.0)
+			_audio.set_music("mus_claro")
+		"fail":
+			_hud.banner("Nojoch Tuunich vuelve a dormirse", Color(1.0, 0.5, 0.5), 3.5)
+			Audio.play("derrota", null, 0.0, 0.0)
+			_audio.set_music("mus_claro")
 
 
 ## Ayuda de puntería: si hay un enemigo cerca de donde mira la cámara, se apunta a él.
@@ -1541,6 +1636,8 @@ func _process(delta: float) -> void:
 
 	for id in _enemies:
 		(_enemies[id] as EnemyView).update_view(_time, delta)
+	if _boss != null:
+		_boss.update_view(delta)
 
 	# Chispas en vuelo (las retira el servidor al impactar; aquí sólo avanzan)
 	for id in _bolts.keys():
@@ -1791,6 +1888,7 @@ func _debug_export(delta: float) -> void:
 		"dmg_enemies": _seen_enemy_dmg, "dmg_players": _seen_player_dmg,
 		"perf": _perf_stats(), "quality": ["high", "low", "min"][_quality],
 		"story": _story, "npc_near": _npc_near, "cine": _cine.id if _cine.active else "",
+		"boss": _boss_state, "boss_glb": _boss.uses_glb if _boss != null else false, "boss_bar": _hud.boss_open(),
 		"frozen": _frozen, "skip_votes": _skip_votes, "skip_voted": _skip_voted,
 		"cine_phase": _cine_phase, "cine_video": _cine.using_video(), "fade": snappedf(_hud.fade_alpha(), 0.01),
 		"video": _video.info(), "cine_stats": _cine_stats, "prep": not _prep.is_empty(),

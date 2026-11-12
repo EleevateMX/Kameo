@@ -329,6 +329,10 @@ var _bars: Array[ColorRect] = []
 var _cine := false
 var _cine_k := 0.0
 var _fade: ColorRect
+var _boss_box: VBoxContainer
+var _boss_name: Label
+var _boss_gauge: Gauge
+var _boss_note: Label
 var _fade_tween: Tween
 var _cine_sub: Label
 var _cine_who: Label
@@ -817,6 +821,26 @@ func _build_top(root: Control) -> void:
 	_compass.modulate.a = 0.8
 	col.add_child(_compass)
 
+	# Jefe: nombre, barra de Silencio y glifos. Sólo se ve mientras está despierto.
+	_boss_box = VBoxContainer.new()
+	_boss_box.add_theme_constant_override("separation", 2)
+	_boss_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_boss_box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_boss_box.visible = false
+	col.add_child(_boss_box)
+	_boss_name = Kit.label("", 16, Kit.GOLD, Kit.title_font())
+	_boss_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_boss_name.add_theme_constant_override("outline_size", 6)
+	_boss_name.add_theme_color_override("font_outline_color", Color(0.03, 0.06, 0.05, 0.9))
+	_boss_box.add_child(_boss_name)
+	_boss_gauge = Gauge.new(Kit.MAGENTA, 18.0, 420.0, 3)
+	_boss_box.add_child(_boss_gauge)
+	_boss_note = Kit.label("", 12, Color(1, 1, 1, 0.82), Kit.bold_font())
+	_boss_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_boss_note.add_theme_constant_override("outline_size", 5)
+	_boss_note.add_theme_color_override("font_outline_color", Color(0.03, 0.06, 0.05, 0.9))
+	_boss_box.add_child(_boss_note)
+
 
 func _build_bottom(root: Control) -> void:
 	var bar := Plaque.new(12, Kit.JADE, 22.0)
@@ -1099,6 +1123,24 @@ func objective_text() -> String:
 
 
 ## Marca los altares en la brújula mientras haya que pisarlos (dorados los que ya están activos).
+## Barra del jefe. No es vida: es Silencio, y baja cuando el grupo le devuelve la memoria.
+## `note` explica qué hacer en la fase en curso ("" oculta todo).
+func set_boss(show: bool, phase_name := "", silence := 1.0, glyphs := 0, needed := 0, note := "") -> void:
+	_boss_box.visible = show
+	if not show:
+		return
+	_boss_name.text = "NOJOCH TUUNICH  ·  %s" % phase_name
+	_boss_gauge.set_value(silence)
+	var pips := ""
+	for i in needed:
+		pips += "◆ " if i < glyphs else "◇ "
+	_boss_note.text = ("SILENCIO   %s  %s" % [pips.strip_edges(), note]).strip_edges()
+
+
+func boss_open() -> bool:
+	return _boss_box.visible
+
+
 func set_altars(show: bool, mask: int) -> void:
 	var key := (mask if show else -1)
 	if key == _altars_key:

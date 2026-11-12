@@ -13,6 +13,8 @@ const Fx := preload("res://scripts/client/fx.gd")
 const Story := preload("res://scripts/shared/story_def.gd")
 const Cutscene := preload("res://scripts/client/cinematics/cutscene.gd")
 const NpcView := preload("res://scripts/client/npc_view.gd")
+const BossView := preload("res://scripts/client/boss_view.gd")
+const BossDef := preload("res://scripts/shared/boss_def.gd")
 
 ## nombre, objetivo de cámara, giro, inclinación, distancia, mostrar HUD
 var shots := [
@@ -42,6 +44,10 @@ var shots := [
 	["ref_alux", Vector3(2.6, 0.9, 2.6), 0.3 + PI - 0.35, 0.08, 2.6, false],
 	["retrato_alux", Vector3(2.6, 0.95, 2.6), 0.3 + PI - 0.35, 0.1, 2.3, false],
 	["retrato_balam", Vector3(-3.4, 0.75, -1.6), 0.9 + PI - 0.6, 0.12, 2.9, false],
+	# Nojoch Tuunich en el patio: dormido, en la fase 1 con la interfaz, y cuadros clave de sus escenas
+	["jefe_dormido", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["jefe_fase1", Vector3.ZERO, 0.0, 0.0, 1.0, true],
+	["jefe_cerca", Vector3.ZERO, 0.0, 0.0, 1.0, false],
 	# El santuario unos segundos después de romperse el sello: lo que queda de la cinemática
 	["secuelas_1", Vector3.ZERO, 0.0, 0.0, 1.0, false],
 	["secuelas_2", Vector3.ZERO, 0.0, 0.0, 1.0, false],
@@ -61,6 +67,13 @@ var shots := [
 ## del final (b) de cada plano, sin interfaz ni jugadores (su aspecto lo elige cada quien, así que
 ## no pueden salir en un vídeo). gate: 0 sellado, 1 abierto. foes: enemigos a la vista.
 const KEYFRAMES := {
+	# boss: [fase, x, z, giro, estado, t, silencio, glifos, necesarios, objetivo, golpeX, golpeZ, giroBarrido, escombros]
+	"jefe_dormido": {"pos": Vector3(21.2, 2.2, 0.6), "look": Vector3(31.5, 2.2, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
+		"boss": [0, 32.0, 0.0, -1.5708, 0, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []]},
+	"jefe_fase1": {"pos": Vector3(22.6, 3.4, -3.4), "look": Vector3(29.5, 2.0, 0.6), "gate": 1.0, "foes": false, "after": 60.0,
+		"boss": [1, 29.6, 0.8, -1.9, 4, 0.6, 100, 2, 3, 0, 26.2, -0.6, 0.0, [[27.0, 2.6, 2.4, 8.0]]], "t": 0.9},
+	"jefe_cerca": {"pos": Vector3(27.6, 2.9, 2.2), "look": Vector3(30.2, 3.4, 0.2), "gate": 1.0, "foes": false, "after": 60.0,
+		"boss": [1, 30.4, 0.0, -1.2, 2, 0.0, 100, 2, 3, 0, 0.0, 0.0, 0.0, []], "t": 1.0},
 	"secuelas_1": {"pos": Vector3(15.8, 2.6, 3.6), "look": Vector3(26.0, 2.6, 0.0), "gate": 1.0, "foes": false, "after": 3.0},
 	"secuelas_2": {"pos": Vector3(20.6, 2.1, 0.4), "look": Vector3(28.0, 1.6, 0.0), "gate": 1.0, "foes": false, "after": 3.0},
 	"secuelas_3": {"pos": Vector3(15.8, 2.6, 3.6), "look": Vector3(26.0, 2.6, 0.0), "gate": 1.0, "foes": false, "after": 60.0},
@@ -83,6 +96,7 @@ var avatars: Array = []
 var foes: Array = []
 var time := 0.0
 var npc: NpcView
+var boss: BossView
 var cine := Cutscene.new()
 
 
@@ -134,6 +148,9 @@ func _setup() -> void:
 	npc = NpcView.new()
 	world.add_child(npc)
 	npc.setup("yaxche")
+	boss = BossView.new()
+	world.add_child(boss)
+	boss.setup()
 	hud.set_overlay("")
 	hud.set_room("Q7KM2X")
 	hud.set_roster(roster, "0")
@@ -181,6 +198,19 @@ func _process(delta: float) -> bool:
 	(world.get_meta("builder") as WorldBuilder).update(time, 0.0, float(key.get("gate", 0.0)))
 	if key.has("after"):
 		(world.get_meta("builder") as WorldBuilder).preview_aftermath(float(key.after))
+	# El jefe: dormido en su sitio salvo que la toma diga otra cosa
+	var bstate: Array = key.get("boss", [0, BossDef.HOME.x, BossDef.HOME.y, BossDef.HOME_YAW, 0, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []])
+	boss.apply(bstate)
+	boss.position = Vector3(float(bstate[1]), World.terrain_h(float(bstate[1]), float(bstate[2])), float(bstate[2]))
+	boss.rotation.y = float(bstate[3])
+	if boss._anim != null and key.has("t"):
+		boss._anim.seek(float(key.t), true)
+	if key.has("boss") and int(bstate[0]) != 0:
+		hud.set_boss(true, BossDef.PHASE_NAMES[int(bstate[0])], float(bstate[6]) / 100.0, int(bstate[7]), int(bstate[8]), "No tiene vida: devuélvele la memoria")
+		hud.set_objective("Enciende los glifos del guardián  (%d/%d)" % [int(bstate[7]), int(bstate[8])], "alert", "Debilita a una criatura y tócala con F junto a él  ·  los golpes no le hacen nada")
+		hud.set_altars(false, 0)
+	else:
+		hud.set_boss(false)
 	var yaw: float = s[2]
 	var pitch: float = s[3]
 	var fwd := Vector3(sin(yaw) * cos(pitch), -sin(pitch), cos(yaw) * cos(pitch))
