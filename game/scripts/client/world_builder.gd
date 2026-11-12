@@ -42,6 +42,16 @@ var _plate_mats: Array[ShaderMaterial] = []
 var _flame_light: OmniLight3D
 var _extras: Array[Node3D] = []     # se ocultan en calidad baja
 var _extras_min: Array[Node3D] = [] # se ocultan además en calidad mínima
+# Consecuencias de «El sello cede» (ver _aftermath): lo que queda en el santuario al romperse el sello
+var _after_t := -1.0                # segundos desde que se abrió (-1: sigue sellado)
+var _after_glyphs: MeshInstance3D   # glifos y sol encendidos de más, que se van asentando
+var _after_scorch: MeshInstance3D   # marcas magenta donde estaban los barrotes, que se apagan
+var _after_magenta: Array[CPUParticles3D] = []   # restos del sello: uno se va pronto, otro tarda
+var _after_motes: Array[CPUParticles3D] = []     # partículas de jade y oro que se quedan
+var _quality := 0
+const AFTER_GLYPH_T := 22.0         # lo que tardan los glifos en volver a su brillo normal
+const AFTER_SCORCH_T := 28.0        # lo que tardan en apagarse las marcas del sello
+const AFTER_MAGENTA_T := [7.0, 20.0]   # cuánto siguen saliendo restos magenta (denso, ralo)
 var _seed := 77123
 
 
@@ -734,6 +744,144 @@ func _sanctuary(root: Node3D) -> void:
 	gate_light.omni_range = 9.0
 	gate_light.position = Vector3(gx - 1.4, base + 2.0, gz)
 	root.add_child(gate_light)
+	_aftermath(root, gx, gz, base)
+
+
+## Lo que el santuario conserva de la cinemática «El sello cede», para que al volver al juego no
+## parezca otro lugar: enredaderas y grietas (fijas, en la misma malla de piedra: no cuestan
+## llamadas de dibujo) y, al romperse el sello, glifos encendidos de más que se van asentando,
+## marcas magenta que se apagan, restos del sello que tardan en irse y partículas de jade y oro
+## que se quedan. Sin luces nuevas: en el navegador cada luz obliga a redibujar lo que alcanza.
+func _aftermath(root: Node3D, gx: float, gz: float, base: float) -> void:
+	var sx := World.SANCTUARY.x
+	var sz := World.SANCTUARY.y
+	var vine := MOSS.darkened(0.25)
+	var leaf := MOSS.lightened(0.12)
+	# Enredaderas: cuelgan de lo alto de la portada y de los muros que dan a la explanada
+	var hang := [
+		[Vector3(gx - 1.0, base + 4.2, gz - 3.05), 2.3], [Vector3(gx - 1.0, base + 4.2, gz + 2.1), 1.7],
+		[Vector3(gx - 0.95, base + 3.2, gz - 1.5), 0.9], [Vector3(gx - 0.95, base + 3.2, gz + 1.2), 1.2],
+		[Vector3(sx - 6.58, base + 3.1, sz - 5.2), 2.0], [Vector3(sx - 6.58, base + 3.1, sz + 4.6), 1.6],
+		[Vector3(sx - 6.58, base + 3.1, sz + 5.9), 2.2], [Vector3(sx - 3.0, base + 3.1, sz - 6.58), 1.8],
+		[Vector3(sx + 1.5, base + 3.1, sz - 6.58), 1.4], [Vector3(sx - 2.2, base + 3.1, sz + 6.58), 2.0],
+		# por dentro del patio (se ven en el último plano de la escena)
+		[Vector3(sx + 5.42, base + 3.1, sz - 2.6), 1.9], [Vector3(sx + 5.42, base + 3.1, sz + 3.1), 1.5],
+		[Vector3(sx - 1.4, base + 3.1, sz - 5.42), 1.7], [Vector3(sx + 2.6, base + 3.1, sz + 5.42), 2.1],
+	]
+	for h in hang:
+		var top: Vector3 = h[0]
+		var length: float = h[1]
+		var sway := (_stone.rand() - 0.5) * 0.3
+		var pts := [top, top + Vector3(0, -length * 0.35, sway * 0.4), top + Vector3(0, -length * 0.7, sway), top + Vector3(0, -length, sway * 0.6)]
+		_stone.tube(pts, [0.035, 0.03, 0.025, 0.012], 4, vine, leaf)
+		for k in 3:
+			var at: Vector3 = top + Vector3(0, -length * (0.25 + 0.25 * float(k)), sway * (0.3 + 0.3 * float(k)))
+			var out := Vector3(_stone.rand() - 0.5, -0.5, _stone.rand() - 0.5).normalized()
+			_stone.blade(at, out, 0.22, 0.12, 0.3, leaf, leaf.lightened(0.15), 2)
+	# Grietas: trazos oscuros en zigzag sobre la portada y los muros (pegados a la piedra)
+	var dark := LIME_DARK.darkened(0.32)
+	var cracks := [
+		# [origen, eje a lo largo, eje hacia arriba, normal hacia fuera, largo]
+		[Vector3(gx - 0.92, base + 3.9, gz - 1.9), Vector3(0, -0.5, 1), Vector3(0, 1, 0.3), Vector3(-1, 0, 0), 1.5],
+		[Vector3(gx - 0.92, base + 3.55, gz + 0.9), Vector3(0, 0.25, 1), Vector3(0, 1, 0), Vector3(-1, 0, 0), 1.1],
+		[Vector3(gx - 0.87, base + 2.9, gz - 2.75), Vector3(0, -1, 0.25), Vector3(0, 0.2, 1), Vector3(-1, 0, 0), 1.6],
+		[Vector3(gx - 0.87, base + 1.9, gz + 2.4), Vector3(0, -1, -0.3), Vector3(0, 0.2, 1), Vector3(-1, 0, 0), 1.3],
+		[Vector3(sx - 6.53, base + 2.6, sz - 4.6), Vector3(0, -1, 0.4), Vector3(0, 0.3, 1), Vector3(-1, 0, 0), 1.7],
+		[Vector3(sx - 6.53, base + 2.2, sz + 5.4), Vector3(0, -1, -0.35), Vector3(0, 0.3, 1), Vector3(-1, 0, 0), 1.5],
+		[Vector3(sx + 5.47, base + 2.5, sz + 0.8), Vector3(0, -1, 0.3), Vector3(0, 0.3, 1), Vector3(-1, 0, 0), 1.6],
+		[Vector3(sx + 0.6, base + 2.4, sz - 5.47), Vector3(0.35, -1, 0), Vector3(1, 0.3, 0), Vector3(0, 0, 1), 1.4],
+	]
+	for c in cracks:
+		var o: Vector3 = (c[0] as Vector3) + (c[3] as Vector3) * 0.025
+		var along: Vector3 = (c[1] as Vector3).normalized()
+		var across: Vector3 = (c[2] as Vector3).normalized()
+		var n := 5
+		var prev := o
+		for i in n:
+			var step := float(c[4]) / float(n)
+			var jog := (0.09 if i % 2 == 0 else -0.09) * (0.6 + _stone.rand() * 0.8)
+			var next := o + along * step * float(i + 1) + across * jog
+			var w := across.cross(along).cross(along).normalized() * (0.022 - 0.003 * float(i))
+			if w.length() < 0.001:
+				w = across * 0.03
+			_stone.quad(prev - w, next - w, next + w, prev + w, dark, dark, dark, dark)
+			_stone.quad(prev + w, next + w, next - w, prev - w, dark, dark, dark, dark)
+			prev = next
+
+	# Glifos de las jambas y sol del frontón, otra vez, en una capa que brilla de más y se asienta
+	var gm := MB.new()
+	for side in [-1.0, 1.0]:
+		_glyph_on(gm, Vector3(gx - 0.975, base + 2.6, gz + side * 2.55), Vector3.BACK, Vector3.UP, 0.74, 210 + int(side), Color(0.75, 1.0, 0.92))
+	var sc := Vector3(gx - 0.935, base + 4.78, gz)
+	for i in 8:
+		var a := TAU * float(i) / 8.0
+		var dir := Vector3(0, sin(a), cos(a))
+		var perp := Vector3(0, cos(a), -sin(a)) * 0.11
+		gm.quad(sc + dir * 0.28 + perp, sc + dir * 0.28 - perp, sc + dir * 0.86 - perp * 0.2, sc + dir * 0.86 + perp * 0.2, Color(1.0, 0.95, 0.7), Color(1.0, 0.95, 0.7), GOLD, GOLD)
+	_after_glyphs = Avatar.part(gm.commit(), _fading_mat(), Vector3.ZERO)
+	_after_glyphs.visible = false
+	root.add_child(_after_glyphs)
+
+	# Marcas magenta en el umbral, donde se hundieron los barrotes, y vetas que suben por las jambas
+	var sm := MB.new()
+	var ground := World.terrain_h(gx, gz) + 0.05
+	for i in 7:
+		var c := Vector3(gx, ground, gz - 1.8 + float(i) * 0.6)
+		for k in 6:
+			var a0 := TAU * float(k) / 6.0
+			var a1 := TAU * float(k + 1) / 6.0
+			sm.tri(c, c + Vector3(cos(a1), 0, sin(a1)) * 0.26, c + Vector3(cos(a0), 0, sin(a0)) * 0.26, Color(1, 1, 1), MAGENTA, MAGENTA)
+	for side in [-1.0, 1.0]:
+		var o := Vector3(gx - 0.97, base + 0.2, gz + side * 2.1)
+		var prev := o
+		for i in 6:
+			var next := o + Vector3(0, 0.45 * float(i + 1), side * (0.12 if i % 2 == 0 else -0.1))
+			var w := Vector3(0, 0, 0.035)
+			sm.quad(prev + w, next + w, next - w, prev - w, MAGENTA, MAGENTA, MAGENTA, MAGENTA)
+			prev = next
+	_after_scorch = Avatar.part(sm.commit(), _fading_mat(), Vector3.ZERO)
+	_after_scorch.visible = false
+	root.add_child(_after_scorch)
+
+	# Restos del sello: motas magenta en el portal y el patio; unas se van pronto y otras tardan
+	_after_magenta.append(_motes(root, 46, 3.2, Vector3(2.4, 1.5, 3.0), Vector3(gx + 0.4, base + 1.8, gz), Color(1.0, 0.35, 0.75), 0.05, 0.6, 0.8))
+	_after_magenta.append(_motes(root, 18, 4.5, Vector3(5.0, 1.2, 5.0), Vector3(sx, base + 1.4, sz), Color(0.95, 0.3, 0.7), 0.04, 0.35, 0.5))
+	# Magia que queda: jade alrededor del cristal y oro en la portada, mientras el santuario siga abierto
+	_after_motes.append(_motes(root, 22, 5.0, Vector3(3.2, 1.4, 3.2), Vector3(sx + 1.5, base + 1.8, sz), JADE.lightened(0.2), 0.04, 0.3, 0.35))
+	_after_motes.append(_motes(root, 12, 6.0, Vector3(1.4, 1.8, 3.0), Vector3(gx - 0.6, base + 2.6, gz), GOLD.lightened(0.15), 0.035, 0.25, 0.3))
+	for p in _after_magenta + _after_motes:
+		p.preprocess = 0.0
+		p.emitting = false
+		p.visible = false
+
+
+## Material sin sombreado cuya intensidad se va bajando desde `update` (capas que se apagan).
+func _fading_mat() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.vertex_color_use_as_albedo = true
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.albedo_color = Color(1, 1, 1, 0)
+	return m
+
+
+## El santuario ya estaba abierto cuando este jugador llegó: se muestra el estado asentado,
+## sin repetir el destello (lo llama el cliente al entrar o reconectarse).
+func settle_aftermath() -> void:
+	_after_t = 1000.0
+
+
+## Sólo para capturas: coloca las secuelas `seconds` segundos después de romperse el sello,
+## con las partículas ya en el aire.
+func preview_aftermath(seconds: float) -> void:
+	_after_t = seconds
+	_update_aftermath(0.0, 1.0)
+	for p in _after_magenta + _after_motes:
+		if p.emitting:
+			p.preprocess = p.lifetime
+			p.restart()
 
 
 ## Cúpula de energía que cubre el santuario mientras está sellado (el sólido real es la caja "seal").
@@ -1226,13 +1374,57 @@ func update(time: float, delta: float, gate_anim: float) -> void:
 	if glyph:
 		glyph.rotation.y += delta * 1.2
 		glyph.position.y += sin(time * 2.0) * delta * 0.25
+	_update_aftermath(delta, gate_anim)
 	if _flame_light:
 		_flame_light.light_energy = 1.3 + sin(time * 11.0) * 0.15 + sin(time * 17.0) * 0.1
+
+
+func _update_aftermath(delta: float, gate_anim: float) -> void:
+	if _after_glyphs == null:
+		return
+	if gate_anim <= 0.0:
+		if _after_t >= 0.0:
+			# vuelve a sellarse (derrota u otra ronda): no queda rastro
+			_after_t = -1.0
+			_after_glyphs.visible = false
+			_after_scorch.visible = false
+			for p in _after_magenta + _after_motes:
+				p.emitting = false
+				p.visible = false
+		return
+	if gate_anim < 1.0:
+		return
+	if _after_t < 0.0:
+		_after_t = 0.0
+	_after_t += delta
+	# Glifos: destello fuerte al romperse el sello y vuelta suave a su brillo normal
+	var g := clampf(1.0 - _after_t / AFTER_GLYPH_T, 0.0, 1.0)
+	_after_glyphs.visible = g > 0.01
+	(_after_glyphs.material_override as StandardMaterial3D).albedo_color.a = g * g * 0.9
+	# Marcas del sello: se apagan despacio
+	var s := clampf(1.0 - _after_t / AFTER_SCORCH_T, 0.0, 1.0)
+	_after_scorch.visible = s > 0.01
+	(_after_scorch.material_override as StandardMaterial3D).albedo_color.a = s * 0.85
+	# Restos magenta: dejan de salir y los que quedan se extinguen solos. En calidad mínima, ninguno.
+	for i in _after_magenta.size():
+		var p := _after_magenta[i]
+		var on := _after_t < float(AFTER_MAGENTA_T[i]) and _quality < 2
+		p.visible = _quality < 2 and _after_t < float(AFTER_MAGENTA_T[i]) + p.lifetime
+		if p.emitting != on:
+			p.emitting = on
+	# Magia residual: se queda mientras el santuario siga abierto (el oro, sólo en calidad alta)
+	for i in _after_motes.size():
+		var p := _after_motes[i]
+		var on := _quality == 0 or (i == 0 and _quality == 1)
+		p.visible = on
+		if p.emitting != on:
+			p.emitting = on
 
 
 ## Calidad: 0 alta · 1 baja (sin sombras, resplandor ni adornos caros) ·
 ## 2 mínima (además sin selva de fondo, matas, helechos ni nubes).
 func set_quality(level: int) -> void:
+	_quality = level
 	sun.shadow_enabled = level == 0
 	env.glow_enabled = level == 0
 	fireflies.emitting = level == 0

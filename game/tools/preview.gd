@@ -42,6 +42,10 @@ var shots := [
 	["ref_alux", Vector3(2.6, 0.9, 2.6), 0.3 + PI - 0.35, 0.08, 2.6, false],
 	["retrato_alux", Vector3(2.6, 0.95, 2.6), 0.3 + PI - 0.35, 0.1, 2.3, false],
 	["retrato_balam", Vector3(-3.4, 0.75, -1.6), 0.9 + PI - 0.6, 0.12, 2.9, false],
+	# El santuario unos segundos después de romperse el sello: lo que queda de la cinemática
+	["secuelas_1", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["secuelas_2", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["secuelas_3", Vector3.ZERO, 0.0, 0.0, 1.0, false],
 	# Cuadros clave de «El sello cede» (ver KEYFRAMES): primer y último cuadro de cada plano
 	["kf_sello_1a", Vector3.ZERO, 0.0, 0.0, 1.0, false],
 	["kf_sello_1b", Vector3.ZERO, 0.0, 0.0, 1.0, false],
@@ -57,6 +61,9 @@ var shots := [
 ## del final (b) de cada plano, sin interfaz ni jugadores (su aspecto lo elige cada quien, así que
 ## no pueden salir en un vídeo). gate: 0 sellado, 1 abierto. foes: enemigos a la vista.
 const KEYFRAMES := {
+	"secuelas_1": {"pos": Vector3(15.8, 2.6, 3.6), "look": Vector3(26.0, 2.6, 0.0), "gate": 1.0, "foes": false, "after": 3.0},
+	"secuelas_2": {"pos": Vector3(20.6, 2.1, 0.4), "look": Vector3(28.0, 1.6, 0.0), "gate": 1.0, "foes": false, "after": 3.0},
+	"secuelas_3": {"pos": Vector3(15.8, 2.6, 3.6), "look": Vector3(26.0, 2.6, 0.0), "gate": 1.0, "foes": false, "after": 60.0},
 	"kf_sello_1a": {"pos": Vector3(15.6, 0.9, -8.0), "look": Vector3(22.5, 2.4, -0.4), "gate": 0.0, "foes": false},
 	"kf_sello_1b": {"pos": Vector3(16.4, 1.3, -4.2), "look": Vector3(26.0, 2.8, 0.0), "gate": 0.0, "foes": false},
 	"kf_sello_2a": {"pos": Vector3(15.5, 3.2, 4.0), "look": Vector3(26.0, 3.2, 0.0), "gate": 0.0, "foes": false},
@@ -172,6 +179,8 @@ func _process(delta: float) -> bool:
 	for v in foes:
 		v.visible = key.is_empty() or bool(key.foes)
 	(world.get_meta("builder") as WorldBuilder).update(time, 0.0, float(key.get("gate", 0.0)))
+	if key.has("after"):
+		(world.get_meta("builder") as WorldBuilder).preview_aftermath(float(key.after))
 	var yaw: float = s[2]
 	var pitch: float = s[3]
 	var fwd := Vector3(sin(yaw) * cos(pitch), -sin(pitch), cos(yaw) * cos(pitch))

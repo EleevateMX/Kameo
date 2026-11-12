@@ -934,6 +934,7 @@ func _apply_world(w: Array, instant := false) -> void:
 		_gate_open = true
 		if instant:
 			_gate_anim = 1.0
+			_builder.settle_aftermath()   # ya estaba abierto al llegar: sin destello
 	elif not open:
 		_gate_open = false
 		_gate_anim = 0.0
