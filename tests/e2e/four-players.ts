@@ -112,9 +112,11 @@ async function main() {
   // 6b) Combate sincronizado: la anfitriona busca al guardián de piedra del noreste y pelea con él.
   //     Cada navegador acumula el daño que le comunica el servidor; los cuatro totales deben coincidir.
   await host.click('#canvas', { timeout: 180_000, noWaitAfter: true });
+  // Camina como alux y se transforma al llegar: sin tarjeta gráfica el navegador va a 1–2 cuadros
+  // por segundo y, con la velocidad de Balam, frenar a metro y medio de un punto era cuestión de suerte.
+  assert.ok(await driveTo(host, 14.5, -14.5, { timeoutMs: 150_000, stop: 1.8 }), 'la anfitriona llega cerca del guardián');
   await host.keyboard.press('Digit2');  // como Balam: garras en arco y salto con daño en área
   await waitFor('la anfitriona se transforma', async () => (await state(host))!.form === 'balam', 30_000);
-  assert.ok(await driveTo(host, 14.5, -14.5, { timeoutMs: 150_000, stop: 1.5 }), 'la anfitriona llega cerca del guardián');
   const hostState = async () => (await state(host))!;
   const hostPos = async () => { const s = await hostState(); return s.players.find((p) => p.id === s.me)!; };
   const foe = (await hostState()).enemies.filter((e) => e.kind === 'piedra').sort((a, b) => Math.hypot(a.x - 14.5, a.z + 14.5) - Math.hypot(b.x - 14.5, b.z + 14.5))[0];
