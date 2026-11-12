@@ -9,6 +9,7 @@
 // Termina con código de salida 1 si algo no cuadra.
 import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { betaAccessEnabled, findInvite, generateInviteCode, hashInviteCode, inviteActive, parseBetaInvites } from '@alux/shared-contracts';
@@ -236,7 +237,47 @@ step('Las migraciones no borran ni alteran datos existentes', () => {
   return `\n    ${notes.join('\n    ')}`;
 });
 
-// ── 6) Qué se va a publicar ──
+// ── 6) Vídeos de las cinemáticas: los definitivos, completos y declarados ──
+step('Vídeos de las cinemáticas: definitivos, completos y sin material de prueba', () => {
+  const dir = 'game/web/static/video';
+  const sha = (file: string) => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  const manifest = JSON.parse(read(`${dir}/manifest.json`)) as { clips: Record<string, { src: Record<string, string>; dur: number; v?: string }> };
+  const tracked = new Set(git(`ls-files ${dir}`).split('\n').filter(Boolean).map((f) => path.basename(f)));
+  // Los vídeos de prueba (patrones de franjas) viven en tests/fixtures: ninguno puede colarse en el juego
+  const fixtures = path.join(ROOT, 'tests/fixtures/video');
+  const testHashes = new Set(fs.existsSync(fixtures) ? fs.readdirSync(fixtures).map((f) => sha(path.join(fixtures, f))) : []);
+  // Duración de cada plano con vídeo, según el guion
+  const scripted = new Map<string, number>();
+  for (const m of read('game/scripts/shared/story_def.gd').matchAll(/\{"dur": ([0-9.]+),[^\n]*\n?[^\n]*"video": "([a-z0-9_]+)"/g)) scripted.set(m[2], Number(m[1]));
+  const declared = new Set(['manifest.json']);
+  const bytes: Record<string, number> = { mp4: 0, webm: 0 };
+  for (const [id, clip] of Object.entries(manifest.clips)) {
+    assert.match(id, /^[a-z0-9_]+$/, `identificador de vídeo no válido: ${id}`);
+    assert.ok(scripted.has(id), `el manifiesto declara «${id}», que ningún plano del guion usa`);
+    assert.ok(Math.abs(clip.dur - scripted.get(id)!) < 0.26, `«${id}» dura ${clip.dur} s y su plano ${scripted.get(id)} s`);
+    assert.ok(clip.v && /^[a-z0-9]+$/i.test(clip.v), `«${id}» no lleva versión: el navegador no sabría cuándo cambió`);
+    for (const kind of ['mp4', 'webm']) {
+      const name = clip.src[kind];
+      assert.ok(name && tracked.has(name), `«${id}»: falta ${kind} en Git (${name})`);
+      declared.add(name);
+      const file = path.join(ROOT, dir, name);
+      const data = fs.readFileSync(file);
+      assert.ok(data.length > 150_000, `${name} pesa ${data.length} bytes: parece incompleto o de prueba`);
+      const magic = kind === 'mp4' ? data.subarray(4, 8).toString('latin1') === 'ftyp' : data.readUInt32BE(0) === 0x1a45dfa3;
+      assert.ok(magic, `${name} no es un archivo ${kind} válido`);
+      assert.ok(!testHashes.has(sha(file)), `${name} es un vídeo de prueba (franjas de colores)`);
+      bytes[kind] += data.length;
+    }
+  }
+  const stray = [...tracked].filter((f) => !declared.has(f));
+  assert.deepEqual(stray, [], 'hay archivos de vídeo en el juego que el manifiesto no declara');
+  const missing = [...scripted.keys()].filter((id) => !manifest.clips[id]);
+  const n = Object.keys(manifest.clips).length;
+  return `${n} vídeos declarados y presentes · ${(bytes.mp4 / 1e6).toFixed(2)} MB en MP4 o ${(bytes.webm / 1e6).toFixed(2)} MB en WebM por jugador · ninguno es de prueba`
+    + (missing.length ? ` · planos que usarán el motor por no tener vídeo: ${missing.join(', ')}` : '');
+});
+
+// ── 7) Qué se va a publicar ──
 step('Commit que se publicará', () => {
   const dirty = git('status --porcelain').trim();
   assert.equal(dirty, '', 'hay cambios sin guardar en commits: lo que se publique no los incluiría');
