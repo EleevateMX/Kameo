@@ -42,6 +42,7 @@ Producción completa: [art/cinematicas/sello/kling/PRODUCCION.md](../art/cinemat
 | Flujo completo (un navegador y tres bots) | Pasa, con la escena compartida y su voto |
 | Cuatro navegadores (movimiento, combate, reconexión) | Pasa, con los vídeos reales presentes |
 | Cuatro navegadores viendo la escena (`test:cine-coop`) | **Inestable en este entorno.** Con el incremento 1 pasó dos veces seguidas; con esta versión, en una ejecución los cuatro llegaron a la escena (vídeo, vídeo, motor, motor) y en tres la prueba se agotó **antes** de la escena, al no conseguir parar a los cuatro personajes sobre sus altares a 1 cuadro por segundo. Hay que repetirla con tarjeta gráfica |
+| Imagen desplegable (commit `bc353a7`, en local) | Se construye con los vídeos dentro y pasa sus comprobaciones. Sirve los vídeos con caché de un año y el manifiesto con revalidación; 197 MB de memoria recién arrancada, de 512 |
 | Descarga | 2.63 MB más (MP4) por jugador, en segundo plano y con prioridad baja; el juego no espera por ella |
 
 **Un problema encontrado y corregido:** con los tres vídeos reales precargados como elementos de vídeo
