@@ -108,6 +108,48 @@ Con el guardián (0.3), que nadie ha jugado todavía:
 - ¿Las dos cinemáticas se ven enteras? ¿Alguien quiere omitirlas?
 - ¿La sacudida de cámara molesta a alguien?
 
+## Playtest humano del guardián: qué se registra y qué hay que apuntar
+
+Nadie ha jugado todavía el combate de Nojoch Tuunich. Las pruebas automáticas sólo dicen que se
+puede terminar; no dicen si se entiende ni si divierte. **El equilibrio no se toca para que pasen
+los bots**: se ajustará con lo que salga de esta sesión.
+
+**Lo que el juego registra solo** (desde la Alpha 0.3.1, una fila por jugador y sesión; se consulta
+con `npm run beta:metrics`, y con `--json` para el detalle):
+
+| Dato | Dónde sale |
+| --- | --- |
+| Tiempo en cada fase (segundos de combate en Olvido, Furia y Recuerdo, sin contar cinemáticas) | columna `jefe`: `95+140+60 s` |
+| Derrotas del grupo en cada fase | `jefe`: `derrotas 0/2/1` |
+| Daño recibido y caídas de ese jugador durante el combate | `jefe`: `daño 180`; `boss.falls` en el detalle |
+| Uso de la transformación (porcentaje del combate como Balam) | `jefe`: `Balam 35 %` |
+| Acciones denegadas (pulsó algo que no podía hacer: señal de que no entendió el objetivo) | `boss.denied` en el detalle |
+| Si liberaron al guardián | `jefe`: `liberado` |
+| Errores de sincronización visibles para el jugador (reconexiones) | columna `reconex` |
+| FPS medio y percentil 5, latencia media y máxima | `FPS med`, `FPS p5`, `ping ms`, `ping máx` |
+| Cinemáticas: vistas como vídeo, con el motor, omitidas y fallos de carga | columna `cine` y `cine.fails` |
+| Audio: si llegó a sonar (pico medido en la salida del navegador), errores de carga | columna `sonó` y `audio.errors` |
+
+**Lo que sólo puede apuntar una persona** (una hoja por jugador; quien modera no explica nada salvo
+que el grupo se atasque más de tres minutos, y entonces apunta qué tuvo que decir):
+
+| Pregunta | Respuesta |
+| --- | --- |
+| Navegador, equipo y si jugó con altavoces o auriculares | |
+| Al entrar, ¿oyó el ambiente enseguida? ¿Tuvo que tocar algo para que sonara? | |
+| ¿Entendió qué había que hacer en cada fase sin ayuda? (1 Olvido · 2 Furia · 3 Recuerdo) | |
+| ¿Qué fue lo que más tardó en entender? | |
+| ¿Vio venir la losa, el barrido, la lluvia y la embestida? ¿Algún golpe le pareció injusto? | |
+| ¿Cuándo se transformó en Balam y para qué? | |
+| ¿Notó saltos, compañeros que «se teletransportan» o golpes que no cuentan? | |
+| Sonido: ¿se distinguen los avisos del guardián? ¿Algo molesta, satura o tapa a lo demás? ¿La música acompaña cada fase? | |
+| Cinemáticas: ¿se vieron y se oyeron enteras? ¿Quiso omitir alguna? ¿El sonido iba con la imagen? | |
+| ¿Qué cambiaría primero? | |
+
+Antes de empezar: cada jugador abre el menú (Esc) y pulsa **Probar sonido**; debe decir «Prueba
+correcta». Si dice que el audio está bloqueado o que no llega señal, se apunta el navegador y el
+mensaje exacto.
+
 ## Resultados
 
 | Fecha | Versión | Qué se probó | Resultado |
@@ -121,6 +163,7 @@ Con el guardián (0.3), que nadie ha jugado todavía:
 | 12 nov 2026 | **Closed Alpha 0.2.1, publicada** | Antes: regresión completa sobre el commit de la versión. Después, contra el servicio: 10 comprobaciones externas; en navegador real, carga y reproducción del vídeo de Kling, omisión, respaldo del motor, introducción y ciclo completo de un jugador | Pasa. Sin probar: 2–4 jugadores a la vez en el servicio. Ver [RELEASES.md](RELEASES.md) |
 | 12 nov 2026 | Alpha 0.3 en desarrollo: jefe, fase 1 | Automático en local: 17 pruebas de servidor, con el jefe para 1, 2 y 4 jugadores | Pasa. Ver [RELEASES.md](RELEASES.md) |
 | 12 nov 2026 | **Alpha 0.3 RC1** (sin publicar) | Automático en local: API (11), simulación, 17 pruebas de servidor con el combate completo para 1, 2 y 4 jugadores, combate completo en navegador con las dos cinemáticas de Kling, flujo de playtest, cuatro navegadores, 6 casos de vídeo e imagen de despliegue | Pasa. **Nadie ha jugado el jefe todavía.** Ver [RELEASES.md](RELEASES.md) |
+| 12 nov 2026 | **Closed Alpha 0.3, publicada** | Antes: regresión completa en una copia limpia del commit. Después, contra el servicio: 10 comprobaciones externas, sesión completa por protocolo (las tres fases, liberación, Pluma guardada), cinemáticas en navegador (ver, omitir, sin vídeo) y la sonda de audio | Pasa todo salvo el audio: **no sonaba nada** (defecto de la 0.1 en adelante, descubierto por un jugador). Detalle en [RELEASES.md](RELEASES.md) y [AUDIO.md](AUDIO.md) |
 | — | Closed Alpha 0.1 | **Primera sesión con testers reales** (cuatro a la vez, Edge, audio a oído, FPS con tarjeta gráfica) | **Pendiente** |
 
 Cuando haya una sesión real, se anota aquí: quiénes, cuánto duró, qué entendieron sin ayuda, qué no,

@@ -37,6 +37,11 @@ if (process.argv.includes('--json')) {
       audio: d.audio?.context || '—',
       // ¿llegó a sonar? pico máximo medido en la salida del navegador durante la sesión
       'sonó': typeof d.audio?.peak === 'number' ? (d.audio.peak > 0.001 ? `sí (${(20 * Math.log10(d.audio.peak)).toFixed(0)} dB)` : 'NO') : '—',
+      // combate con el guardián: segundos en cada fase / derrotas por fase / daño recibido / % del tiempo como Balam
+      jefe: d.boss && (d.boss.secs || []).some((x: number) => x > 0)
+        ? `${(d.boss.secs || []).join('+')} s · derrotas ${(d.boss.fails || []).join('/')} · daño ${d.boss.dmg ?? 0} · Balam ${Math.round(100 * (d.boss.balam ?? 0) / Math.max(1, (d.boss.secs || []).reduce((a: number, x: number) => a + x, 0)))} %${d.boss.freed ? ' · liberado' : ''}`
+        : '—',
+      cine: d.cine ? `${d.cine.video ?? 0} vídeo / ${d.cine.engine ?? 0} motor / ${d.cine.skipped ?? 0} omitidas` : '—',
       pantalla: d.viewport || '—', gráfica: String(d.renderer || '—').slice(0, 44),
     };
   }));

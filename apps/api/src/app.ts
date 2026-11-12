@@ -149,6 +149,8 @@ export function createApp(store: Store, config: Config) {
     const quality = ['high', 'low', 'min'].includes(b.quality as string) ? (b.quality as string) : '';
     const audio = (b.audio ?? {}) as Record<string, unknown>;
     const cine = (b.cine ?? {}) as Record<string, unknown>;
+    const boss = (b.boss ?? {}) as Record<string, unknown>;
+    const triple = (v: unknown) => (Array.isArray(v) ? v.slice(0, 3).map((x) => num(x, 0, 86_400) ?? 0) : [0, 0, 0]);
     const metrics = {
       sessionId: b.sid.toLowerCase(), playerId,
       room: text(b.room, 12).toUpperCase().replace(/[^A-Z0-9]/g, ''),
@@ -173,7 +175,12 @@ export function createApp(store: Store, config: Config) {
         // Cinemáticas: cuántas se vieron como vídeo o con el motor, y qué falló al cargar o reproducir
         cine: { video: num(cine.video, 0, 1000), engine: num(cine.engine, 0, 1000), fallbacks: num(cine.fallbacks, 0, 1000),
           bytes: num(cine.bytes, 0, 1e9), preloadMs: num(cine.preloadMs, 0, 3_600_000),
+          skipped: num(cine.skipped, 0, 1000),
           fails: Array.isArray(cine.fails) ? cine.fails.slice(0, 8).map((f) => text(f, 48)) : [] },
+        // Playtest del jefe: segundos y derrotas por fase, daño recibido, caídas, segundos como
+        // Balam, acciones denegadas (señal de que no se entendió el objetivo) y si se le liberó
+        boss: { secs: triple(boss.secs), fails: triple(boss.fails), dmg: num(boss.dmg, 0, 1e6), falls: num(boss.falls, 0, 10_000),
+          balam: num(boss.balam, 0, 86_400), denied: num(boss.denied, 0, 100_000), freed: boss.freed === true },
         build: text(b.build, 40), final: b.final === true,
         ua: text(req.headers['user-agent'], 200),
       },
