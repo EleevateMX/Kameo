@@ -18,6 +18,8 @@
     "test:deploy": "scripts/test-deploy.sh",
     "test:e2e": "npm run test:e2e -w @alux/tests",
     "test:flow": "npm run test:flow -w @alux/tests",
+    "test:cine": "npm run test:cine -w @alux/tests --",
+    "test:cine-coop": "npm run test:cine-coop -w @alux/tests",
     "migrate": "npm run migrate -w @alux/api --",
     "beta:invites": "npm run --silent beta:invites -w @alux/api --",
     "beta:metrics": "npm run --silent beta:metrics -w @alux/api --",

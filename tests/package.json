@@ -7,6 +7,8 @@
     "test:protocol": "tsx --test protocol.test.ts",
     "test:e2e": "tsx e2e/four-players.ts",
     "test:flow": "tsx e2e/playtest-flow.ts",
+    "test:cine": "tsx e2e/cine-video.ts",
+    "test:cine-coop": "tsx e2e/cine-coop.ts",
     "beta:check": "tsx beta-check.ts",
     "beta:preflight": "tsx beta-preflight.ts",
     "shots": "tsx e2e/screenshot.ts"
