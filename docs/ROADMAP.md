@@ -11,10 +11,12 @@ Pruebas: [PLAYTEST.md](PLAYTEST.md) · Versiones: [RELEASES.md](RELEASES.md).
 | Área | Estado real |
 | --- | --- |
 | Versión publicada | **Closed Alpha 0.1** en <https://alux-beta.onrender.com> (rama `beta`, commit `12fadbe`). Rollback: [beta.md](beta.md), sección 9. |
-| Versión en desarrollo | **Alpha 0.2**, incrementos 1 y 2 hechos en la rama de trabajo. **No publicada**: candidata a beta cuando des el visto bueno. |
+| Versión candidata | **Alpha 0.2**, en la rama `release/alpha-0.2-rc1`. **No publicada**: espera tu visto bueno. |
+| Versión en desarrollo | **Alpha 0.3**, incremento 1 (cinemáticas híbridas Godot + vídeo) hecho en la rama de trabajo. |
 | Multijugador | Servidor autoritativo, 4 jugadores, reconexión, salas. Verificado con bots, navegadores y contra el servicio desplegado (un jugador). **Cuatro personas reales a la vez: sin probar.** |
 | Combate y formas | Alux y Balam, dos enemigos, emboscada, derrota y otra ronda. Datos modulares (`combat_def.gd`). Equilibrio sin probar con personas. |
 | Historia | Introducción, un personaje con diálogo, primer objetivo narrativo y una escena compartida (Alpha 0.2). Sin jefe ni cierre de capítulo. |
+| Cinemáticas | Sistema híbrido hecho y probado con vídeos de prueba: vídeo en el navegador con respaldo del motor. **Ningún vídeo de Kling producido**: «El sello cede» espera presupuesto. |
 | Escenario | Un solo mapa, definido en un único archivo compartido (`world_def.gd`). **No hay soporte para varias zonas.** |
 | Arte | Alux, Balam y Chiich Yaxché modelados (Blender, por código). Enemigos con modelos provisionales. |
 | Audio | 38 sonidos generados por código. **Nadie los ha escuchado.** |
@@ -35,6 +37,8 @@ Lo que falta por validar, con detalle: [pendientes.md](pendientes.md).
 5. **Commits separados** por bloque y versión candidata documentada en [RELEASES.md](RELEASES.md).
 6. **Nada llega a `beta` sin tu visto bueno.** La rama de trabajo no se despliega sola.
 7. **Piden autorización previa:** decisiones narrativas abiertas, créditos de Kling y servicios de pago.
+8. **Kling es obligatorio en las cinemáticas narrativas**, con presupuesto aprobado por escena y
+   siempre con la versión del motor debajo ([CINEMATICS.md](CINEMATICS.md)).
 
 ## Versiones
 
@@ -65,6 +69,7 @@ a los demás; ninguna prueba anterior se rompe.
 | --- | --- |
 | **Objetivo** | Primer jefe cooperativo: un combate que no se gana sin repartirse papeles. |
 | **Alcance** | Nojoch Tuunich con tres fases (diseño en [GAME_DESIGN.md](GAME_DESIGN.md)), su presentación como cinemática compartida, modelos propios de los dos enemigos actuales. |
+| **Incremento 1 (hecho)** | Sistema cinematográfico híbrido y preparación de «El sello cede». Siguiente paso: producir su vídeo cuando se apruebe el presupuesto (máximo 500 créditos). |
 | **Dependencias** | Cinemáticas compartidas (0.2, incremento 2). Datos de rendimiento con tarjeta gráfica para decidir cuántos efectos caben. |
 | **Implementación** | El jefe reutiliza la IA de enemigos, los avisos de ataque, los altares de presión, la purificación y la derrota con reintento. |
 | **Pruebas** | Bots: victoria con 1, 2 y 4 jugadores; derrota y reintento; nadie puede saltarse fases desde el cliente. Navegador: flujo completo hasta vencer. |
@@ -75,7 +80,7 @@ a los demás; ninguna prueba anterior se rompe.
 | | |
 | --- | --- |
 | **Objetivo** | Que el capítulo tenga final: recompensa, revelación y camino al siguiente. |
-| **Alcance** | Pluma de Jade como recompensa persistente; cinemática final; «El vínculo de Balam» y el final como vídeo (Kling) con versión dentro del motor de respaldo; reproductor de vídeo en el navegador. |
+| **Alcance** | Pluma de Jade como recompensa persistente; cinemática final; «El vínculo de Balam» y el final como vídeo (Kling) con versión dentro del motor de respaldo. El reproductor de vídeo ya existe (0.3). |
 | **Dependencias** | Tu aprobación de guiones, storyboards y créditos de Kling. Modelos definitivos (para que los vídeos no queden viejos). |
 | **Aceptación** | El capítulo se juega de principio a fin en 20–30 minutos y deja claro adónde se va después. |
 
@@ -123,8 +128,13 @@ Historia, jefe y cierre de Los Secretos del Cenote, con la misma estructura que 
 | ¿Balam se desbloquea jugando? | **Sí, a partir de la 0.4**, cuando exista la escena del vínculo. Hasta entonces sigue disponible desde el inicio; quien ya lo tiene lo conserva. | Trabajo previsto en 0.4 |
 | Nombres de los espíritus y del antagonista | **Aprobados como nombres de trabajo**: Áayin, Tuunich, Toh y El que Calla. Falta la revisión de un hablante de maya yucateco. | [STORY_BIBLE.md](STORY_BIBLE.md) |
 | Primera cinemática con Kling | **Storyboard de «El vínculo de Balam» aprobado.** Se produce en 0.4. La toma de prueba ya se hizo: 50 créditos por 5 s. | [CINEMATICS.md](CINEMATICS.md) |
+| Kling en las cinemáticas | **Obligatorio en toda cinemática narrativa** (12 nov 2026), con presupuesto por escena y respaldo del motor. La primera en producirse será «El sello cede». | [CINEMATICS.md](CINEMATICS.md) |
 | Voto para omitir cinemáticas compartidas | **Mayoría de los conectados**; un jugador solo omite al instante. | Implementado en 0.2 |
 
 ## Decisiones abiertas
 
-Ninguna bloquea el trabajo en curso. Las próximas llegarán con el diseño fino del jefe (0.3).
+| Decisión | Opciones | Recomendación |
+| --- | --- | --- |
+| Presupuesto de «El sello cede» | Aprobar hasta 500 créditos · aprobar menos · esperar | Aprobarlo: no tiene bloqueos y sirve para medir precios reales antes de las demás |
+| Publicar la Alpha 0.2 | Llevar `release/alpha-0.2-rc1` a `beta` · esperar a la primera sesión con testers | Publicarla: está probada y la 0.1 se puede recuperar con el rollback documentado |
+| Arreglar los hilos de las prendas en los modelos | Regenerar los tres personajes · dejarlo | Hacerlo antes de producir vídeos con personajes (A y B) |

@@ -95,6 +95,7 @@ Los dos enemigos: el **guardián de piedra** (lento, golpea en área, resiste la
 | 12 nov 2026 | Closed Alpha 0.1 (publicada) | Automático contra el servicio real: HTTPS, WSS, invitación, guardado, partida, reconexión, métricas; sesión de un jugador en navegador | Pasa. Detalle en [RELEASES.md](RELEASES.md) |
 | 12 nov 2026 | Alpha 0.2, incremento 1 (sin publicar) | Automático en local: API, simulación, 12 pruebas de servidor (incluida la historia), flujo en navegador con introducción y diálogo, cuatro navegadores | Ver [RELEASES.md](RELEASES.md) |
 | 12 nov 2026 | Alpha 0.2, incremento 2 (sin publicar) | Automático en local: API, simulación, 13 pruebas de servidor (incluida la cinemática compartida y su voto), flujo completo en navegador, cuatro navegadores, medición de rendimiento | Ver [RELEASES.md](RELEASES.md) |
+| 12 nov 2026 | Alpha 0.3, incremento 1 (sin publicar) | Automático en local: API, 14 pruebas de servidor (fases de la cinemática, reconexión), vídeo en navegador (5 casos, con vídeos de prueba), cuatro navegadores con vídeo y con fallos, flujo completo, rendimiento | Ver [RELEASES.md](RELEASES.md) |
 | — | Closed Alpha 0.1 | **Primera sesión con testers reales** (cuatro a la vez, Edge, audio a oído, FPS con tarjeta gráfica) | **Pendiente** |
 
 Cuando haya una sesión real, se anota aquí: quiénes, cuánto duró, qué entendieron sin ayuda, qué no,

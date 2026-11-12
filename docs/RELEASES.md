@@ -6,7 +6,9 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 | Versión | Estado | Contenido |
 | --- | --- | --- |
 | Closed Alpha 0.1 | **Publicada** en <https://alux-beta.onrender.com> | Claro de los Aluxes jugable de 1 a 4, combate, emboscada, victoria y derrota, audio provisional, acceso por invitación |
-| Alpha 0.2 (incrementos 1 y 2) | En la rama de trabajo, **sin publicar** | Introducción «El llamado», Chiich Yaxché con modelo propio y diálogo, primer objetivo narrativo, cinemáticas locales y compartidas con voto, progreso del capítulo en el perfil |
+| Alpha 0.2 (incrementos 1 y 2) | **Candidata**: rama `release/alpha-0.2-rc1` (commit `ddb1aa9`). **Sin publicar**: `beta` sigue en la 0.1 | Introducción «El llamado», Chiich Yaxché con modelo propio y diálogo, primer objetivo narrativo, cinemáticas locales y compartidas con voto, progreso del capítulo en el perfil |
+
+| Alpha 0.3 (incremento 1) | En la rama de trabajo, **sin publicar** | Sistema cinematográfico híbrido: vídeo en el navegador con respaldo del motor, fases de preparación y reanudación, fundidos, referencias y storyboard de «El sello cede» |
 
 ## Publicación en la rama `beta`
 
@@ -16,7 +18,54 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
 
-## Alpha 0.2 — La abuela del claro (en desarrollo, sin publicar)
+## Alpha 0.3 — incremento 1: cinemáticas híbridas (en desarrollo, sin publicar)
+
+Kling pasa a ser obligatorio en las cinemáticas narrativas ([CINEMATICS.md](CINEMATICS.md)). Este
+incremento construye todo lo necesario para reproducir sus vídeos sin arriesgar la partida. **No
+incluye ningún vídeo de Kling ni gastó créditos**: el manifiesto de vídeos está vacío y el juego se
+ve igual que en la 0.2 hasta que se apruebe el primero.
+
+| Novedad | Detalle |
+| --- | --- |
+| Vídeo en el navegador | El motor no reproduce MP4 ni WebM en la web, así que los reproduce el navegador sobre el juego, dirigido por un puente (`cine-video.js` + `video_bridge.gd`). Manifiesto, precarga, caché, subtítulos, sonido sólo tras interacción. |
+| Respaldo por plano | Cada plano de vídeo tiene debajo el plano del motor. Si el vídeo falta, está roto, no llega a tiempo o se atasca, se ve el del motor sin detener nada. |
+| Fases compartidas | `PREPARING → PLAYING → RESUMING`. El servidor pausa la sala, espera a los clientes (5 s como máximo), da la orden de inicio a todos, cuenta votos y deja 1 s de pausa sin daño al volver. |
+| Reconexión | Quien vuelve o llega a mitad recibe la fase y el punto por el que va. |
+| Transiciones | Fundido a negro al entrar y al salir; la cámara vuelve a su sitio sin que se vea el salto. |
+| Métricas | Cada sesión informa de cuántas cinemáticas vio como vídeo o con el motor y qué falló. |
+| Referencias para Kling | Hojas de personaje del alux, Balam y Chiich Yaxché (`art/referencias/`) y cuadros clave de «El sello cede» sacados del juego (`art/cinematicas/sello/`). |
+| «El sello cede» | Storyboard definitivo de 3 planos y 10 s, prompts y presupuesto, **pendientes de aprobar**. El plano 2 de la versión del motor tenía un árbol delante: corregido. |
+
+Cambios de protocolo (compatibles: un cliente que no conteste sólo retrasa el inicio 5 s): mensaje
+`cine_ready`, evento `cine_prep`, campo `at` en `cine` y un valor más en el estado del mundo.
+Sin migraciones.
+
+| Comprobación (en local, con vídeos de prueba generados sin Kling) | Resultado |
+| --- | --- |
+| API | 10 de 10, con las métricas de cinemáticas |
+| Servidor con bots | 14 de 14. Nuevas: preparación, inicio compartido, pausa en las tres fases, voto sólo durante la reproducción, reanudación; quien se va no bloquea, quien vuelve o llega se engancha y nada se duplica |
+| Vídeo en un navegador (`npm run test:cine`) | 5 de 5: reproducción con subtítulos y vuelta al juego; archivo ausente y corrupto; descarga que no llega; vídeo atascado a mitad; omitir durante el vídeo |
+| Cuatro navegadores en una sala (`npm run test:cine-coop`) | Pasa: dos con vídeo, uno con archivos rotos, uno con la descarga colgada. Todos reciben la orden de inicio, cada uno la ve con lo que tiene y los cuatro siguen jugando |
+| Flujo completo y cuatro navegadores de siempre | Pasan |
+| Rendimiento en juego (render por software, 640×360) | Sin cambio: 6.9 FPS en mínima y 4.8 en baja (6.7 y 4.7 antes) |
+| Durante la escena | Con vídeo el juego no dibuja el mundo: 16–19 cuadros/s de su bucle frente a 5–5.5 con la escena del motor, en el mismo equipo |
+| Descarga | El puente pesa 13 KB. Los vídeos se piden aparte y sólo en un formato; objetivo ~2 MB para los 10 s de «El sello cede» (medido: 0.85 MB por 5 s a 720p) |
+
+![Vídeo de prueba (un patrón generado en local, no es Kling) reproduciéndose sobre el juego, con franjas, subtítulo y aviso de omitir](img/cine-video-prueba.jpg)
+
+**Sin comprobar:** con tarjeta gráfica y con personas; Safari y Firefox (la prueba usa Chromium);
+sonido dentro de un vídeo (los de prueba son mudos); el voto con cuatro navegadores a la vez (sin GPU
+van a 1–2 cuadros por segundo y la escena acaba antes de que lleguen los votos: está cubierto con
+bots); la reconexión a mitad de escena en un navegador (cubierta con bots); las cabeceras de caché
+en Render.
+
+## Alpha 0.2 — La abuela del claro (candidata, sin publicar)
+
+**Rama candidata:** `release/alpha-0.2-rc1`, en el commit `ddb1aa9`. Antes de crearla se repitieron
+sobre ese commit las pruebas de API, simulación, servidor, flujo y cuatro navegadores, la revisión de
+secretos y la prueba de la imagen desplegable (migraciones, acceso sólo con invitación, HTTPS/WSS,
+partida, reconexión, métricas y persistencia tras reiniciar). **No está publicada:** publicar es
+llevar ese commit a `beta`, y eso espera tu autorización.
 
 **Incremento 1.** No toca el protocolo existente: añade un mensaje (`talk`), un evento (`story`) y un
 valor al estado del mundo. Un cliente de la 0.1 seguiría funcionando contra este servidor.

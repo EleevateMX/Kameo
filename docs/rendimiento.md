@@ -34,6 +34,7 @@ final imprime los FPS de cada uno. `npm run shots -w @alux/tests` hace lo mismo 
 | Imagen única de la beta (portal + API + servidor de juego + proxy), contenedor limitado a 512 MB | 200–260 MB recién arrancada; ~300 MB con cuatro navegadores en una sala. Descarga del cliente: 7.8 MB comprimidos (el `.wasm` de 36 MB va en Brotli). Medido en local, no en Render. |
 | Alpha 0.2, incremento 1 (introducción, personaje y diálogo), mismo método | Sin diferencia medible en cuadros por segundo frente a la versión anterior medida el mismo día (7.2 en mínima, 5.0 en baja); unas 25–30 llamadas de dibujo más. Una luz propia para el personaje se descartó: en el navegador cada luz extra obliga a redibujar lo que alcanza. |
 | Alpha 0.2, incremento 2 (modelo propio de Chiich Yaxché, cinemática compartida), mismo método | 6.7 en mínima y 4.7 en baja: alrededor de un 7 % menos que el incremento 1, por pasar de piezas sueltas a un modelo con esqueleto (8 599 triángulos, 39 huesos). Cerca del margen de error; por confirmar con GPU. |
+| Alpha 0.3, incremento 1 (cinemáticas con vídeo), mismo método | En juego, sin cambio: 6.9 en mínima y 4.8 en baja. Durante una escena con vídeo el mundo 3D no se dibuja (el bucle del juego va a 16–19 cuadros/s frente a 5–5.5 con la escena del motor); el vídeo lo decodifica el navegador aparte. |
 | Navegador **con GPU** | **Pendiente.** No había GPU disponible en el entorno donde se desarrolló. |
 | Latencia real por Internet | **Pendiente.** Sólo se ha probado en la misma máquina (ping < 5 ms). |
 

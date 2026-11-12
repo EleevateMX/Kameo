@@ -65,13 +65,31 @@ como pendiente debe darse por hecho.
   - El perfil guarda que se escuchó el llamado, pero una sala nueva empieza la historia desde el
     principio: todavía no se salta lo ya visto por todo el grupo.
   - El rebozo de la abuela es rígido: en los gestos amplios se nota.
-  - Los planos de cinemática sólo mueven la cámara, ponen texto y lanzan un sonido; todavía no
-    animan personajes ni tienen fundidos.
+  - Los planos del motor sólo mueven la cámara, ponen texto y lanzan un sonido; todavía no animan
+    personajes. Hay fundido al entrar y al salir de las compartidas, no entre planos.
   - Los diálogos son lineales, sin voces, y sólo en español.
   - Nombres de espíritus y antagonista: aprobados como nombres de trabajo; falta la revisión de un
     hablante de maya yucateco.
   - Kling: storyboard de «El vínculo de Balam» aprobado y una toma de prueba hecha (50 créditos por
-    5 s). La producción (0.4) necesita autorización de créditos: unos 500–750 con repeticiones.
+    5 s). Presupuestos por escena en [CINEMATICS.md](CINEMATICS.md), **todos sin aprobar**.
+- **Cinemáticas con vídeo (Alpha 0.3)**
+  - Hecho y probado con vídeos de prueba: reproducción en el navegador, respaldo del motor por
+    plano, fases de preparación y reanudación, reconexión, métricas.
+  - **No hay ningún vídeo de Kling en el juego.** «El sello cede» tiene storyboard, cuadros clave y
+    prompts; falta aprobar su presupuesto (máximo 500 créditos).
+  - Sin probar: Safari y Firefox, tarjeta gráfica, sonido dentro de un vídeo, personas.
+  - El precio de Kling sólo está medido para un modelo (`v3_0_turbo`, 50 créditos por 5 s a 1080p);
+    los modelos con último cuadro, que son los que alinean el final con el juego, están sin medir.
+  - La introducción («El llamado») es local y empieza nada más entrar: cuando tenga vídeo habrá
+    que esperar su precarga unos segundos antes de empezarla. Sin hacer.
+  - El último plano de una compartida se corta si el cliente iba atrasado respecto al servidor.
+  - Modelos: los hilos finos de las prendas (alux, Yaxché, cola de Balam) no existen como color en
+    los `.glb`: quedan como ranuras (`add_loft_painted` en `art/blender/alux_common.py`). Las hojas
+    de referencia los muestran corregidos; arreglarlo obliga a regenerar los tres personajes.
+  - Modelos: el cabello del alux atraviesa la cinta del sombrero de palma; a Yaxché le asoman los
+    hombros por el rebozo; por detrás, las patas traseras de Balam se ven huecas.
+  - «El vínculo de Balam»: los planos 1, 2 y 4 muestran al alux con un aspecto fijo; hay que
+    adaptarlos (sombra, punto de vista o tramo con el motor).
 - **Partida**
   - Hecho: ciclo completo (bienvenida, altares, emboscada, victoria o derrota, otra ronda, salir),
     menú con ajustes y avisos de conexión. Detalle en [PLAYTEST.md](PLAYTEST.md).

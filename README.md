@@ -160,6 +160,19 @@ menú, altares, emboscada, victoria, otra ronda, derrota, reintentar y salir al 
 captura de cada paso en `tests/e2e/screenshots/playtest/`.
 
 ```bash
+npm run test:cine
+```
+
+```bash
+npm run test:cine-coop
+```
+
+Cinemáticas con vídeo ([docs/CINEMATICS.md](docs/CINEMATICS.md)), también con ALUX corriendo y con
+vídeos de prueba generados en local: la primera comprueba en un navegador la reproducción sobre el
+juego y cada fallo posible (archivo ausente o corrupto, descarga lenta, vídeo atascado, omitir a
+mitad); la segunda mete cuatro navegadores en una sala, dos con vídeo y dos sin él.
+
+```bash
 scripts/test-beta-image.sh
 ```
 
