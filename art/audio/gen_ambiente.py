@@ -32,7 +32,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _dsp_estereo import (  # noqa: E402
     CUADRO_MP3, DOS_PI, LICENCIA, PARC_CRISTAL, SALIDA, SEMILLA, SR,
-    actualizar_manifiesto, campana, carpeta_tmp, codificar_mp3, convolucionar, db, env_perc,
+    actualizar_manifiesto, campana, carpeta_tmp, codificar_mp3, convolucionar, env_perc,
     escribir_json, escribir_wav, espectrograma, fase_de, filtrar, gen, glis, lento, lin, limitar,
     lufs, medir, midi, modos, n_, pan, poner, rafaga, reverb, rms, ruido, ruido_barrido, ruido_st,
     semilla_de, t_, trenes,
@@ -441,11 +441,11 @@ def amb_brasero(n):
 BUCLES = (
     ("amb_selva", amb_selva, 1152, 45.0, 9000.0,
      "Base de selva de día, sin cantos protagonistas. Suena siempre de fondo.",
-     "aire grave (70–600 Hz); hojas en cuatro copas (1.3–7 kHz) con rachas independientes; "
+     "aire (110–700 Hz); hojas en cuatro copas (1.3–7 kHz) con rachas independientes; "
      "zumbido lejano de insectos en tres bandas estrechas (3.1, 4.3 y 5.9 kHz) con trémolo"),
     ("amb_aves", amb_aves, 1050, 250.0, 8500.0,
      "Aves de selva: cantos variados repartidos en el estéreo, con distancia.",
-     "unos doce cantos de diez tipos inventados (silbos, trinos, gorjeo, arrullo, llamada en eco, "
+     "doce cantos de diez tipos inventados (silbos, trinos, gorjeo, arrullo, llamada en eco, "
      "ululo, píos, carraca, flauteo), cada uno con tono, rapidez, distancia y lado al azar; eco de "
      "follaje y sala; lecho muy tenue de bandada lejana"),
     ("amb_insectos", amb_insectos, 960, 1500.0, 9500.0,
@@ -463,15 +463,15 @@ BUCLES = (
      "(110–420 Hz); unas 600 burbujas (silbidos ascendentes de 12–50 ms)"),
     ("amb_cenote", amb_cenote, 1225, 40.0, 7000.0,
      "Interior de cenote: gotas con eco largo, agua profunda, resonancia de caverna.",
-     "aire de caverna (50–320 Hz); resonancias graves sobre Re y La (73, 110, 147 y 196 Hz); agua "
-     "profunda que lame despacio; unas trece gotas con dos ecos de pared y sala de 3.6 s"),
+     "aire de caverna (70–380 Hz); resonancias graves sobre Re y La (73, 110, 147 y 196 Hz); agua "
+     "profunda que lame despacio; unas quince gotas (algunas dobles) con dos ecos de pared y sala de 3.6 s"),
     ("amb_ruinas", amb_ruinas, 1080, 30.0, 6000.0,
      "Patio de piedra antiguo: tono de aire grave, resonancia hueca, alguna piedrecilla.",
-     "aire grave (32–170 Hz); cuatro resonancias huecas (92, 138, 207 y 311 Hz) que respiran; "
-     "soplo medio muy tenue; dos piedrecillas por bucle (una que rebota y otra que apenas cae)"),
+     "aire grave (55–240 Hz); cinco resonancias huecas (92, 138, 207, 311 y 466 Hz) que respiran; "
+     "soplo medio tenue; dos piedrecillas por bucle (una que rebota y otra que apenas cae)"),
     ("amb_tormenta", amb_tormenta, 1024, 35.0, 9000.0,
      "Tormenta tropical: lluvia sobre hojas y truenos lejanos poco frecuentes.",
-     "siseo de lluvia (0.7–9.5 kHz); miles de gotas en tres tamaños; goterones sobre hojas grandes; "
+     "siseo de lluvia (0.7–9 kHz); miles de gotas en tres tamaños (quince granos distintos); goterones sobre hojas grandes; "
      "rumor grave; dos truenos lejanos distintos por bucle (uno más presente, otro muy lejos)"),
     ("amb_energia", amb_energia, 864, 55.0, 8000.0,
      "Energía mística (sello, cristal, altares): zumbido armónico que late, destellos vítreos.",

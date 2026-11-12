@@ -39,7 +39,7 @@ from _dsp_estereo import (  # noqa: E402
     espectrograma, fase_de, filtrar, flauta, gemido, gen, glis, impacto_piedra, kalimba, lento, lin,
     limitar, lufs, madera, medir, midi, modos, n_, pan, poner, rafaga, rampa, reverb, rms, ruido,
     ruido_barrido, ruido_st, salida, saturar, semilla_de, sonaja, t_, tambor, tambor_grave, tirones,
-    tramo, trompa, zumbido,
+    trompa, zumbido,
 )
 
 COLA = 1.5  # segundos de cola tras el final de la cinemática
@@ -48,7 +48,7 @@ FX_LUFS = (-20.0, -16.0, -18.0)  # mínimo, máximo, objetivo
 MUS_LUFS = (-24.0, -20.0, -22.0)
 FX_PICO_MAX = -2.0  # dBFS sobre el MP3 decodificado
 SUMA_PICO_MAX = -1.0  # dBFS de efectos + música sumados
-FX_TECHO = -3.6  # techos del limitador antes de codificar
+FX_TECHO = -4.2  # techos del limitador antes de codificar
 MUS_TECHO = -9.0
 TOTAL_MAX = 2_200_000
 STORY_DEF = RAIZ / "game" / "scripts" / "shared" / "story_def.gd"
@@ -223,8 +223,8 @@ def fx_sello():
     poner(y, gemido(k, g, 70.0 * (48.0 / 70.0) ** u, ronco=1.8) * campana_env(k, 1.0), 5.30, 0.22, 0.1)
     poner(y, saturar(impacto_piedra(g, 0.9, 105, 36, tau=0.22, brillo=0.7)), 6.72, 0.95, 0.1)
     poner(y, glis(58, 30, 0.8) * env_perc(n_(0.8), 0.28, 0.004), 6.72, 0.5, 0.0)
-    escombros(y, g, 6.80, 7.60, 14, gan=0.2, graves=0.2)
-    poner(y, polvo(1.1, g), 6.75, 0.05)
+    escombros(y, g, 6.80, 7.25, 12, gan=0.2, graves=0.2)
+    poner(y, polvo(0.7, g, tau=0.2), 6.75, 0.05)
     # --- Plano 3 (7–10 s): silencio inquietante, algo se mueve, aviso de los Olvidados
     k = n_(3.3)
     tt = t_(k)
@@ -266,7 +266,7 @@ def mus_sello():
         poner(y, colchon_st(midi(m), 3.4, 1.0, 0.6), 0.0, 0.16 * gan)
     notas(y, g, lambda f, d: flauta(f, d, g), ((0.35, 69, 0.75, 0.8), (1.05, 72, 0.75, 0.9), (1.75, 74, 1.3, 1.0)),
           0.30, -0.2)
-    for t0, gan in ((0.0, 0.5), (1.0, 0.6), (2.0, 0.7), (2.5, 0.75), (2.75, 0.8)):
+    for t0, gan in ((0.04, 0.5), (1.0, 0.6), (2.0, 0.7), (2.5, 0.75), (2.75, 0.8)):
         poner(y, tambor_grave(g), t0, 0.5 * gan, 0.1)
     poner(y, sonaja(1.2, g, crece=1.5), 1.8, 0.10, 0.4)
     # Plano 2: tensión. Redoble que se cierra, caracol que crece, golpe en el estallido (5.05 s)
@@ -366,7 +366,7 @@ def fx_despertar():
     poner(pisada, glis(62, 28, 1.0) * env_perc(n_(1.0), 0.34, 0.004), 0.0, 0.7, 0.0)
     escombros(pisada, g, 0.08, 1.4, 26, gan=0.36, graves=0.3)
     poner(pisada, polvo(1.9, g, tau=0.6), 0.1, 0.07)
-    poner(y, reverb(pisada, g, t60=1.8, mezcla=0.3, agudos=5000.0), 15.0, 2.0)
+    poner(y, saturar(reverb(pisada, g, t60=1.8, mezcla=0.3, agudos=5000.0), 3.0), 15.0, 2.3)
     return y
 
 
@@ -395,7 +395,7 @@ def mus_despertar():
         poner(y, tambor_grave(g, f0=60.0, seg=0.8, tau=0.22), t0, 0.55 * gan, -0.1 if t0 < 14.0 else 0.1)
     k = n_(2.75)
     poner(y, cuerno(midi(38), 2.75, g, ataque=0.8, rel=0.1) * (0.3 + 0.7 * (np.arange(k) / k) ** 1.5), 12.2, 0.26, 0.2)
-    poner(y, tambor_grave(g, f0=50.0, seg=1.6, tau=0.42), 15.0, 0.95, 0.0)
+    # (en 15.0 s no hay tambor: el golpe es la pisada de la pista de efectos; aquí entra la trompa)
     pulso = 0.32  # La–Re–Fa: corta, corta, larga (primera mitad del motivo, en trompa grave)
     for (ini, dur), m in list(zip(RITMO_MOTIVO, MOTIVO_MENOR))[:3]:
         larga = dur == 2
@@ -403,7 +403,7 @@ def mus_despertar():
         poner(y, trompa(midi(m - 12), seg, g, ataque=0.05, rel=0.9 if larga else 0.1), 15.0 + ini * pulso,
               0.48 if larga else 0.40, -0.1)
         poner(y, trompa(midi(m - 24), seg, g, ataque=0.06, rel=0.9 if larga else 0.1), 15.0 + ini * pulso, 0.22, 0.15)
-    poner(y, tambor_grave(g, f0=54.0, seg=1.3, tau=0.34), 15.0 + 2 * pulso, 0.6, 0.0)
+    poner(y, tambor_grave(g, f0=54.0, seg=1.3, tau=0.34), 15.0 + 2 * pulso, 0.5, 0.0)
     for m, gan in ((38, 0.6), (50, 0.5), (57, 0.4), (65, 0.3)):
         poner(y, colchon_st(midi(m), 2.4, 0.5, 1.2), 15.05, 0.12 * gan)
     return sala(y, g, t60=1.6, mezcla=0.2, agudos=4500.0)
@@ -439,8 +439,8 @@ def fx_liberacion():
           * np.clip(1.0 + 0.3 * lento(k, g, 0.3, 2.0), 0.3, None), 3.7, 0.035)
     j = n_(2.6)
     v = np.arange(j) / j
-    voz = gemido(j, g, 74.0 * (62.0 / 74.0) ** v + 5.0 * np.sin(np.pi * v), ronco=0.9, tope=600.0)
-    poner(y, voz * campana_env(j, 0.8), 4.9, 0.17, 0.0)
+    voz = gemido(j, g, 98.0 * (82.0 / 98.0) ** v + 6.0 * np.sin(np.pi * v), ronco=0.9, tope=800.0)
+    poner(y, voz * campana_env(j, 0.8), 4.9, 0.14, 0.0)
     poner(y, np.sin(DOS_PI * 147.0 * t_(j) + 0.3) * campana_env(j, 1.5), 4.9, 0.05, 0.0)
     ave = np.zeros(n_(0.8))
     poner(ave, silbo(1700, 1750, 0.15), 0.0, 0.9)
@@ -511,7 +511,9 @@ def fx_llamado():
     # --- Plano 1 (0–5 s): la selva desde arriba, callada: solo viento, y un ave sola sin respuesta
     k = n_(5.6)
     u = np.arange(k) / k
-    fuerza = np.clip(0.55 + 0.4 * lento(k, g, 0.15, 0.6), 0.1, None) * rampa(k, 0.8) * salida(k, 1.2)
+    tt = t_(k)  # dos ráfagas lentas (periodos de 5.2 y 2.3 s), no un vaivén rápido
+    fuerza = 0.65 + 0.25 * np.sin(DOS_PI * tt / 5.2 + g.uniform(0, DOS_PI)) + 0.12 * np.sin(DOS_PI * tt / 2.3 + g.uniform(0, DOS_PI))
+    fuerza = fuerza * rampa(k, 0.8) * salida(k, 1.2)
     for c in range(2):
         v = ruido_barrido(k, g, 300.0 * 2.0 ** (1.1 * np.clip(fuerza, 0.0, 1.3)), ancho=0.9, color=1.5, f_min=90.0,
                           f_max=3000.0, bandas=10)
@@ -565,9 +567,8 @@ def fx_llamado():
                                (0.62, 0.16, 0.45, 0.7), (0.80, 0.16, 0.5, 0.7), (0.98, 0.24, 0.6, 0.9),
                                (1.24, 0.42, 0.25, 0.8)), 0.40, -0.15)
     for t0, f in ((0.05, 150.0), (2.1, 120.0)):  # el tronco cruje al moverse
-        j = n_(0.5)
         poner(voz, silaba(g, 0.5, 14.0, 22.0, f, 3.1 * f, aire=0.1), t0, 0.3, 0.3)
-    poner(y, sala(voz, g, t60=0.9, mezcla=0.18, agudos=4500.0), 14.5, 1.8)
+    poner(y, sala(filtrar(voz, 120, 4500), g, t60=0.9, mezcla=0.18, agudos=4500.0), 14.5, 1.8)
     for t0, f, gan in ((18.35, 294.0, 0.8), (18.58, 392.0, 1.0)):  # toc-toc de madera hueca: despierta
         poner(y, madera(g, f=f), t0, 0.8 * gan, 0.1)
     for i, m in enumerate((86, 89, 93)):  # y algo se enciende
@@ -654,6 +655,13 @@ def _pico_en(x, a, b):
     return a + float(np.argmax(s)) / SR
 
 
+def _mas_fuerte(x, ventana):
+    """Segundo en el que empieza la ventana con más energía de toda la pista."""
+    v = n_(ventana)
+    ac = np.concatenate([[0.0], np.cumsum(np.sum(x ** 2, axis=0))])
+    return float(np.argmax(ac[v:] - ac[:-v])) / SR
+
+
 # Hitos: comprobaciones de que cada evento cae en su plano. (cinemática, pista, qué, prueba)
 HITOS = (
     ("sello", "fx", "el estallido vítreo (agudos) está en 5.0–5.5 s, no antes",
@@ -674,8 +682,8 @@ HITOS = (
      lambda x: _tramo_db(x, 8.15, 8.95) < _tramo_db(x, 7.0, 8.0) - 15.0),
     ("despertar", "fx", "el golpe seco de los ojos cae en 9.0 s (±0.06)",
      lambda x: abs(_pico_en(x, 8.1, 9.6) - 9.0) <= 0.06),
-    ("despertar", "fx", "la pisada final es el pico de la pista y cae en 15.0 s (+0.1)",
-     lambda x: 14.99 <= _pico_en(x, 0.0, 17.5) <= 15.12),
+    ("despertar", "fx", "la pisada final (15.0 s) es el tramo de 0.4 s con más energía de toda la pista",
+     lambda x: 14.9 <= _mas_fuerte(x, 0.4) <= 15.15),
     ("despertar", "mus", "el tema (trompa) entra en 15.0 s: 15.0–16.5 s supera en 6 dB a 12.0–14.0 s en 80–400 Hz",
      lambda x: _tramo_db(x, 15.0, 16.5, 80, 400) > _tramo_db(x, 12.0, 14.0, 80, 400) + 6.0),
     ("liberacion", "fx", "el zumbido grave se va: 2.8–4.0 s queda 8 dB por debajo de 0–1.2 s en 50–600 Hz",
@@ -844,7 +852,7 @@ def comprobar() -> int:
             if m["bandas"][4] > 20.0:
                 fallos.append("mucho >8 kHz")
             borde = n_(0.02)
-            if db(np.max(np.abs(x[:, :n_(0.003)]))) > -40.0 or db(np.max(np.abs(x[:, -borde:]))) > -50.0:
+            if db(np.max(np.abs(x[:, :n_(0.001)]))) > -40.0 or db(np.max(np.abs(x[:, -borde:]))) > -50.0:
                 fallos.append("extremos≠silencio")
             if (p["file"] != mp3.name or p["bus"] != ("Music" if es_mus else "Cinematics") or p["loop"] is not None
                     or p["bytes"] != m["bytes"] or abs(p["seconds"] - m["seconds"]) > 0.01

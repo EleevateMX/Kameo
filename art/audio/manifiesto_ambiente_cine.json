@@ -145,7 +145,7 @@
     "tipo": "cinemática",
     "bus": "Cinematics",
     "duracion_s": 17.5,
-    "bytes": 258654,
+    "bytes": 260377,
     "origen": "síntesis propia: art/audio/gen_cine.py, función fx_despertar",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
@@ -159,7 +159,7 @@
     "tipo": "cinemática",
     "bus": "Music",
     "duracion_s": 17.5,
-    "bytes": 202205,
+    "bytes": 214653,
     "origen": "síntesis propia: art/audio/gen_cine.py, función mus_despertar",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
@@ -173,7 +173,7 @@
     "tipo": "cinemática",
     "bus": "Cinematics",
     "duracion_s": 13.5,
-    "bytes": 189084,
+    "bytes": 190439,
     "origen": "síntesis propia: art/audio/gen_cine.py, función fx_liberacion",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
@@ -201,7 +201,7 @@
     "tipo": "cinemática",
     "bus": "Cinematics",
     "duracion_s": 20.5,
-    "bytes": 287372,
+    "bytes": 289470,
     "origen": "síntesis propia: art/audio/gen_cine.py, función fx_llamado",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
@@ -229,7 +229,7 @@
     "tipo": "cinemática",
     "bus": "Cinematics",
     "duracion_s": 11.5,
-    "bytes": 186037,
+    "bytes": 183199,
     "origen": "síntesis propia: art/audio/gen_cine.py, función fx_sello",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
@@ -243,7 +243,7 @@
     "tipo": "cinemática",
     "bus": "Music",
     "duracion_s": 11.5,
-    "bytes": 157709,
+    "bytes": 157682,
     "origen": "síntesis propia: art/audio/gen_cine.py, función mus_sello",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [

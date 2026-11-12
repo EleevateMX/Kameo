@@ -6,16 +6,16 @@
       "bus": "Cinematics",
       "loop": null,
       "seconds": 11.5,
-      "bytes": 186037,
+      "bytes": 183199,
       "lufs": -17.9,
-      "peak_db": -2.8
+      "peak_db": -3.8
     },
     "cine_sello_mus": {
       "file": "cine_sello_mus.mp3",
       "bus": "Music",
       "loop": null,
       "seconds": 11.5,
-      "bytes": 157709,
+      "bytes": 157682,
       "lufs": -21.9,
       "peak_db": -9.0
     },
@@ -24,8 +24,8 @@
       "bus": "Cinematics",
       "loop": null,
       "seconds": 17.5,
-      "bytes": 258654,
-      "lufs": -17.9,
+      "bytes": 260377,
+      "lufs": -18.0,
       "peak_db": -3.4
     },
     "cine_despertar_mus": {
@@ -33,18 +33,18 @@
       "bus": "Music",
       "loop": null,
       "seconds": 17.5,
-      "bytes": 202205,
-      "lufs": -21.9,
-      "peak_db": -9.0
+      "bytes": 214653,
+      "lufs": -22.1,
+      "peak_db": -11.8
     },
     "cine_liberacion_fx": {
       "file": "cine_liberacion_fx.mp3",
       "bus": "Cinematics",
       "loop": null,
       "seconds": 13.5,
-      "bytes": 189084,
-      "lufs": -17.8,
-      "peak_db": -3.5
+      "bytes": 190439,
+      "lufs": -18.0,
+      "peak_db": -4.3
     },
     "cine_liberacion_mus": {
       "file": "cine_liberacion_mus.mp3",
@@ -60,9 +60,9 @@
       "bus": "Cinematics",
       "loop": null,
       "seconds": 20.5,
-      "bytes": 287372,
+      "bytes": 289470,
       "lufs": -17.9,
-      "peak_db": -3.6
+      "peak_db": -3.5
     },
     "cine_llamado_mus": {
       "file": "cine_llamado_mus.mp3",
