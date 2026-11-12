@@ -48,6 +48,14 @@ var shots := [
 	["jefe_dormido", Vector3.ZERO, 0.0, 0.0, 1.0, false],
 	["jefe_fase1", Vector3.ZERO, 0.0, 0.0, 1.0, true],
 	["jefe_cerca", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	# Cuadros clave de las dos cinemáticas del jefe (docs/BOSS.md)
+	["kf_despertar_1", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_despertar_2", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_despertar_3", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_despertar_4", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_liberacion_1", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_liberacion_2", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_liberacion_3", Vector3.ZERO, 0.0, 0.0, 1.0, false],
 	# El santuario unos segundos después de romperse el sello: lo que queda de la cinemática
 	["secuelas_1", Vector3.ZERO, 0.0, 0.0, 1.0, false],
 	["secuelas_2", Vector3.ZERO, 0.0, 0.0, 1.0, false],
@@ -74,6 +82,22 @@ const KEYFRAMES := {
 		"boss": [1, 29.6, 0.8, -1.9, 4, 0.6, 100, 2, 3, 0, 26.2, -0.6, 0.0, [[27.0, 2.6, 2.4, 8.0]]], "t": 0.9},
 	"jefe_cerca": {"pos": Vector3(27.6, 2.9, 2.2), "look": Vector3(30.2, 3.4, 0.2), "gate": 1.0, "foes": false, "after": 60.0,
 		"boss": [1, 30.4, 0.0, -1.2, 2, 0.0, 100, 2, 3, 0, 0.0, 0.0, 0.0, []], "t": 1.0},
+	# «El despertar de Nojoch Tuunich»: la estatua, las grietas del pecho, los ojos y de pie
+	"kf_despertar_1": {"pos": Vector3(22.4, 2.0, 0.9), "look": Vector3(31.6, 2.3, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
+		"boss": [0, 32.0, 0.0, -1.5708, 0, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []]},
+	"kf_despertar_2": {"pos": Vector3(29.4, 2.3, 0.7), "look": Vector3(31.6, 2.3, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
+		"boss": [0, 32.0, 0.0, -1.5708, 0, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []]},
+	"kf_despertar_3": {"pos": Vector3(29.9, 3.4, -0.9), "look": Vector3(31.7, 3.25, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
+		"boss": [1, 32.0, 0.0, -1.5708, 1, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []], "anim": ["Awaken", 1.4]},
+	"kf_despertar_4": {"pos": Vector3(23.6, 2.6, -2.4), "look": Vector3(30.4, 2.9, 0.4), "gate": 1.0, "foes": false, "after": 60.0,
+		"boss": [1, 31.2, 0.0, -1.5708, 4, 0.0, 100, 0, 3, -1, 0.0, 0.0, 0.0, []], "anim": ["Slam", 1.15]},
+	# «El guardián recuerda»: de rodillas con las vetas apagándose, las manos abiertas y de nuevo en su sitio, despierto
+	"kf_liberacion_1": {"pos": Vector3(24.2, 2.4, 2.6), "look": Vector3(29.2, 2.2, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
+		"boss": [3, 29.4, 0.0, -1.5708, 8, 0.0, 34, 4, 4, -1, 0.0, 0.0, 0.0, []], "anim": ["Kneel", 2.0]},
+	"kf_liberacion_2": {"pos": Vector3(26.2, 5.2, 0.0), "look": Vector3(28.6, 1.6, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
+		"boss": [4, 29.4, 0.0, -1.5708, 9, 0.0, 0, 4, 4, -1, 0.0, 0.0, 0.0, []], "anim": ["Remember", 3.0]},
+	"kf_liberacion_3": {"pos": Vector3(22.6, 2.2, -1.2), "look": Vector3(31.6, 2.4, 0.0), "gate": 1.0, "foes": false, "after": 60.0,
+		"boss": [4, 32.0, 0.0, -1.5708, 0, 0.0, 0, 4, 4, -1, 0.0, 0.0, 0.0, []], "anim": ["Sleep", 0.0]},
 	"secuelas_1": {"pos": Vector3(15.8, 2.6, 3.6), "look": Vector3(26.0, 2.6, 0.0), "gate": 1.0, "foes": false, "after": 3.0},
 	"secuelas_2": {"pos": Vector3(20.6, 2.1, 0.4), "look": Vector3(28.0, 1.6, 0.0), "gate": 1.0, "foes": false, "after": 3.0},
 	"secuelas_3": {"pos": Vector3(15.8, 2.6, 3.6), "look": Vector3(26.0, 2.6, 0.0), "gate": 1.0, "foes": false, "after": 60.0},
@@ -205,7 +229,12 @@ func _process(delta: float) -> bool:
 	boss.rotation.y = float(bstate[3])
 	if boss._anim != null and key.has("t"):
 		boss._anim.seek(float(key.t), true)
-	if key.has("boss") and int(bstate[0]) != 0:
+	if boss._anim != null and key.has("anim"):
+		boss._anim.play(str(key.anim[0]))
+		boss._anim.seek(float(key.anim[1]), true)
+		boss._anim.pause()
+	boss._label.visible = boss._label.visible and not str(s[0]).begins_with("kf_")
+	if key.has("boss") and int(bstate[0]) in [1, 2, 3] and bool(s[5]):
 		hud.set_boss(true, BossDef.PHASE_NAMES[int(bstate[0])], float(bstate[6]) / 100.0, int(bstate[7]), int(bstate[8]), "No tiene vida: devuélvele la memoria")
 		hud.set_objective("Enciende los glifos del guardián  (%d/%d)" % [int(bstate[7]), int(bstate[8])], "alert", "Debilita a una criatura y tócala con F junto a él  ·  los golpes no le hacen nada")
 		hud.set_altars(false, 0)
