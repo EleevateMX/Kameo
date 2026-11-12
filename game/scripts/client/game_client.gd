@@ -14,6 +14,7 @@ const Fx := preload("res://scripts/client/fx.gd")
 const Audio := preload("res://scripts/client/audio.gd")
 const Story := preload("res://scripts/shared/story_def.gd")
 const Cutscene := preload("res://scripts/client/cinematics/cutscene.gd")
+const VideoBridge := preload("res://scripts/client/cinematics/video_bridge.gd")
 const NpcView := preload("res://scripts/client/npc_view.gd")
 
 const PROTOCOL := 2
@@ -138,6 +139,11 @@ var _intro_after_cine := false
 var _frozen := false          # hay una cinemática compartida: la sala está en pausa
 var _skip_votes := 0
 var _skip_voted := false
+var _video := VideoBridge.new()   # vídeos de las cinemáticas (los reproduce el navegador)
+var _cine_phase := 0          # Story.CINE_*: fase de la cinemática compartida, según el servidor
+var _prep := {}               # preparación en curso: {id, t, wait, sent}
+var _cine_out := 0.0          # segundos hasta volver a descubrir el juego tras una cinemática
+var _cine_stats := {"video": 0, "engine": 0, "fallbacks": 0}
 
 # Métricas de la sesión (beta): se envían a la API cada minuto y al terminar una ronda
 var _m := {"sid": "", "fps": [], "ping_sum": 0.0, "ping_n": 0, "ping_max": 0.0, "load_ms": -1.0, "seconds": 0.0,
@@ -161,6 +167,9 @@ func _ready() -> void:
 	_hud.setting_changed.connect(_on_setting)
 	_hud.dialogue_done.connect(_on_dialogue_done)
 	_cine.finished.connect(_on_cine_finished)
+	_cine.video = _video
+	# Mientras un vídeo tapa el juego no hace falta dibujar el mundo
+	_cine.covered.connect(func(on: bool) -> void: get_viewport().disable_3d = on)
 	_npc = NpcView.new()
 	add_child(_npc)
 	_npc.setup("yaxche")
@@ -256,7 +265,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed("accept") or event.is_action_pressed("menu"):
 			if _cine.shared:
 				# Compartida: omitirla es un voto; decide el servidor cuando vota la mayoría
-				if not _skip_voted and _ws != null and _net == Net.PLAYING:
+				if not _skip_voted and _ws != null and _net == Net.PLAYING and _cine_phase == Story.CINE_PLAYING:
 					_skip_voted = true
 					_ws.send_text(JSON.stringify({"t": "skip"}))
 					Audio.play("ui_click")
@@ -438,6 +447,83 @@ func _start_playing(capture: bool) -> void:
 
 # ───────────────────────── Historia: cinemáticas y diálogos ─────────────────────────
 
+## Cinemática compartida, fase de preparación: la sala ya está en pausa. Este cliente funde a
+## negro, comprueba si tiene los vídeos y avisa al servidor, que da la orden de inicio a todos.
+func _begin_shared_prep(id: String, wait: float) -> void:
+	_skip_voted = false
+	_prep = {"id": id, "t": 0.0, "wait": wait, "sent": false}
+	if not _cine_on or not Story.CUTSCENES.has(id):
+		# Sin escenas (pruebas automáticas) o escena desconocida: no se hace esperar a nadie
+		_send_cine_ready(id, false)
+		_prep.sent = true
+		return
+	if _cine.active:
+		_intro_after_cine = false
+		_cine.stop()
+	_hud.hide_intro()
+	_hud.hide_result()
+	_hud.hide_dialogue()
+	_hud.hide_menu()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_mouse_l = false
+	_mouse_r = false
+	_video.preload_clips(Story.cutscene_videos(id))
+	_hud.set_cine(true, false)
+	_hud.fade_to(1.0, 0.45)
+	_cine_out = 0.0
+
+
+func _send_cine_ready(id: String, with_video: bool) -> void:
+	if _ws != null and _net == Net.PLAYING:
+		_ws.send_text(JSON.stringify({"t": "cine_ready", "id": id, "v": 1 if with_video else 0}))
+
+
+## Orden de inicio del servidor (o enganche a mitad, con `at` segundos ya transcurridos).
+func _start_shared(id: String, at: float) -> void:
+	_skip_voted = false
+	_prep = {}
+	if not _cine_on or not Story.CUTSCENES.has(id):
+		_hud.hint("El grupo está viendo una escena: la partida sigue en unos segundos", 5.0)
+		return
+	if _cine.active:
+		_intro_after_cine = false
+		_cine.stop()
+	_hud.hide_intro()
+	_hud.hide_result()
+	_hud.hide_dialogue()
+	_hud.hide_menu()
+	_cine_out = 0.0
+	_play_cutscene(id, at)
+	_hud.fade_to(0.0, 0.4)
+
+
+## Avanza la preparación y la vuelta al juego de las cinemáticas.
+func _update_cine_flow(delta: float) -> void:
+	if not _prep.is_empty() and not bool(_prep.sent):
+		_prep.t = float(_prep.t) + delta
+		var clips: Array = Story.cutscene_videos(str(_prep.id))
+		var settled := true
+		var have := not clips.is_empty()
+		for clip in clips:
+			var st: String = _video.status(clip)
+			if st != "ready":
+				have = false
+			if not (st in ["ready", "absent", "error"]):
+				settled = false
+		# Listo cuando acabó el fundido y ya se sabe qué pasa con el vídeo; si la descarga
+		# tarda, se avisa antes de que se agote la espera y se verá la escena del motor.
+		if float(_prep.t) >= 0.5 and (settled or float(_prep.t) >= float(_prep.wait) - 1.2):
+			_send_cine_ready(str(_prep.id), have)
+			_prep.sent = true
+	if _cine_out > 0.0:
+		_cine_out -= delta
+		if _cine_out <= 0.0:
+			_hud.fade_to(0.0, 0.55)
+	# Red de seguridad: sin cinemática en curso, la pantalla no se queda en negro
+	elif _cine_phase == Story.CINE_NONE and _prep.is_empty() and not _cine.active and _hud.fade_alpha() >= 0.99:
+		_hud.fade_to(0.0, 0.4)
+
+
 func _seen(key: String) -> bool:
 	return _is_web and str(_js("(function(){try{return localStorage.getItem('alux_seen_%s')||''}catch(e){return ''}})()" % key)) == "1"
 
@@ -449,9 +535,10 @@ func _mark_seen(key: String) -> void:
 
 ## Reproduce una cinemática hecha en el motor. Las locales no detienen la partida de nadie:
 ## sólo dejan quieto a este jugador mientras la ve.
-func _play_cutscene(id: String) -> void:
+func _play_cutscene(id: String, start_at := 0.0) -> void:
 	if _cine.active or not Story.CUTSCENES.has(id):
 		return
+	_cine.volume = clampf(float(_settings.vol_master) * float(_settings.vol_sfx), 0.0, 1.0)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_mouse_l = false
 	_mouse_r = false
@@ -459,11 +546,19 @@ func _play_cutscene(id: String) -> void:
 	var names := {}
 	for npc in Story.NPCS:
 		names[npc] = Story.NPCS[npc].name
-	_cine.play(id, Story.CUTSCENES[id], _cam, _hud, names)
+	_cine.play(id, Story.CUTSCENES[id], _cam, _hud, names, start_at)
 
 
 func _on_cine_finished(id: String, _skipped: bool) -> void:
 	_mark_seen(id)
+	_cine_stats["video" if _cine.video_shots > 0 else "engine"] += 1
+	_cine_stats.fallbacks += _cine.fallbacks
+	_video.note("")
+	# Vuelta al juego: corte a negro (la cámara regresa detrás del personaje sin que se vea el
+	# salto) y fundido de entrada. En las compartidas la sala sigue en pausa mientras tanto.
+	if _cine.shared or _cine.ended_on_video:
+		_hud.fade_to(1.0, 0.0)
+		_cine_out = 0.35
 	if _intro_after_cine:
 		_intro_after_cine = false
 		_hud.show_intro()
@@ -711,6 +806,7 @@ func _on_message(m: Dictionary) -> void:
 				# Primera entrada de esta sesión: bienvenida con el objetivo y los controles
 				_welcomed = true
 				_metrics_begin()
+				_video.preload_clips(Story.video_ids())
 				# La primera vez, la introducción del capítulo; después, directo a los controles
 				if _cine_on and not _seen("llamado"):
 					_intro_after_cine = true
@@ -793,12 +889,21 @@ func _apply_world(w: Array, instant := false) -> void:
 	_story = int(w[10]) if w.size() > 10 else 0
 	_frozen = w.size() > 11 and int(w[11]) > 0
 	_skip_votes = int(w[12]) if w.size() > 12 else 0
+	_cine_phase = int(w[13]) if w.size() > 13 else (Story.CINE_PLAYING if _frozen else Story.CINE_NONE)
+	if _cine_phase == Story.CINE_NONE and not _prep.is_empty():
+		# La preparación se quedó sin escena (p. ej. reconexión): se vuelve al juego sin más
+		_prep = {}
+		if not _cine.active:
+			_hud.set_cine(false)
+			_hud.fade_to(0.0, 0.4)
 	if _cine.active and _cine.shared:
-		if not _frozen and not instant:
+		if _cine_phase != Story.CINE_PLAYING and not instant:
 			_cine.stop()   # el servidor ya la dio por terminada
 		else:
 			var need := Story.skip_votes_needed(_connected)
-			_hud.cine_skip_text("Votaste omitir  (%d/%d)" % [_skip_votes, need] if _skip_voted else ("Enter  ·  omitir" if _connected <= 1 else "Enter  ·  votar para omitir  (%d/%d)" % [_skip_votes, need]))
+			var note := "Votaste omitir  (%d/%d)" % [_skip_votes, need] if _skip_voted else ("Enter  ·  omitir" if _connected <= 1 else "Enter  ·  votar para omitir  (%d/%d)" % [_skip_votes, need])
+			_hud.cine_skip_text(note)
+			_video.note(note)
 	var talked := (_story & Story.F_TALKED) != 0
 	_hud.set_npc_mark("" if talked else "yaxche", Story.npc_pos("yaxche"))
 	for i in World.PLATES.size():
@@ -987,20 +1092,14 @@ func _reconcile(state: Array, ack: int) -> void:
 
 func _on_event(m: Dictionary) -> void:
 	match m.get("e"):
+		"cine_prep":
+			# Cinemática compartida: el servidor pausó la sala y espera a que los clientes se preparen
+			_begin_shared_prep(str(m.get("id", "")), float(m.get("wait", Story.CINE_PREP_MAX)))
 		"cine":
-			# Cinemática compartida: la empieza el servidor para todos
-			_skip_voted = false
-			if _cine_on and Story.CUTSCENES.has(str(m.get("id", ""))):
-				if _cine.active:
-					_intro_after_cine = false
-					_cine.stop()
-				_hud.hide_intro()
-				_hud.hide_result()
-				_hud.hide_dialogue()
-				_play_cutscene(str(m.id))
-			else:
-				_hud.hint("El grupo está viendo una escena: la partida sigue en unos segundos", 5.0)
+			# Orden de inicio: todos la empiezan al recibirla
+			_start_shared(str(m.get("id", "")), float(m.get("at", 0.0)))
 		"cine_end":
+			_prep = {}
 			if _cine.active and _cine.shared:
 				_cine.stop()
 		"story":
@@ -1439,6 +1538,7 @@ func _process(delta: float) -> void:
 		_gate_anim = minf(1.0, _gate_anim + delta * 0.8)
 	_builder.update(_time, delta, _gate_anim)
 
+	_update_cine_flow(delta)
 	if not _cine.process(delta):
 		_update_camera()
 	_update_perf(delta)
@@ -1606,12 +1706,24 @@ func _metrics_send(final: bool) -> void:
 		"rejoins": _rejoins, "wins": _m.wins, "losses": _m.losses, "falls": _m.falls, "players": _connected,
 		"renderer": _m.renderer, "build": Hud.BUILD, "final": final,
 		"audio": {"master": _settings.vol_master, "music": _settings.vol_music, "sfx": _settings.vol_sfx, "amb": _settings.vol_amb},
+		"cine": _cine_metrics(),
 	}
 	# El navegador añade resolución y estado del audio; keepalive deja terminar el envío al salir de la página
 	_js("(function(b){try{b.viewport=innerWidth+'x'+innerHeight;b.dpr=devicePixelRatio||1;" +
 		"b.audio.context=(window.ALUX_AUDIO&&ALUX_AUDIO.state)||'';" +
 		"fetch('/api/v1/telemetry',{method:'POST',keepalive:true,credentials:'same-origin'," +
 		"headers:{'content-type':'application/json','x-alux-csrf':'1'},body:JSON.stringify(b)}).catch(function(){})}catch(e){}})(%s)" % JSON.stringify(body))
+
+
+## Cinemáticas de la sesión: cuántas se vieron como vídeo, cuántas con el motor y qué falló.
+func _cine_metrics() -> Dictionary:
+	var info: Dictionary = _video.info()
+	var stats: Dictionary = info.get("stats", {})
+	var fails := []
+	for entry in info.get("log", []):
+		fails.append("%s:%s" % [str(entry.get("id", "")), str(entry.get("what", ""))])
+	return {"video": _cine_stats.video, "engine": _cine_stats.engine, "fallbacks": _cine_stats.fallbacks,
+		"bytes": int(stats.get("bytes", 0)), "preloadMs": int(stats.get("preloadMs", 0)), "fails": fails}
 
 
 func _update_perf(delta: float) -> void:
@@ -1662,6 +1774,8 @@ func _debug_export(delta: float) -> void:
 		"perf": _perf_stats(), "quality": ["high", "low", "min"][_quality],
 		"story": _story, "npc_near": _npc_near, "cine": _cine.id if _cine.active else "",
 		"frozen": _frozen, "skip_votes": _skip_votes, "skip_voted": _skip_voted,
+		"cine_phase": _cine_phase, "cine_video": _cine.using_video(), "fade": snappedf(_hud.fade_alpha(), 0.01),
+		"video": _video.info(), "cine_stats": _cine_stats, "prep": not _prep.is_empty(),
 		"ui": {"intro": _hud.intro_open(), "menu": _hud.menu_open(), "result": _hud.result_open(), "help": _hud.help_open(),
 			"dialog": _hud.dialogue_open(), "cine": _hud.cine_open(),
 			"objective": _hud.objective_text(), "captured": Input.mouse_mode == Input.MOUSE_MODE_CAPTURED},

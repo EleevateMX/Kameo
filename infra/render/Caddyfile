@@ -41,7 +41,13 @@
 	# así una versión nueva llega sin que nadie tenga que vaciar la caché.
 	handle /game/* {
 		root * /app/apps/portal/public
-		header Cache-Control "public, max-age=0, must-revalidate"
+		# Vídeos de las cinemáticas: cada uno se pide con su versión (?v=…, del manifiesto), así que
+		# el navegador puede guardarlos un año sin volver a preguntar. Lo demás (incluido el
+		# manifiesto) se revalida en cada visita.
+		@cinevideo path_regexp \.(mp4|webm)$
+		@gamefiles not path_regexp \.(mp4|webm)$
+		header @gamefiles Cache-Control "public, max-age=0, must-revalidate"
+		header @cinevideo Cache-Control "public, max-age=31536000, immutable"
 		file_server {
 			precompressed br gzip
 		}

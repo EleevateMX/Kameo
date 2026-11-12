@@ -9,5 +9,10 @@ mkdir -p "$OUT"
 "$GODOT" --headless --path "$ROOT/game" --import >/dev/null 2>&1 || true
 "$GODOT" --headless --path "$ROOT/game" --export-release "Web" "$OUT/index.html"
 [ -f "$OUT/index.wasm" ] || { echo "La exportación no generó index.wasm"; exit 1; }
+# Archivos que acompañan al juego sin pasar por el motor: el puente de vídeo de las cinemáticas
+# y los vídeos con su manifiesto (game/web/static/video).
+rm -rf "$OUT/video"
+cp -R "$ROOT/game/web/static/." "$OUT/"
+rm -f "$OUT/.gdignore"
 echo "Juego exportado en $OUT"
 ls -lh "$OUT" | tail -n +2

@@ -16,7 +16,7 @@ const World := preload("res://scripts/shared/world_def.gd")
 const Kit := preload("res://scripts/client/ui/ui_kit.gd")
 
 ## Nombre de la build, visible en el menú para que quien pruebe pueda citarla al reportar.
-const BUILD := "ALUX Alpha 0.2 (en desarrollo)"
+const BUILD := "ALUX Alpha 0.3 (en desarrollo)"
 const FORM_ACCENT := {"alux": Kit.JADE, "balam": Kit.AMBER}
 const KEY_HINTS := ["Clic · J", "Clic der. · K", "F"]
 
@@ -328,6 +328,8 @@ var _play: Control            # todo lo que se oculta durante una cinemática
 var _bars: Array[ColorRect] = []
 var _cine := false
 var _cine_k := 0.0
+var _fade: ColorRect
+var _fade_tween: Tween
 var _cine_sub: Label
 var _cine_who: Label
 var _cine_title: Label
@@ -458,8 +460,15 @@ func _ready() -> void:
 	col.add_child(_overlay_buttons)
 
 
-## Cinemáticas (franjas, subtítulos, rótulo) y caja de diálogo.
+## Cinemáticas (fundido, franjas, subtítulos, rótulo) y caja de diálogo.
 func _build_story(root: Control) -> void:
+	# Fundido a negro para entrar y salir de las cinemáticas (por debajo de sus textos)
+	_fade = ColorRect.new()
+	_fade.color = Color(0, 0, 0, 0)
+	_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fade.visible = false
+	root.add_child(_fade)
 	for top in [true, false]:
 		var bar := ColorRect.new()
 		bar.color = Color(0.01, 0.02, 0.02)
@@ -1219,6 +1228,25 @@ func set_cine(on: bool, skippable := true) -> void:
 
 func cine_open() -> bool:
 	return _cine
+
+
+## Funde la imagen del juego hacia negro (alpha 1) o de vuelta (alpha 0) en `secs` segundos.
+func fade_to(alpha: float, secs: float) -> void:
+	if _fade_tween != null and _fade_tween.is_valid():
+		_fade_tween.kill()
+	_fade.visible = true
+	if secs <= 0.0:
+		_fade.color.a = alpha
+		_fade.visible = alpha > 0.0
+		return
+	_fade_tween = create_tween()
+	_fade_tween.tween_property(_fade, "color:a", alpha, secs)
+	if alpha <= 0.0:
+		_fade_tween.tween_callback(func() -> void: _fade.visible = false)
+
+
+func fade_alpha() -> float:
+	return _fade.color.a if _fade.visible else 0.0
 
 
 ## Texto del aviso de omitir (en las compartidas muestra el recuento de votos).

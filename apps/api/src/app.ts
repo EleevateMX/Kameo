@@ -148,6 +148,7 @@ export function createApp(store: Store, config: Config) {
     if (typeof b.sid !== 'string' || !UUID_RE.test(b.sid)) return res.status(400).json({ error: 'invalid_session' });
     const quality = ['high', 'low', 'min'].includes(b.quality as string) ? (b.quality as string) : '';
     const audio = (b.audio ?? {}) as Record<string, unknown>;
+    const cine = (b.cine ?? {}) as Record<string, unknown>;
     const metrics = {
       sessionId: b.sid.toLowerCase(), playerId,
       room: text(b.room, 12).toUpperCase().replace(/[^A-Z0-9]/g, ''),
@@ -164,6 +165,10 @@ export function createApp(store: Store, config: Config) {
         viewport: text(b.viewport, 16), dpr: num(b.dpr, 0, 16), renderer: text(b.renderer, 160),
         audio: { master: num(audio.master, 0, 1), music: num(audio.music, 0, 1), sfx: num(audio.sfx, 0, 1), amb: num(audio.amb, 0, 1),
           context: text(audio.context, 16) },
+        // Cinemáticas: cuántas se vieron como vídeo o con el motor, y qué falló al cargar o reproducir
+        cine: { video: num(cine.video, 0, 1000), engine: num(cine.engine, 0, 1000), fallbacks: num(cine.fallbacks, 0, 1000),
+          bytes: num(cine.bytes, 0, 1e9), preloadMs: num(cine.preloadMs, 0, 3_600_000),
+          fails: Array.isArray(cine.fails) ? cine.fails.slice(0, 8).map((f) => text(f, 48)) : [] },
         build: text(b.build, 40), final: b.final === true,
         ua: text(req.headers['user-agent'], 200),
       },
@@ -172,7 +177,8 @@ export function createApp(store: Store, config: Config) {
     // Una línea por informe en el registro del servicio: se puede seguir sin abrir la base de datos.
     console.log(`[metrics] ${JSON.stringify({ player: playerId.slice(0, 8), sid: metrics.sessionId.slice(0, 8), room: metrics.room,
       q: quality, auto: metrics.data.qualityAuto, fps: metrics.fpsAvg, fpsMin: metrics.fpsMin, ping: metrics.pingAvg, pingMax: metrics.pingMax,
-      loadMs: metrics.loadMs, s: metrics.seconds, heapMb: metrics.data.heapMb, rejoins: metrics.data.rejoins, final: metrics.data.final })}`);
+      loadMs: metrics.loadMs, s: metrics.seconds, heapMb: metrics.data.heapMb, rejoins: metrics.data.rejoins,
+      cine: metrics.data.cine, final: metrics.data.final })}`);
     res.json({ ok: true });
   });
 

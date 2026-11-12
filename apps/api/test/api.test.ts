@@ -116,7 +116,8 @@ function suite(label: string, makeStore: () => Promise<Store>) {
       assert.equal((await fetch(`${base}/v1/telemetry`, { method: 'POST', body: '{}' })).status, 401);
       assert.equal((await a.call('POST', '/v1/telemetry', { sid: 'no-es-uuid' })).status, 400);
       const report = { sid, room: 'abc123', quality: 'low', qualityAuto: true, fpsAvg: 48.2, fpsMin: 31, pingAvg: 62, pingMax: 140,
-        loadMs: 8421.7, seconds: 60, heapMb: 210, viewport: '1920x1080', renderer: 'ANGLE (x)', audio: { master: 0.8, context: 'running' } };
+        loadMs: 8421.7, seconds: 60, heapMb: 210, viewport: '1920x1080', renderer: 'ANGLE (x)', audio: { master: 0.8, context: 'running' },
+        cine: { video: 1, engine: 2, fallbacks: 1, bytes: 1_800_000, preloadMs: 950, fails: ['sello_2:atascado', 7, 'x'.repeat(200)] } };
       assert.equal((await a.call('POST', '/v1/telemetry', report)).status, 200);
       assert.equal((await a.call('POST', '/v1/telemetry', { ...report, seconds: 9e9, fpsAvg: 'mucho', quality: 'ultra', final: true })).status, 200);
       // Otro jugador no puede pisar la sesión de alguien más
@@ -130,6 +131,10 @@ function suite(label: string, makeStore: () => Promise<Store>) {
       assert.equal(mine[0].room, 'ABC123');
       assert.equal(mine[0].loadMs, 8422);
       assert.equal((mine[0].data as any).final, true);
+      // Cinemáticas: cuántas se vieron como vídeo o con el motor y qué falló, con los textos acotados
+      const cine = (mine[0].data as any).cine;
+      assert.deepEqual([cine.video, cine.engine, cine.fallbacks, cine.bytes, cine.preloadMs], [1, 2, 1, 1_800_000, 950]);
+      assert.deepEqual([cine.fails[0], cine.fails[1], cine.fails[2].length], ['sello_2:atascado', '', 48]);
       const health = await (await fetch(`${base}/health`)).json();
       assert.deepEqual(health, { ok: true, db: true, commit: 'abc1234' });
     });

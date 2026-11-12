@@ -8,12 +8,17 @@ extends RefCounted
 ## Dos clases de cinemática (docs/CINEMATICS.md):
 ##  - local: cada jugador la ve en su pantalla y puede omitirla; la partida de los demás sigue.
 ##  - compartida: la empieza y la termina el servidor para todos; omitirla es un voto.
-##    (Prevista para el jefe; todavía no hay ninguna.)
+##
+## Un plano puede llevar un vídeo (campo `video`). Si el navegador lo tiene listo se muestra
+## encima del juego mientras dura el plano; el plano del motor sigue corriendo por debajo, así que
+## si el vídeo falta, falla o se atasca basta con quitarlo para seguir viendo la escena.
 
 const World := preload("res://scripts/shared/world_def.gd")
 const Audio := preload("res://scripts/client/audio.gd")
 
 signal finished(id: String, skipped: bool)
+## El vídeo tapa (o deja de tapar) el juego: sirve para no dibujar el mundo mientras no se ve.
+signal covered(on: bool)
 
 var active := false
 var id := ""
@@ -26,9 +31,20 @@ var _hud: Node
 var _names := {}
 var _fov_before := 62.0
 
+## Puente de vídeo (video_bridge.gd) y volumen con el que suenan los vídeos que traen sonido.
+var video: RefCounted
+var volume := 1.0
+## Para las métricas: planos que se vieron como vídeo y veces que hubo que volver al motor.
+var video_shots := 0
+var fallbacks := 0
+var ended_on_video := false
+var _video_on := false
+var _poll := 0.0
+
 
 ## names: id de personaje -> nombre que se muestra en los subtítulos.
-func play(p_id: String, script: Dictionary, cam: Camera3D, hud: Node, names := {}) -> void:
+## start_at: segundos ya transcurridos (quien llega a mitad de una compartida se engancha ahí).
+func play(p_id: String, script: Dictionary, cam: Camera3D, hud: Node, names := {}, start_at := 0.0) -> void:
 	id = p_id
 	shared = bool(script.get("shared", false))
 	_shots = script.get("shots", [])
@@ -36,6 +52,9 @@ func play(p_id: String, script: Dictionary, cam: Camera3D, hud: Node, names := {
 	_hud = hud
 	_names = names
 	_fov_before = cam.fov
+	video_shots = 0
+	fallbacks = 0
+	ended_on_video = false
 	_i = -1
 	_t = 0.0
 	active = not _shots.is_empty()
@@ -43,22 +62,57 @@ func play(p_id: String, script: Dictionary, cam: Camera3D, hud: Node, names := {
 		finished.emit(id, false)
 		return
 	hud.set_cine(true, true)
-	_next()
+	# Salta los planos que ya pasaron
+	var skip := maxf(start_at, 0.0)
+	while _i + 1 < _shots.size() - 1 and skip >= float(_shots[_i + 1].get("dur", 4.0)):
+		skip -= float(_shots[_i + 1].get("dur", 4.0))
+		_i += 1
+	_next(skip)
 
 
-func _next() -> void:
+func _next(offset := 0.0) -> void:
 	_i += 1
-	_t = 0.0
+	_t = offset
 	if _i >= _shots.size():
 		_end(false)
 		return
 	var shot: Dictionary = _shots[_i]
+	var dur := maxf(0.1, float(shot.get("dur", 4.0)))
+	# Vídeo del plano, si está listo; si no, se ve el plano del motor
+	var clip := str(shot.get("video", ""))
+	if not clip.is_empty() and video != null and video.status(clip) == "ready" and video.show(clip, volume, offset):
+		video_shots += 1
+		_poll = 0.6
+		if not _video_on:
+			_video_on = true
+			covered.emit(true)
+	elif _video_on:
+		_drop_video(true)
 	var who := str(shot.get("who", ""))
-	_hud.cine_subtitle(str(_names.get(who, "")) if not who.is_empty() else "", str(shot.get("text", "")))
-	_hud.cine_title(str(shot.get("title", "")))
-	if shot.has("sound"):
+	var speaker := str(_names.get(who, "")) if not who.is_empty() else ""
+	var text := str(shot.get("text", ""))
+	var title := str(shot.get("title", ""))
+	_hud.cine_subtitle(speaker, text)
+	_hud.cine_title(title)
+	if video != null:
+		video.caption(speaker, text)
+		video.title(title)
+	if shot.has("sound") and offset < 0.5:
 		Audio.play(str(shot.sound), null, -6.0, 0.0)
-	_apply(0.0)
+	_apply(clampf(_t / dur, 0.0, 1.0))
+
+
+## Quita el vídeo y deja a la vista la escena del motor.
+func _drop_video(instant: bool) -> void:
+	if not _video_on:
+		return
+	_video_on = false
+	covered.emit(false)
+	video.hide(instant)
+
+
+func using_video() -> bool:
+	return _video_on
 
 
 ## Avanza la cinemática. Devuelve true mientras siga controlando la cámara.
@@ -68,6 +122,14 @@ func process(delta: float) -> bool:
 	var shot: Dictionary = _shots[_i]
 	_t += delta
 	var dur := maxf(0.1, float(shot.get("dur", 4.0)))
+	if _video_on:
+		# El vídeo tiene que avanzar: si falla o se atasca, se sigue con el motor sin detener nada
+		_poll -= delta
+		if _poll <= 0.0:
+			_poll = 0.3
+			if video.tick() < 0.0:
+				fallbacks += 1
+				_drop_video(true)
 	_apply(clampf(_t / dur, 0.0, 1.0))
 	if _t >= dur:
 		_next()
@@ -101,6 +163,8 @@ func stop() -> void:
 
 func _end(skipped: bool) -> void:
 	active = false
+	ended_on_video = _video_on
+	_drop_video(false)   # con fundido a negro: quien la usa decide cómo se vuelve al juego
 	_cam.fov = _fov_before
 	_hud.set_cine(false)
 	finished.emit(id, skipped)
