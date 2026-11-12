@@ -5,10 +5,10 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 
 | Versión | Estado | Contenido |
 | --- | --- | --- |
-| Closed Alpha 0.1 | **Publicada** en <https://alux-beta.onrender.com> | Claro de los Aluxes jugable de 1 a 4, combate, emboscada, victoria y derrota, audio provisional, acceso por invitación |
-| Alpha 0.2 (incrementos 1 y 2) | **Candidata**: rama `release/alpha-0.2-rc1` (commit `ddb1aa9`). **Sin publicar**: `beta` sigue en la 0.1 | Introducción «El llamado», Chiich Yaxché con modelo propio y diálogo, primer objetivo narrativo, cinemáticas locales y compartidas con voto, progreso del capítulo en el perfil |
+| Closed Alpha 0.1 | Publicada el 12 nov 2026; **sustituida por la 0.2**. Commit `12fadbe`: es el punto de rollback | Claro de los Aluxes jugable de 1 a 4, combate, emboscada, victoria y derrota, audio provisional, acceso por invitación |
+| **Closed Alpha 0.2** | **Publicada** el 12 nov 2026 en <https://alux-beta.onrender.com> (commit `c28e32c`) | Introducción «El llamado», Chiich Yaxché con modelo propio y diálogo, primer objetivo narrativo, cinemáticas locales y compartidas con voto, progreso del capítulo en el perfil |
 
-| Alpha 0.3 (incremento 1) | En la rama de trabajo, **sin publicar** | Sistema cinematográfico híbrido: vídeo en el navegador con respaldo del motor, fases de preparación y reanudación, fundidos, referencias y storyboard de «El sello cede» |
+| Alpha 0.3 (incrementos 1 y 2) | En la rama de trabajo, **sin publicar** | Sistema cinematográfico híbrido (vídeo en el navegador con respaldo del motor, fases, fundidos) y **«El sello cede» producida con Kling** |
 
 ## Publicación en la rama `beta`
 
@@ -17,6 +17,40 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
+
+## Alpha 0.3 — incremento 2: «El sello cede» con Kling (en desarrollo, sin publicar)
+
+La primera cinemática producida con Kling, integrada sobre el sistema del incremento 1.
+Producción completa: [art/cinematicas/sello/kling/PRODUCCION.md](../art/cinematicas/sello/kling/PRODUCCION.md).
+
+![Los tres planos dentro del juego, con sus subtítulos](img/sello-kling-en-juego.jpg)
+
+| Novedad | Detalle |
+| --- | --- |
+| «El sello cede» en vídeo | 10 s en tres planos (la barrera reacciona, el sello se rompe, algo despierta), en el tratamiento enriquecido: misma arquitectura del juego con luz, materiales y partículas de cine. 2.6 MB en MP4, 2.0 MB en WebM |
+| Dos tratamientos | También se produjo el fiel al juego, para comparar; está guardado y se puede cambiar sustituyendo tres archivos |
+| Guion del motor | Mismos tres planos y cámaras, como respaldo. El portal se abre a la vista en el plano 2 y al volver ya está abierto |
+| Reloj real | La escena se mide con el reloj y no sumando cuadros: un navegador lento ya no pierde el último plano |
+| Decodificación bajo demanda | Los vídeos se descargan al entrar, pero su decodificador se crea justo antes de la escena y se libera al terminar |
+| Créditos | 284 de los 500 autorizados; saldo 2 375 |
+
+| Comprobación (en local) | Resultado |
+| --- | --- |
+| API, simulación, servidor con bots | 10 de 10 · sin violaciones · 14 de 14 |
+| Vídeos reales de Kling en un navegador | Pasa: los tres planos se ven como vídeo con sus subtítulos, la escena dura lo que su guion, no hay fallos registrados y se vuelve al juego con el santuario abierto y la emboscada |
+| Casos de fallo (vídeos de prueba) | 5 de 5: reproducción, archivo ausente y corrupto, descarga lenta, vídeo atascado, omitir a mitad; al terminar no queda ningún decodificador abierto |
+| Flujo completo (un navegador y tres bots) | Pasa, con la escena compartida y su voto |
+| Cuatro navegadores (movimiento, combate, reconexión) | Pasa, con los vídeos reales presentes |
+| Cuatro navegadores viendo la escena (`test:cine-coop`) | **Inestable en este entorno.** Con el incremento 1 pasó dos veces seguidas; con esta versión, en una ejecución los cuatro llegaron a la escena (vídeo, vídeo, motor, motor) y en tres la prueba se agotó **antes** de la escena, al no conseguir parar a los cuatro personajes sobre sus altares a 1 cuadro por segundo. Hay que repetirla con tarjeta gráfica |
+| Descarga | 2.63 MB más (MP4) por jugador, en segundo plano y con prioridad baja; el juego no espera por ella |
+
+**Un problema encontrado y corregido:** con los tres vídeos reales precargados como elementos de vídeo
+vivos, la prueba de cuatro navegadores dejó de pasar (los personajes no llegaban a su destino). Sin
+el manifiesto, pasaba. Por eso la decodificación es ahora bajo demanda; con el cambio vuelve a pasar.
+Es una medición sin tarjeta gráfica, pero apunta a un costo real en equipos modestos.
+
+**Sin comprobar:** con tarjeta gráfica y con personas; Safari y Firefox; cuatro personas viendo la
+escena a la vez; nada de esto en Render (la beta lleva la 0.2, sin estos vídeos).
 
 ## Alpha 0.3 — incremento 1: cinemáticas híbridas (en desarrollo, sin publicar)
 
@@ -60,13 +94,60 @@ van a 1–2 cuadros por segundo y la escena acaba antes de que lleguen los votos
 bots); la reconexión a mitad de escena en un navegador (cubierta con bots); nada de esto en Render
 (no está publicada).
 
-## Alpha 0.2 — La abuela del claro (candidata, sin publicar)
+## ALUX Closed Alpha 0.2
 
-**Rama candidata:** `release/alpha-0.2-rc1`, en el commit `ddb1aa9`. Antes de crearla se repitieron
-sobre ese commit las pruebas de API, simulación, servidor, flujo y cuatro navegadores, la revisión de
-secretos y la prueba de la imagen desplegable (migraciones, acceso sólo con invitación, HTTPS/WSS,
-partida, reconexión, métricas y persistencia tras reiniciar). **No está publicada:** publicar es
-llevar ese commit a `beta`, y eso espera tu autorización.
+| | |
+| --- | --- |
+| **Código de la versión** | `ddb1aa9980a6b7074e7cf674d028acab7425fa34` (rama candidata `release/alpha-0.2-rc1`) |
+| **Commit publicado en `beta`** | `c28e32c42925ae3c27b73b763772c84df8709a04`: el siguiente a ese; añade este registro y el nombre de la versión en el juego y en el portal. Es el que informa `/healthz`. |
+| **Fecha** | 12 de noviembre de 2026 |
+| **Autorizada por** | El dueño del proyecto, el 12 de noviembre de 2026 |
+| **Base de datos** | Sin cambios: no hay migraciones nuevas respecto a la 0.1. |
+| **Recursos** | Los mismos dos de la 0.1; no se crea ninguno. |
+
+**Comprobado sobre el código de la versión, en una copia limpia, antes de publicar:** API (10 de 10),
+simulación (427 840 comprobaciones sin violaciones), servidor con bots (13 de 13), flujo completo en
+navegador (14 pasos), cuatro navegadores (10 pasos), revisión de secretos y la imagen desplegable
+(migraciones, acceso sólo con invitación, HTTPS/WSS, partida, reconexión, métricas y persistencia
+tras reiniciar).
+
+**Volver a la 0.1:** en Render → `alux-beta` → **Events** → el despliegue del commit `12fadbe` →
+**Rollback**; o, desde Git, `git push origin 12fadbec9be468036f05b551c87282d19fcaca6f:beta --force-with-lease`. La base de datos no necesita nada:
+el esquema es el mismo. Detalle en [beta.md](beta.md), sección 9.
+
+**Comprobado después de desplegar, contra <https://alux-beta.onrender.com>:**
+
+| Comprobación | Resultado |
+| --- | --- |
+| Versión en servicio | `/healthz` informa `c28e32c`; base de datos respondiendo |
+| HTTPS, cabeceras y cierre sin sesión | Pasa: sin entrada anónima, rutas internas cerradas, códigos inventados rechazados |
+| WSS | `wss://alux-beta.onrender.com/ws` abre y rechaza tickets falsos |
+| Invitación | Entra con un código vigente; el perfil se guarda |
+| Partida por WebSocket | 15 estados por segundo, latencia de 57 ms, reconexión tras un corte en el mismo sitio |
+| Métricas de sesión | Recibidas y guardadas |
+| Navegador real, un jugador | Pasa la sesión completa: carga (18 s), audio, menú, altar, emboscada, derrota, reintento y salida |
+| Cinemáticas en navegador real | «El llamado» se reproduce al entrar y se omite; «El sello cede» pausa la sala, se ve y la partida sigue con la emboscada |
+
+**Sin comprobar en el servicio:** de dos a cuatro jugadores a la vez (sólo hay una invitación de
+comprobación; hacen falta testers o más invitaciones), los registros de Render (no hay acceso desde
+aquí) y cualquier navegador con tarjeta gráfica.
+
+**Etiquetas de versión:** `alpha-0.1` (`12fadbe`) y `alpha-0.2` (`c28e32c`) están creadas pero **no se
+pudieron subir**: el servicio de Git de este entorno rechazó la subida de etiquetas. Para crearlas:
+
+```bash
+git tag -a alpha-0.1 12fadbec9be468036f05b551c87282d19fcaca6f -m "ALUX Closed Alpha 0.1"
+```
+
+```bash
+git tag -a alpha-0.2 c28e32c42925ae3c27b73b763772c84df8709a04 -m "ALUX Closed Alpha 0.2"
+```
+
+```bash
+git push origin alpha-0.1 alpha-0.2
+```
+
+## Alpha 0.2 — La abuela del claro (contenido)
 
 **Incremento 1.** No toca el protocolo existente: añade un mensaje (`talk`), un evento (`story`) y un
 valor al estado del mundo. Un cliente de la 0.1 seguiría funcionando contra este servidor.
