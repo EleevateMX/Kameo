@@ -47,12 +47,12 @@ cliente anterior ignora lo que no conoce. Recompensa nueva en el catálogo (`plu
 
 | Comprobación | Resultado |
 | --- | --- |
-| API | @@API@@ |
-| Simulación compartida | @@SIM@@ |
-| Servidor con bots | @@PROTO@@ |
+| API | 11 de 11 (nueva: la Pluma de Jade se da una vez por jugador aunque la gane en varias salas, queda en su perfil y no desbloquea formas) |
+| Simulación compartida | 427 840 comprobaciones, sin violaciones |
+| Servidor con bots | 17 de 17. El combate completo con 1, 2 y 4 jugadores: las tres fases, mensajes inventados ignorados, nadie se teletransporta en la transición, reintento desde la fase 2, una caída de la sala y un jugador lejos que no bloquean el ritual, una sola petición de Pluma de Jade para todos, pista del Cenote única, cada cinemática una vez por sala y el combate empezando donde acaba «El despertar» |
 | Navegador, combate completo (`npm run test:boss`) | Una jugadora en un navegador real y tres compañeros: las tres fases, las dos cinemáticas, panel «Capítulo I completado», Pluma de Jade guardada en el perfil y pista del Cenote. La jugadora toca al guardián manteniendo F |
-| Navegador, resto | @@NAV@@ |
-| Vídeos | @@VID@@ |
+| Navegador, resto | Flujo de playtest (15 pasos, con el despertar y su cinemática), cuatro navegadores (10 pasos: sincronía, reconexión, quinto jugador rechazado) y vídeo (6 casos: vídeos reales, archivo ausente o corrupto, descarga lenta, vídeo atascado y omitir): pasan |
+| Vídeos | Los diez clips del guion están en el manifiesto, en MP4 y WebM; las dos cinemáticas del jefe se ven como vídeo en el navegador y, sin vídeo, con el motor |
 
 ### Rendimiento medido
 
@@ -63,7 +63,7 @@ cliente anterior ignora lo que no conoce. Recompensa nueva en el catálogo (`plu
 | Escenas completas (calidad alta) | Fase 1: 270 llamadas · fase 2: 295–304 · fase 3: 282 · liberado: 88 |
 | Navegador de pruebas (render por software, calidad mínima, cuatro jugadores) | 309 llamadas de dibujo al final del combate; 1–3 FPS, como el resto del juego en este entorno: **no es representativo** de un equipo con tarjeta gráfica |
 | Carga del juego en el navegador de pruebas | 8–12 s hasta estar jugando |
-| Descarga | @@DESCARGA@@ |
+| Descarga | Cliente: 9.7 MB con Brotli (8.2 MB en la 0.2; la diferencia son los sonidos y el modelo). Vídeos del jefe: 3.7 MB más en MP4 o 2.2 MB en WebM, en segundo plano |
 
 ### Rollback
 
@@ -72,7 +72,7 @@ sentidos (no hay migraciones); quien ya tenga la Pluma de Jade la conserva en la
 aunque la 0.2.1 no la muestre.
 
 **Sin comprobar:** el combate con personas (ritmo, dificultad, si las pistas bastan); con tarjeta
-gráfica, en Safari o Firefox; la imagen de despliegue de esta versión @@IMAGEN@@.
+gráfica, en Safari o Firefox. La imagen de despliegue de esta versión sí se construyó y pasó sus comprobaciones en local (commit `dd78108`: migraciones, invitación, HTTPS y WSS a través de dos proxies, partida, reconexión, métricas, persistencia tras reiniciar y límite de intentos; 272 MB de memoria recién arrancada, de 512), pero **no se ha desplegado en Render**.
 
 ## ALUX Closed Alpha 0.2.1
 
