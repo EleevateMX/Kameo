@@ -5,7 +5,7 @@
     "tipo": "música",
     "bus": "Music",
     "duracion_s": 58.6,
-    "bytes": 918960,
+    "bytes": 955379,
     "origen": "síntesis propia: art/audio/gen_musica.py, función mus_claro()",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
@@ -19,7 +19,7 @@
     "tipo": "música",
     "bus": "Music",
     "duracion_s": 58.6,
-    "bytes": 934645,
+    "bytes": 960808,
     "origen": "síntesis propia: art/audio/gen_musica.py, función mus_exploracion()",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
@@ -33,7 +33,7 @@
     "tipo": "música",
     "bus": "Music",
     "duracion_s": 39.4,
-    "bytes": 555632,
+    "bytes": 544330,
     "origen": "síntesis propia: art/audio/gen_musica.py, función mus_peligro()",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
@@ -47,7 +47,7 @@
     "tipo": "música",
     "bus": "Music",
     "duracion_s": 39.4,
-    "bytes": 769367,
+    "bytes": 743753,
     "origen": "síntesis propia: art/audio/gen_musica.py, función mus_emboscada()",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
@@ -61,7 +61,7 @@
     "tipo": "música",
     "bus": "Music",
     "duracion_s": 57.0,
-    "bytes": 869745,
+    "bytes": 896166,
     "origen": "síntesis propia: art/audio/gen_musica.py, función mus_jefe()",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
@@ -75,7 +75,7 @@
     "tipo": "música",
     "bus": "Music",
     "duracion_s": 45.8,
-    "bytes": 783835,
+    "bytes": 807461,
     "origen": "síntesis propia: art/audio/gen_musica.py, función mus_jefe_furia()",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
@@ -89,7 +89,7 @@
     "tipo": "música",
     "bus": "Music",
     "duracion_s": 58.6,
-    "bytes": 920642,
+    "bytes": 933393,
     "origen": "síntesis propia: art/audio/gen_musica.py, función mus_recuerdo()",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
@@ -103,7 +103,7 @@
     "tipo": "música",
     "bus": "Music",
     "duracion_s": 52.2,
-    "bytes": 834908,
+    "bytes": 852281,
     "origen": "síntesis propia: art/audio/gen_musica.py, función mus_liberacion()",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
@@ -117,7 +117,7 @@
     "tipo": "música",
     "bus": "Music",
     "duracion_s": 10.5,
-    "bytes": 138036,
+    "bytes": 141818,
     "origen": "síntesis propia: art/audio/gen_musica.py, función mus_victoria()",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
@@ -131,7 +131,7 @@
     "tipo": "música",
     "bus": "Music",
     "duracion_s": 58.6,
-    "bytes": 920643,
+    "bytes": 942405,
     "origen": "síntesis propia: art/audio/gen_musica.py, función mus_lobby()",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [

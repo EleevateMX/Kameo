@@ -9,9 +9,9 @@
         58.1
       ],
       "seconds": 58.6,
-      "bytes": 918960,
+      "bytes": 955379,
       "lufs": -20.0,
-      "peak_db": -7.2,
+      "peak_db": -7.3,
       "bpm": 75,
       "key": "re menor pentatónica"
     },
@@ -23,9 +23,9 @@
         58.1
       ],
       "seconds": 58.6,
-      "bytes": 934645,
+      "bytes": 960808,
       "lufs": -20.0,
-      "peak_db": -6.9,
+      "peak_db": -7.7,
       "bpm": 75,
       "key": "re menor pentatónica"
     },
@@ -37,9 +37,9 @@
         38.9
       ],
       "seconds": 39.4,
-      "bytes": 555632,
+      "bytes": 544330,
       "lufs": -20.0,
-      "peak_db": -5.8,
+      "peak_db": -5.2,
       "bpm": 75,
       "key": "re (dron, con segunda menor y tritono)"
     },
@@ -51,9 +51,9 @@
         38.9
       ],
       "seconds": 39.4,
-      "bytes": 769367,
+      "bytes": 743753,
       "lufs": -18.0,
-      "peak_db": -2.7,
+      "peak_db": -4.2,
       "bpm": 150,
       "key": "re menor"
     },
@@ -65,9 +65,9 @@
         56.5
       ],
       "seconds": 57.0,
-      "bytes": 869745,
+      "bytes": 896166,
       "lufs": -18.0,
-      "peak_db": -5.2,
+      "peak_db": -4.5,
       "bpm": 120,
       "key": "re menor"
     },
@@ -79,9 +79,9 @@
         45.3
       ],
       "seconds": 45.8,
-      "bytes": 783835,
+      "bytes": 807461,
       "lufs": -18.0,
-      "peak_db": -5.6,
+      "peak_db": -5.9,
       "bpm": 150,
       "key": "re menor"
     },
@@ -93,9 +93,9 @@
         58.1
       ],
       "seconds": 58.6,
-      "bytes": 920642,
+      "bytes": 933393,
       "lufs": -20.0,
-      "peak_db": -8.1,
+      "peak_db": -7.0,
       "bpm": 75,
       "key": "fa mayor"
     },
@@ -107,7 +107,7 @@
         51.7
       ],
       "seconds": 52.2,
-      "bytes": 834908,
+      "bytes": 852281,
       "lufs": -20.0,
       "peak_db": -8.0,
       "bpm": 75,
@@ -118,9 +118,9 @@
       "bus": "Music",
       "loop": null,
       "seconds": 10.5,
-      "bytes": 138036,
+      "bytes": 141818,
       "lufs": -18.0,
-      "peak_db": -3.4,
+      "peak_db": -3.0,
       "bpm": 120,
       "key": "fa mayor"
     },
@@ -132,9 +132,9 @@
         58.1
       ],
       "seconds": 58.6,
-      "bytes": 920643,
+      "bytes": 942405,
       "lufs": -20.0,
-      "peak_db": -7.2,
+      "peak_db": -6.6,
       "bpm": 75,
       "key": "fa mayor"
     }

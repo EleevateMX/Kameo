@@ -169,13 +169,6 @@ def fase_de(f) -> np.ndarray:
     return DOS_PI * np.cumsum(f) / SR
 
 
-def glis(f0, f1, seg):
-    """Seno con barrido exponencial de f0 a f1."""
-    n = n_(seg)
-    u = np.arange(n) / n
-    return np.sin(fase_de(f0 * (f1 / f0) ** u))
-
-
 def panear(x, pan):
     """Mono → estéreo con ley de potencia constante. pan: -1 izquierda, 0 centro, +1 derecha."""
     a = (np.clip(pan, -1.0, 1.0) + 1.0) * np.pi / 4.0
@@ -405,7 +398,7 @@ def sonaja(seg, g, lo=3000.0, hi=11000.0, tau=0.03, ataque=0.006):
     n = n_(seg)
     t = t_(n)
     y = ruido(n, g, lo, hi, orden=3)
-    grano = np.clip(0.6 + 0.8 * ruido(n, g, 40.0, 400.0), 0.0, None) ** 1.5
+    grano = np.clip(0.7 + 0.6 * ruido(n, g, 40.0, 400.0), 0.1, 2.2)
     return y * grano * rampa(n, ataque) * np.exp(-t / tau) * salida(n, seg / 4)
 
 
@@ -567,8 +560,8 @@ def dron_peligro(seg, g):
 
     f0 = midi(38)
     y = np.zeros((2, n))
-    parciales = ((0.5, 0.30), (1.0, 1.0), (1.0035, 0.6), (1.5, 0.22), (2.0, 0.45), (2.006, 0.30),
-                 (3.0, 0.25), (4.0, 0.14), (5.0, 0.09), (6.0, 0.07), (7.0, 0.04), (9.0, 0.03))
+    parciales = ((0.5, 0.25), (1.0, 0.8), (1.0035, 0.5), (1.5, 0.22), (2.0, 0.55), (2.006, 0.35),
+                 (3.0, 0.35), (4.0, 0.20), (5.0, 0.12), (6.0, 0.09), (7.0, 0.05), (9.0, 0.04))
     for i, (razon, amp) in enumerate(parciales):
         voz = amp * (0.75 + 0.25 * ciclo(1 + i % 3, 1.3 * i)) * np.sin(DOS_PI * q(f0 * razon) * t + i)
         y += panear(voz, 0.5 * np.sin(2.1 * i))
@@ -583,6 +576,19 @@ def dron_peligro(seg, g):
     for canal in (0, 1):
         aire = 0.6 * comun + 0.8 * ruido(n, g, 150.0, 900.0, color=1.5)
         y[canal] += 0.16 * aire * np.clip(0.6 + 0.5 * ciclo(2, 0.3 + canal) + 0.3 * lento(n, g, 0.1, 0.8), 0.0, None)
+    return y
+
+
+def viento(seg, g, lo=250.0, hi=7000.0):
+    """Colchón de aire (estéreo, periódico en `seg`): ruido rosa que respira despacio."""
+    n = n_(seg)
+    t = t_(n)
+    comun = ruido(n, g, lo, hi, color=1.0)
+    y = np.zeros((2, n))
+    for canal in (0, 1):
+        soplo = 0.6 * comun + 0.8 * ruido(n, g, lo, hi, color=1.0)
+        onda = 0.55 + 0.25 * np.sin(DOS_PI * 3 * t / seg + 1.0 + canal) + 0.15 * np.sin(DOS_PI * 7 * t / seg + 2.0 * canal)
+        y[canal] = soplo * np.clip(onda + 0.12 * lento(n, g, 0.1, 0.9), 0.05, None)
     return y
 
 
@@ -770,10 +776,21 @@ class Pista:
         return seco + rev * humedo
 
 
-def masterizar(x, lufs, techo_db, circular):
-    """Corta subgraves y ultrasonidos, quita la continua, ajusta la sonoridad y limita los picos."""
-    x = filtrar(x, 35.0, None, orden=3, circular=circular)
-    x = filtrar(x, None, 16000.0, orden=4, circular=circular)
+def masterizar(x, lufs, techo_db, circular, aire_db=0.0):
+    """Corta subgraves y ultrasonidos, quita la continua, ajusta la sonoridad y limita los picos.
+
+    `aire_db` es un estante suave de agudos (la mitad de la subida a 3.5 kHz, casi toda a
+    partir de 8 kHz): los instrumentos sintetizados son oscuros de por sí y sin él la mezcla
+    queda apagada. Se comprueba después que la banda de 2 a 5 kHz no pase de su límite.
+    """
+    n = x.shape[-1]
+    m = 0 if circular else 2048
+    if m:
+        x = np.pad(x, [(0, 0), (m, m)])
+    f = np.fft.rfftfreq(x.shape[-1], 1.0 / SR)
+    h = _respuesta(f, 35.0, None, 3) * _respuesta(f, None, 16000.0, 4)
+    h *= 10.0 ** (aire_db / 20.0 / (1.0 + (3500.0 / np.maximum(f, 1.0)) ** 2))
+    x = np.fft.irfft(np.fft.rfft(x, axis=-1) * h, x.shape[-1], axis=-1)[:, m:m + n]
     x = x - np.mean(x, axis=-1, keepdims=True)
     techo = 10.0 ** (techo_db / 20.0)
     gan = 10.0 ** ((lufs - sonoridad(x)) / 20.0)
@@ -870,11 +887,11 @@ def mus_claro():
     negra = 60.0 / 75.0
     comp = 4 * negra
     p = Pista("mus_claro", len(PROG_CLARO) * comp)
-    p.bus("coro", -30.0, rev=0.5)
-    p.bus("colchon", -31.0, rev=0.4)
-    p.bus("bajo", -25.0, rev=0.05)
+    p.bus("coro", -31.5, rev=0.5)
+    p.bus("colchon", -33.0, rev=0.4)
+    p.bus("bajo", -24.0, rev=0.05)
     p.bus("kalimba", -23.0, pan=-0.25, rev=0.30)
-    p.bus("brillo", -33.0, pan=0.30, rev=0.40)
+    p.bus("brillo", -30.5, pan=0.30, rev=0.40)
     p.bus("marimba", -26.0, pan=0.22, rev=0.25)
     p.bus("flauta", -22.0, pan=0.12, rev=0.45)
     p.bus("ocarina", -26.0, pan=-0.35, rev=0.50)
@@ -894,9 +911,9 @@ def mus_claro():
         p.tocar("bajo", bajo, t0, ac["bajo"], round(comp * 0.95, 4), vel=0.6 * fuerza, nvar=1)
         for corchea, m, vel in ac["mot"]:
             tt = t0 + corchea * negra / 2
-            p.tocar("kalimba", kalimba, tt, m, 1.8, vel=vel * fuerza)
-            if corchea in (0, 5) and sec in (1, 3):  # brillo: la misma nota una octava arriba
-                p.tocar("brillo", kalimba, tt, m + 12, 1.2, vel=0.6 if corchea else 0.4)
+            p.tocar("kalimba", kalimba, tt, m, 1.8, vel=vel * fuerza, brillo=1.25)
+            if corchea in (0, 5) and sec in (1, 2, 3):  # brillo: la misma nota una octava arriba
+                p.tocar("brillo", kalimba, tt, m + 12, 1.2, vel=(0.6 if corchea else 0.4) * (0.7 if sec == 2 else 1.0))
         if sec in (2, 3):  # marimba grave en 3+3+2
             raiz = ac["bajo"] + 12
             quinta = raiz + (5 if nombre == "la" else 7)
@@ -910,7 +927,7 @@ def mus_claro():
             graves = ((0, 1.0), (2, 0.6))
             agudos = ((1, 0.7), (3, 0.7)) + (((3.5, 0.45),) if i % 2 else ())
         for tiempo, vel in graves:
-            p.tocar("tambor", huehuetl, t0 + tiempo * negra, 92.0, 0.5, vel=vel, nvar=3, hum=0.004, tau=0.16, piel=0.2)
+            p.tocar("tambor", huehuetl, t0 + tiempo * negra, 98.0, 0.5, vel=vel, nvar=3, hum=0.004, tau=0.16, piel=0.2)
         for tiempo, vel in agudos:
             p.tocar("mano", tambor_mano, t0 + tiempo * negra, 210.0, 0.18, vel=vel, nvar=3, hum=0.004)
         if sec in (2, 3):
@@ -925,7 +942,7 @@ def mus_claro():
     p.poner("lluvia", nota(palo_lluvia, 2.4, sentido=-1.0), 7.5 * comp, 0.6)
     for k in ("kalimba", "brillo"):  # eco de corchea con puntillo, cruzado
         p.eco(k, 0.75 * negra)
-    return p, p.mezclar(t60=1.8, agudos=5500.0)
+    return p, p.mezclar(t60=1.8, agudos=7000.0)
 
 
 # --------------------------------------------------------------------------------------
@@ -964,19 +981,21 @@ def mus_exploracion():
     p.bus("tepo", -25.0, pan=0.4, rev=0.6, golpe=True)
     p.bus("sonaja", -33.0, pan=-0.5, rev=0.4, golpe=True)
     p.bus("lluvia", -34.0, rev=0.4)
+    p.bus("aire", -41.0, rev=0.2)
     g = p.g
+    p.poner("aire", nota(viento, p.seg), 0.0)
     for i, ac in enumerate(AC_EXPLORA):
         t0 = i * largo
         acorde(p, "coro", coro, ac["pad"][-3:], t0, largo + 3.0, antes=1.0, vocal="u", ataque=2.2, rel=2.8)
         acorde(p, "colchon", colchon, ac["pad"], t0, largo + 3.0, antes=1.0, ataque=2.0, rel=2.6)
-        p.tocar("bajo", bajo, t0, ac["bajo"] + 12, 6.0, vel=0.8, nvar=1, tau=2.2)
-        p.tocar("bajo", bajo, t0, ac["bajo"], 6.0, vel=0.7, nvar=1, tau=2.2)
-        p.tocar("bajo", bajo, t0 + 6 * negra, ac["bajo"] + 12, 4.0, vel=0.45, nvar=1, tau=1.6)
+        p.tocar("bajo", bajo, t0, ac["bajo"] + 12, 9.4, vel=0.8, nvar=1, tau=4.5)
+        p.tocar("bajo", bajo, t0, ac["bajo"], 9.4, vel=0.7, nvar=1, tau=4.5)
+        p.tocar("bajo", bajo, t0 + 6 * negra, ac["bajo"] + 12, 4.6, vel=0.4, nvar=1, tau=2.5)
         for tiempo, m in ac["gotas"]:
             p.tocar("kalimba", kalimba, t0 + tiempo * negra, m, 1.8, vel=g.uniform(0.6, 1.0), hum=0.015)
-        p.tocar("tambor", huehuetl, t0, 70.0, 0.9, vel=1.0, nvar=3, tau=0.32, piel=0.2)
-        p.tocar("tambor", huehuetl, t0 + 6 * negra, 70.0, 0.9, vel=0.55, nvar=3, tau=0.32, piel=0.2)
-        p.tocar("tambor", huehuetl, t0 + 6.75 * negra, 92.0, 0.5, vel=0.35, nvar=3, tau=0.16, piel=0.2)
+        p.tocar("tambor", huehuetl, t0, 73.4, 0.9, vel=1.0, nvar=3, tau=0.32, piel=0.2)
+        p.tocar("tambor", huehuetl, t0 + 6 * negra, 73.4, 0.9, vel=0.55, nvar=3, tau=0.32, piel=0.2)
+        p.tocar("tambor", huehuetl, t0 + 6.75 * negra, 98.0, 0.5, vel=0.35, nvar=3, tau=0.16, piel=0.2)
         for tiempo in (5.5, 11.5):
             p.tocar("sonaja", sonaja, t0 + tiempo * negra, 0.22, vel=g.uniform(0.6, 1.0), nvar=4, tau=0.07, ataque=0.04)
     frase(p, "ocarina", ocarina, OCARINA_EXPLORA, 0.0, negra, ligado=1.03, ataque=0.08, rel=0.5)
@@ -991,7 +1010,7 @@ def mus_exploracion():
     p.poner("lluvia", nota(palo_lluvia, 4.4, sentido=-1.0), 66.5 * negra, 0.8)
     p.eco("kalimba", 1.5 * negra, g1=0.45, g2=0.25)
     p.eco("ocarina", 1.5 * negra, g1=0.22, g2=0.10)
-    return p, p.mezclar(t60=2.6, agudos=5000.0, rev=1.15, retardo=0.03)
+    return p, p.mezclar(t60=2.6, agudos=6500.0, rev=1.15, retardo=0.03)
 
 
 # --------------------------------------------------------------------------------------
@@ -1004,7 +1023,7 @@ def mus_peligro():
     comp = 4 * negra
     seg = 12 * comp
     p = Pista("mus_peligro", seg)
-    p.bus("dron", -24.0, rev=0.25, hi=2600.0)
+    p.bus("dron", -25.0, rev=0.25, hi=2600.0)
     p.bus("latido", -17.5, rev=0.25, golpe=True)
     p.bus("sonaja", -30.0, rev=0.5, golpe=True)
     p.bus("tepo", -27.0, pan=-0.45, rev=0.7, golpe=True)
@@ -1020,8 +1039,8 @@ def mus_peligro():
         for k in pulsos:
             tt = t0 + k * negra
             vel = fuerza * (1.0 if k % 2 == 0 else 0.85)
-            p.tocar("latido", huehuetl, tt, 58.0, 0.8, vel=vel, nvar=3, hum=0.003, tau=0.26, barrido=0.8, piel=0.3)
-            p.tocar("latido", huehuetl, tt + 0.27, 52.0, 0.6, vel=0.62 * vel, nvar=3, hum=0.006, tau=0.20,
+            p.tocar("latido", huehuetl, tt, 55.0, 0.8, vel=vel, nvar=3, hum=0.003, tau=0.26, barrido=0.8, piel=0.3)
+            p.tocar("latido", huehuetl, tt + 0.27, 49.0, 0.6, vel=0.62 * vel, nvar=3, hum=0.006, tau=0.20,
                     barrido=0.6, piel=0.2)
     # Sonajas sueltas: sacudidas aisladas y dos «cascabeles» que se aceleran
     for tiempo in (2.5, 7.75, 13.0, 17.5, 22.25, 27.0, 29.5, 34.75, 38.5, 43.25, 45.0):
@@ -1039,8 +1058,8 @@ def mus_peligro():
     # Caracol lejano, y la llamada del alux rota: sus dos primeras notas, graves y sin resolver
     p.tocar("caracol", caracol, 24 * negra, 38, 5.6, vel=1.0, nvar=1, hum=0.0, crece=3.0)
     p.tocar("caracol", caracol, 44 * negra, 39, 3.2, vel=0.6, nvar=1, hum=0.0, crece=2.0)
-    p.tocar("ocarina", ocarina, 32.5 * negra, 57, 2.6, vel=1.0, nvar=1, hum=0.0, ataque=0.3, rel=0.8, cae=0.7, aire=0.2)
-    p.tocar("ocarina", ocarina, 36 * negra, 60, 3.4, vel=0.9, nvar=1, hum=0.0, ataque=0.3, rel=1.4, cae=1.0, aire=0.2)
+    p.tocar("ocarina", ocarina, 32.5 * negra, 57, 2.6, vel=1.0, nvar=1, hum=0.0, ataque=0.3, rel=0.8, cae=0.7, aire=0.13)
+    p.tocar("ocarina", ocarina, 36 * negra, 60, 3.4, vel=0.9, nvar=1, hum=0.0, ataque=0.3, rel=1.4, cae=1.0, aire=0.13)
     # Voces: Re y Mi bemol, un roce de segunda menor que crece y se va
     for m, t0, dur, vel in ((50, 14.0, 9.0, 0.8), (51, 16.0, 7.0, 0.6), (50, 40.0, 7.0, 0.7), (56, 41.0, 6.0, 0.45)):
         p.tocar("coro", coro, t0 * negra, m, round(dur * negra, 4), vel=vel, nvar=1, hum=0.0, vocal="u",
@@ -1099,9 +1118,9 @@ def mus_emboscada():
         if ultimo:  # redoble de cierre que empuja a la vuelta
             toms = toms[:3] + tuple((8 + k, 0.5 + 0.07 * k) for k in range(8))
         for s, vel in toms:
-            p.tocar("tom", huehuetl, t0 + s * semi, 96.0, 0.4, vel=vel, nvar=4, hum=0.003, tau=0.11, barrido=0.7, piel=0.5)
+            p.tocar("tom", huehuetl, t0 + s * semi, 110.0, 0.4, vel=vel, nvar=4, hum=0.003, tau=0.11, barrido=0.7, piel=0.5)
         for s in (0, 8) if sec == 4 else (0,):
-            p.tocar("fondo", huehuetl, t0 + s * semi, 62.0, 0.7, vel=1.0 if s == 0 else 0.7, nvar=3, hum=0.003,
+            p.tocar("fondo", huehuetl, t0 + s * semi, 55.0, 0.7, vel=1.0 if s == 0 else 0.7, nvar=3, hum=0.003,
                     tau=0.22, barrido=0.8, piel=0.3)
         if ultimo:
             palmadas = ((4, 0.9), (10, 0.5), (12, 0.9), (13, 0.6), (14, 0.75), (15, 0.9))
@@ -1173,7 +1192,7 @@ def _jefe(furia):
     p.bus("roca", -15.5, rev=0.15, golpe=True)
     p.bus("fondo", -17.0, rev=0.2, golpe=True)
     p.bus("losas", -18.0, pan=0.2, rev=0.25, golpe=True)
-    p.bus("grava", -29.0 if furia else -31.0, pan=0.45, rev=0.15, golpe=True)
+    p.bus("grava", -27.5 if furia else -28.5, pan=0.45, rev=0.15, golpe=True)
     p.bus("tepo", -22.0, pan=-0.45, rev=0.3, golpe=True)
     p.bus("dron", -23.0 if furia else -24.0, rev=0.1)
     p.bus("trompa", -21.5, pan=-0.18, rev=0.35)
@@ -1236,11 +1255,11 @@ def _jefe(furia):
             for s, vel in granos:
                 p.tocar("grava", grava, t0 + s * semi, vel=vel, nvar=4, hum=0.003)
             for s, vel in fondos:
-                p.tocar("fondo", huehuetl, t0 + s * semi, 56.0, 0.9, vel=vel, nvar=3, hum=0.003, tau=0.30, barrido=0.7,
+                p.tocar("fondo", huehuetl, t0 + s * semi, 55.0, 0.9, vel=vel, nvar=3, hum=0.003, tau=0.30, barrido=0.7,
                         piel=0.25)
             if furia and j == 3 and not cierre:  # relleno de tambor al final de cada sección
                 for k in range(4):
-                    p.tocar("fondo", huehuetl, t0 + (12 + k) * semi, 84.0 - 6.0 * k, 0.4, vel=0.5 + 0.12 * k, nvar=2,
+                    p.tocar("fondo", huehuetl, t0 + (12 + k) * semi, (110.0, 98.0, 87.3, 73.4)[k], 0.4, vel=0.5 + 0.12 * k, nvar=2,
                             hum=0.003, tau=0.12, piel=0.4)
             for k in range(pulsos):
                 p.poner("dron", nota(pulso_dron, raiz, round(largo, 4)), t0 + k * largo, 1.0 if k % 2 == 0 else 0.75)
@@ -1368,9 +1387,9 @@ def mus_recuerdo():
             p.tocar("arpegio", kalimba, t0 + corchea * negra / 2, ac["arp"][k % 3], 1.2,
                     vel=0.8 if k % 2 == 0 else 0.6, brillo=0.5)
         # Pulso ritual: el tambor grave como un corazón tranquilo
-        p.tocar("tambor", huehuetl, t0, 80.0, 0.8, vel=1.0, nvar=3, hum=0.004, tau=0.26, piel=0.2)
+        p.tocar("tambor", huehuetl, t0, 87.3, 0.8, vel=1.0, nvar=3, hum=0.004, tau=0.26, piel=0.2)
         if sec != 4:
-            p.tocar("tambor", huehuetl, t0 + 2 * negra, 80.0, 0.8, vel=0.6, nvar=3, hum=0.004, tau=0.26, piel=0.2)
+            p.tocar("tambor", huehuetl, t0 + 2 * negra, 87.3, 0.8, vel=0.6, nvar=3, hum=0.004, tau=0.26, piel=0.2)
             p.tocar("mano", tambor_mano, t0 + 3 * negra, 210.0, 0.18, vel=0.7, nvar=3, hum=0.004)
         if sec in (2, 3):
             for tiempo in (1, 3):
@@ -1402,7 +1421,7 @@ def mus_recuerdo():
     p.poner("lluvia", nota(palo_lluvia, 2.6, sentido=-1.0), 7.4 * comp, 0.6)
     for k in ("kalimba", "campanas"):  # eco de corchea con puntillo
         p.eco(k, 0.75 * negra)
-    return p, p.mezclar(t60=2.0, agudos=5500.0, rev=1.05)
+    return p, p.mezclar(t60=2.0, agudos=7000.0, rev=1.05)
 
 
 # --------------------------------------------------------------------------------------
@@ -1459,7 +1478,7 @@ def mus_liberacion():
         for corchea, cual, vel in ((0, 0, 1.0), (2, 1, 0.7), (3, 2, 0.8), (5, 3, 0.9), (6, 2, 0.6)):
             p.tocar("kalimba", kalimba, t0 + corchea * negra / 2, ac["arp"][cual], 1.8, vel=vel * fuerza)
         if i % 2 == 0:
-            p.tocar("tambor", huehuetl, t0, 76.0, 0.9, vel=1.0, nvar=3, tau=0.3, piel=0.15)
+            p.tocar("tambor", huehuetl, t0, 87.3, 0.9, vel=1.0, nvar=3, tau=0.3, piel=0.15)
         if sec >= 2:
             for tiempo in (1, 3):
                 p.tocar("sonaja", sonaja, t0 + tiempo * negra, 0.22, vel=0.8, nvar=4, hum=0.008, tau=0.07, ataque=0.04)
@@ -1483,7 +1502,7 @@ def mus_liberacion():
     p.poner("lluvia", nota(palo_lluvia, 4.0, sentido=-1.0), 15.0 * comp, 0.8)
     for k in ("kalimba", "canto"):
         p.eco(k, 0.75 * negra)
-    return p, p.mezclar(t60=2.4, agudos=6000.0, rev=1.1, retardo=0.025)
+    return p, p.mezclar(t60=2.4, agudos=7500.0, rev=1.1, retardo=0.025)
 
 
 # --------------------------------------------------------------------------------------
@@ -1528,26 +1547,26 @@ def mus_victoria():
     for i, m in enumerate((65, 69, 72, 77, 81, 84)):
         p.tocar("kalimba", kalimba, fin + 0.028 * i, m, 1.8, vel=0.9, hum=0.002)
     for m in (53, 60, 65, 69):
-        p.tocar("coro", coro, fin - 0.1, m, 3.4, nvar=1, hum=0.0, vocal="a", ataque=0.2, rel=1.8)
+        p.tocar("coro", coro, fin - 0.1, m, 4.0, nvar=1, hum=0.0, vocal="a", ataque=0.2, rel=2.4)
     for m, bus in ((53, "trompa2"), (60, "trompa"), (65, "trompa"), (69, "trompa2")):
         p.tocar(bus, trompa, fin, m, 2.7, vel=0.9, nvar=1, hum=0.004, ataque=0.05, rel=1.2)
     p.tocar("flauta", flauta, fin, 77, 2.6, nvar=1, ataque=0.05, rel=1.2, vib=0.006)
     p.tocar("ocarina", ocarina, fin, 84, 2.4, nvar=1, vel=0.8, rel=1.2)
-    p.tocar("bajo", bajo, fin, 41, 3.0, nvar=1, tau=1.3)
-    p.tocar("bajo", bajo, fin, 29, 3.0, vel=0.5, nvar=1, tau=1.3)
+    p.tocar("bajo", bajo, fin, 41, 3.8, nvar=1, tau=1.3)
+    p.tocar("bajo", bajo, fin, 29, 3.8, vel=0.5, nvar=1, tau=1.3)
     for t0, m, vel, pan in ((fin + 0.01, 77, 1.0, -0.4), (fin + 0.02, 84, 0.9, 0.4), (fin + 0.03, 89, 0.6, 0.0),
                             (fin + 0.8, 93, 0.5, 0.5), (fin + 1.3, 96, 0.4, -0.5), (fin + 1.9, 101, 0.3, 0.2)):
         p.tocar("campanas", campana, t0, m, 2.5, vel=vel, pan=pan, tau=0.7)
     # Tambores: golpes con la fanfarria, dos redobles y el golpe final
     for t0, vel in ((0.0, 1.0), (0.5, 0.7), (1.0, 0.8), (1.5, 1.0), (2.5, 0.9), (3.1, 0.6), (3.7, 0.8)):
-        p.tocar("tambor", huehuetl, t0, 72.0, 0.8, vel=vel, nvar=3, hum=0.003, tau=0.24, barrido=0.7, piel=0.4)
+        p.tocar("tambor", huehuetl, t0, 87.3, 0.8, vel=vel, nvar=3, hum=0.003, tau=0.24, barrido=0.7, piel=0.4)
     for inicio in (2.1, 4.2):
         for k in range(4):
-            p.tocar("tambor", huehuetl, inicio + 0.1 * k, 96.0, 0.4, vel=0.45 + 0.12 * k, nvar=4, hum=0.003, tau=0.11, piel=0.5)
+            p.tocar("tambor", huehuetl, inicio + 0.1 * k, 130.8, 0.4, vel=0.45 + 0.12 * k, nvar=4, hum=0.003, tau=0.11, piel=0.5)
             p.tocar("mano", tambor_mano, inicio + 0.05 + 0.1 * k, 210.0, 0.18, vel=0.5 + 0.12 * k, nvar=3, hum=0.003)
-    p.tocar("tambor", huehuetl, fin, 58.0, 1.2, vel=1.15, nvar=1, hum=0.0, tau=0.42, barrido=0.9, piel=0.45)
+    p.tocar("tambor", huehuetl, fin, 65.4, 1.2, vel=1.15, nvar=1, hum=0.0, tau=0.42, barrido=0.9, piel=0.45)
     for t0, vel in ((fin + 0.8, 0.35), (fin + 1.6, 0.22)):
-        p.tocar("tambor", huehuetl, t0, 72.0, 0.8, vel=vel, nvar=3, tau=0.24, piel=0.3)
+        p.tocar("tambor", huehuetl, t0, 87.3, 0.8, vel=vel, nvar=3, tau=0.24, piel=0.3)
     for k in range(12):  # sonajas que tiemblan sobre el acorde y se apagan
         p.tocar("sonaja", sonaja, fin + 0.075 * k, 0.09, vel=1.0 - 0.07 * k, nvar=4, hum=0.004)
     p.eco("kalimba", 0.225)
@@ -1635,11 +1654,11 @@ def mus_lobby():
             p.tocar("sonaja", sonaja, t0 + c * corchea, 0.08, vel=acentos[c] * (0.6 if sec in (0, 4) else 1.0),
                     nvar=4, hum=0.005, tau=0.022)
         if sec in (1, 3) or hemiola:
-            p.tocar("tambor", huehuetl, t0, 104.0, 0.45, vel=1.0, nvar=3, hum=0.004, tau=0.13, piel=0.3)
+            p.tocar("tambor", huehuetl, t0, 130.8, 0.45, vel=1.0, nvar=3, hum=0.004, tau=0.13, piel=0.3)
             for c, vel in ((2, 0.8), (4, 0.8)) if hemiola else ((3, 0.8),) + (((5, 0.45),) if i % 2 else ()):
                 p.tocar("mano", tambor_mano, t0 + c * corchea, 210.0, 0.18, vel=vel, nvar=3, hum=0.004)
         elif sec == 2:
-            p.tocar("tambor", huehuetl, t0, 104.0, 0.45, vel=0.6, nvar=3, hum=0.004, tau=0.13, piel=0.3)
+            p.tocar("tambor", huehuetl, t0, 130.8, 0.45, vel=0.6, nvar=3, hum=0.004, tau=0.13, piel=0.3)
         if sec == 3 and not hemiola:
             for c, m, vel in ((2, 57, 0.8), (5, 53, 0.7)):
                 p.tocar("tepo", teponaztli, t0 + c * corchea, m, 0.35, vel=vel, nvar=3, hum=0.004)
@@ -1669,28 +1688,38 @@ def mus_lobby():
     frase(p, "ocarina", ocarina, ((0, 2, 69), (2, 1, 72), (3, 3, 74), (6, 2, 67), (8, 4, 69)), t0, corchea, ligado=1.03, rel=0.3)
     frase(p, "marimba", marimba, ((12, 2, 65), (14, 1, 69), (15, 3, 72), (18, 2, 74), (20, 1, 72), (21, 3, 67)), t0, corchea)
     p.tocar("campana", campana, t0, 65, 5.0, nvar=1, hum=0.0, tau=1.6, ataque=0.01)  # una campana lejana
-    return p, p.mezclar(t60=1.5, agudos=5500.0, rev=1.0, retardo=0.018)
+    return p, p.mezclar(t60=1.5, agudos=7000.0, rev=1.0, retardo=0.018)
 
 
 # --------------------------------------------------------------------------------------
 # Catálogo
 # --------------------------------------------------------------------------------------
-# lufs: sonoridad integrada objetivo; rango: el que valida `--check`. Combate y jefe van a
+# Cada pieza: función, escala (para la prueba de tonalidad), aire (estante de agudos del
+# masterizado, en dB), lufs (sonoridad integrada objetivo), rango (el que valida `--check`),
+# pulsos por minuto y tonalidad (estos dos van al manifiesto). Combate y jefe van a
 # -18 LUFS (rango -19…-17); los temas tranquilos a -20 (rango -21…-19). El encargo no fija
 # rango para `mus_peligro` ni `mus_victoria`: la tensión va con los tranquilos (suena debajo
 # del combate) y la fanfarria con los de combate.
 SUAVE, FUERTE = (-21.0, -19.0), (-19.0, -17.0)
+# Clases de altura (Do = 0) de cada escala, para la prueba de tonalidad de `--check`
+RE_PENTA = frozenset({2, 5, 7, 9, 0})  # Re Fa Sol La Do
+RE_MENOR = frozenset({2, 4, 5, 7, 9, 10, 0})  # Re menor natural = Fa mayor
+RE_TENSO = frozenset({2, 3, 5, 7, 8, 9, 0})  # la del dron de peligro: con Mi bemol y La bemol
+def _pieza(fn, escala, aire, lufs, rango, bpm, key, bucle=True):
+    return dict(id=fn.__name__, fn=fn, escala=escala, aire=aire, lufs=lufs, rango=rango, bpm=bpm, key=key, bucle=bucle)
+
+
 PIEZAS = (
-    dict(id="mus_claro", fn=mus_claro, bucle=True, lufs=-20.0, rango=SUAVE, bpm=75, key="re menor pentatónica"),
-    dict(id="mus_exploracion", fn=mus_exploracion, bucle=True, lufs=-20.0, rango=SUAVE, bpm=75, key="re menor pentatónica"),
-    dict(id="mus_peligro", fn=mus_peligro, bucle=True, lufs=-20.0, rango=SUAVE, bpm=75, key="re (dron, con segunda menor y tritono)"),
-    dict(id="mus_emboscada", fn=mus_emboscada, bucle=True, lufs=-18.0, rango=FUERTE, bpm=150, key="re menor"),
-    dict(id="mus_jefe", fn=mus_jefe, bucle=True, lufs=-18.0, rango=FUERTE, bpm=120, key="re menor"),
-    dict(id="mus_jefe_furia", fn=mus_jefe_furia, bucle=True, lufs=-18.0, rango=FUERTE, bpm=150, key="re menor"),
-    dict(id="mus_recuerdo", fn=mus_recuerdo, bucle=True, lufs=-20.0, rango=SUAVE, bpm=75, key="fa mayor"),
-    dict(id="mus_liberacion", fn=mus_liberacion, bucle=True, lufs=-20.0, rango=SUAVE, bpm=75, key="fa mayor pentatónica"),
-    dict(id="mus_victoria", fn=mus_victoria, bucle=False, lufs=-18.0, rango=FUERTE, bpm=120, key="fa mayor"),
-    dict(id="mus_lobby", fn=mus_lobby, bucle=True, lufs=-20.0, rango=SUAVE, bpm=75, key="fa mayor"),
+    _pieza(mus_claro, RE_PENTA, 3.0, -20.0, SUAVE, 75, "re menor pentatónica"),
+    _pieza(mus_exploracion, RE_MENOR, 3.0, -20.0, SUAVE, 75, "re menor pentatónica"),
+    _pieza(mus_peligro, RE_TENSO, 2.0, -20.0, SUAVE, 75, "re (dron, con segunda menor y tritono)"),
+    _pieza(mus_emboscada, RE_MENOR, 1.5, -18.0, FUERTE, 150, "re menor"),
+    _pieza(mus_jefe, RE_MENOR, 3.0, -18.0, FUERTE, 120, "re menor"),
+    _pieza(mus_jefe_furia, RE_MENOR, 2.5, -18.0, FUERTE, 150, "re menor"),
+    _pieza(mus_recuerdo, RE_MENOR, 3.0, -20.0, SUAVE, 75, "fa mayor"),
+    _pieza(mus_liberacion, RE_MENOR, 3.0, -20.0, SUAVE, 75, "fa mayor pentatónica"),
+    _pieza(mus_victoria, RE_MENOR, 2.5, -18.0, FUERTE, 120, "fa mayor", bucle=False),
+    _pieza(mus_lobby, RE_MENOR, 3.0, -20.0, SUAVE, 75, "fa mayor"),
 )
 POR_ID = {q["id"]: q for q in PIEZAS}
 
@@ -1763,7 +1792,7 @@ def generar(ids, tmp: Path, detalle: bool) -> None:
         wav, mp3 = tmp / f"{q['id']}.wav", SALIDA / f"{q['id']}.mp3"
         techo, ajuste = -2.6, 0.0
         for intento in range(5):  # se corrige con lo que mide ffmpeg sobre el MP3 ya codificado
-            cuerpo = masterizar(mezcla, q["lufs"] + ajuste, techo, p.circular)
+            cuerpo = masterizar(mezcla, q["lufs"] + ajuste, techo, p.circular, q["aire"])
             escribir_wav(wav, con_margenes(cuerpo) if q["bucle"] else cuerpo)
             codificar(wav, mp3)
             lufs, pico = medir_ffmpeg(mp3)
@@ -1814,6 +1843,28 @@ DESFASES = (0, 529, 1105, 2257, -1105)  # muestras: desplazamientos típicos de 
 
 def _corr(a, b):
     return float(np.sum(a * b) / (np.sqrt(np.sum(a * a) * np.sum(b * b)) + 1e-20))
+
+
+def croma(x):
+    """Reparto de la energía tonal entre las doce clases de altura (Do = 0).
+
+    Cuenta la energía entre 180 y 2000 Hz que cae a menos de 35 cents de un semitono
+    temperado, por tramas de 0.37 s. Sirve para comprobar que lo que suena está en la
+    tonalidad declarada (un error de transposición en el código saltaría aquí).
+    """
+    mono = np.mean(x, axis=0)
+    v = 16384
+    f = np.fft.rfftfreq(v, 1.0 / SR)
+    sel = (f > 180.0) & (f < 2000.0)
+    semitono = 69.0 + 12.0 * np.log2(f[sel] / 440.0)
+    cerca = np.abs(semitono - np.round(semitono)) < 0.35
+    clase = np.round(semitono).astype(int)[cerca] % 12
+    ventana = np.hanning(v)
+    reparto = np.zeros(12)
+    for i in range(0, len(mono) - v, v // 2):
+        pot = np.abs(np.fft.rfft(mono[i:i + v] * ventana)) ** 2
+        np.add.at(reparto, clase, pot[sel][cerca])
+    return reparto / (np.sum(reparto) + 1e-30)
 
 
 def comprobar_pista(ident, datos):
@@ -1869,6 +1920,11 @@ def comprobar_pista(ident, datos):
         bandas.append(e)
         if (minimo is not None and e < minimo) or (maximo is not None and e > maximo):
             fallos.append(f"banda {nombre} Hz a {e:.1f} dB")
+    # Tonalidad: parte de la energía tonal que cae en notas de la escala declarada
+    reparto = croma(x)
+    en_escala = float(sum(reparto[k] for k in q["escala"]))
+    if en_escala < (0.75 if q["escala"] is RE_TENSO else 0.85):
+        fallos.append(f"solo el {100 * en_escala:.0f} % de la energía tonal está en la escala")
     # Huecos: ningún segundo debe quedarse en silencio (en los bucles)
     v = n_(1.0)
     ac = np.concatenate([[0.0], np.cumsum(np.sum(x ** 2, axis=0))])
@@ -1881,6 +1937,8 @@ def comprobar_pista(ident, datos):
         i0, i1 = (int(round(t * SR)) for t in datos["loop"])
         if abs(datos["loop"][0] - MARGEN) > 1e-9 or abs(seg - (datos["loop"][1] + MARGEN)) > 0.03:
             fallos.append("los puntos de bucle no cuadran con la duración")
+        if i1 + n_(MARGEN) > n + 2400 or i0 < n_(MARGEN) - 1:
+            return None, fallos + ["el bucle declarado no cabe en el archivo"]
         w = n_(0.05)
         c50 = _corr(x[:, i0:i0 + w], x[:, i1:i1 + w])  # (a) lo que sigue a loop[1] es lo que sigue a loop[0]
         m = n_(MARGEN) - 2400
@@ -1912,7 +1970,7 @@ def comprobar_pista(ident, datos):
             fallos.append(f"dura {seg:.1f} s")
         costura = f"(sin bucle; cola {ultimo:.0f} dBFS)"
     fila = (f"{ident:<16}{seg:>7.2f}{tam:>9}{lufs:>7.1f}{pico:>6.1f}{pico4:>6.1f}{corr:>6.2f}{corr_min:>6.2f}{lado:>6.1f}"
-            + "".join(f"{e:>7.1f}" for e in bandas) + f"{hueco:>6.0f}  {costura}")
+            + "".join(f"{e:>7.1f}" for e in bandas) + f"{hueco:>6.0f}{100 * en_escala:>5.0f}  {costura}")
     return fila, fallos
 
 
@@ -1925,7 +1983,7 @@ def comprobar() -> int:
     manifiesto = json.loads(ruta_json.read_text(encoding="utf-8"))
     pistas = manifiesto.get("tracks", {})
     print(f"{'pieza':<16}{'seg':>7}{'bytes':>9}{'LUFS':>7}{'pico':>6}{'x4':>6}{'corr':>6}{'mín':>6}{'L-R':>6}"
-          + "".join(f"{b[0]:>7}" for b in BANDAS) + f"{'hueco':>6}  costura: corr50 pre/post salto÷p99.9")
+          + "".join(f"{b[0]:>7}" for b in BANDAS) + f"{'hueco':>6}{'esc%':>5}  costura: corr50 pre/post salto÷p99.9")
     total_fallos = 0
     total_bytes = 0
     for q in PIEZAS:
