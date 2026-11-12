@@ -82,8 +82,28 @@ Volver a la 0.2.1: publicar en `beta` el commit `94bb9c8`. Los datos son compati
 sentidos (no hay migraciones); quien ya tenga la Pluma de Jade la conserva en la base de datos
 aunque la 0.2.1 no la muestre.
 
-**Sin comprobar:** el combate con personas (ritmo, dificultad, si las pistas bastan); con tarjeta
-gráfica, en Safari o Firefox. La imagen de despliegue de esta versión sí se construyó y pasó sus comprobaciones en local (commit `dd78108`: migraciones, invitación, HTTPS y WSS a través de dos proxies, partida, reconexión, métricas, persistencia tras reiniciar y límite de intentos; 272 MB de memoria recién arrancada, de 512), pero **no se ha desplegado en Render**.
+### Comprobado en el servicio real (12 nov 2026, commit `93007a0` en `beta`)
+
+Antes de publicar se repitió la regresión completa en una copia limpia del commit: API 11 de 11,
+simulación sin violaciones, servidor 17 de 17, combate completo en navegador, flujo de playtest,
+vídeos y cuatro navegadores (este último falló dos veces con la máquina de pruebas saturada
+—las páginas se quedaban congeladas más de 15 s y se reconectaban— y pasó a la tercera con la
+máquina en calma; el fallo no se reprodujo y no afecta al jefe). `beta:preflight` superado.
+`beta` avanzó de `94bb9c8` a `93007a0` sin reescribir historia.
+
+| Comprobación contra <https://alux-beta.onrender.com> | Resultado |
+| --- | --- |
+| `npm run beta:check` con invitación y `--commit 93007a0` | 10 de 10: HTTPS, versión desplegada `93007a013672`, nada abierto sin sesión, descarga (12.7 MB transferidos), `wss://` que rechaza tickets falsos, sesión con invitación, guardado, partida (15 estados/s, 30 ms), reconexión y métricas |
+| Sesión completa por protocolo (`npm run beta:boss -w @alux/tests`) | Una jugadora sola: emboscada a los 9 s, «El sello cede», fase 1 a los 21 s, «El despertar», fase 2 a los 61 s, fase 3 y liberación a los 74 s, «La liberación», **Pluma de Jade guardada en el perfil**, pista del Cenote anotada. 54 ms de latencia media (máx. 66), 14.9 estados/s, sin cortes |
+| Cinemáticas en un navegador (`tests/e2e/beta-cine.ts`: ver, omitir, sin vídeo) | Los 10 vídeos se descargan (6.35 MB, caché inmutable de un año); «El sello cede» se ve como vídeo; Enter la omite a los 2 s; con las descargas cortadas se ve con el motor y la partida sigue |
+| **Audio** (`tests/e2e/audio-probe.ts`, salida real del navegador) | **No suena nada**: la grabación de la salida es silencio absoluto aunque el juego «reproduce» música y efectos. Es el defecto que comunicó el jugador; causa y corrección en [AUDIO.md](AUDIO.md) (Alpha 0.3.1) |
+
+**Sin comprobar:** el combate con personas (ritmo, dificultad, si las pistas bastan) —**no hay
+ninguna prueba con cuatro personas reales**—; con tarjeta gráfica, en Safari o Firefox; «El
+despertar» y «La liberación» reproducidas como vídeo desde producción (la sesión completa fue por
+protocolo; en navegador se comprobó que los siete clips se descargan y, en local, que se ven). El
+uso de memoria y los reinicios del servicio sólo se ven en el panel de Render: desde aquí consta
+que respondió sin cortes durante todas las pruebas y que la misma imagen arranca con 272 MB de 512.
 
 ## ALUX Closed Alpha 0.2.1
 

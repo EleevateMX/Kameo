@@ -12,6 +12,7 @@
     "test:cine-coop": "tsx e2e/cine-coop.ts",
     "beta:check": "tsx beta-check.ts",
     "beta:preflight": "tsx beta-preflight.ts",
+    "beta:boss": "tsx beta-boss.ts",
     "shots": "tsx e2e/screenshot.ts"
   },
   "dependencies": {
