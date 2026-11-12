@@ -47,6 +47,12 @@ cada `build_*.py`: son funciones de tiempo o listas de poses clave, con los áng
 grados sobre los ejes del modelo; los pies y las garras se plantan con cinemática
 inversa (canales `IK_*`).
 
+Los bordados y las manchas se recortan en la propia malla (`add_loft_painted`). Una
+franja puede dar la vuelta entera a la prenda a cualquier altura (`band()` en
+`build_alux.py`): sus bordes reciben un vértice por columna de la malla, así que el
+hilo existe como superficie de color. Si al generar aparece el aviso «… sin malla»,
+algún dibujo ha dejado un hueco por el que se vería el interior.
+
 ## Contrato con el juego
 
 - 1 unidad = 1 metro. Origen en los pies. En Godot el personaje mira a **+Z**.
@@ -64,13 +70,13 @@ inversa (canales `IK_*`).
 - Todas las animaciones llevan pista en los mismos huesos, así que cambiar de una a
   otra no deja restos de la pose anterior. Ninguna desplaza la raíz.
 
-### `alux.glb` — 9 454 triángulos, 632 KB, 33 huesos
+### `alux.glb` — 9 614 triángulos, 641 KB, 33 huesos
 
 Mide 1.30 m hasta la coronilla (1.47 m con sombrero, 1.61 m con penacho).
 
 | Nodo (MeshInstance3D) | Uso | Triángulos | Materiales |
 | --- | --- | --- | --- |
-| `Alux` | cuerpo, siempre visible | 7 012 | `Body`, `Tunic`, `Eye`, `Jade` |
+| `Alux` | cuerpo, siempre visible | 7 172 | `Body`, `Tunic`, `Eye`, `Jade` |
 | `Hat_Palma` | sombrero de palma con pluma | 656 | `Headwear`, `Jade` |
 | `Hat_Penacho` | penacho de plumas | 976 | `Headwear`, `Jade` |
 | `Hat_Flor` | flor de mayo (con `Hair`) | 504 | `Headwear` |
@@ -97,7 +103,7 @@ Mide 1.30 m hasta la coronilla (1.47 m con sombrero, 1.61 m con penacho).
 | `Death` | 0.9 s | una vez | cae de espaldas (hacia −Z); se queda en el último cuadro |
 | `Transform` | 0.5 s | una vez | sale de una bolita, salta con los brazos abiertos (0.10 s) y cae en reposo |
 
-### `balam.glb` — 8 956 triángulos, 656 KB, 30 huesos
+### `balam.glb` — 9 036 triángulos, 661 KB, 30 huesos
 
 Mide 1.70 m de la nariz a la grupa (2.24 m con la cola) y 0.81 m a la cruz. Un solo
 nodo de malla, `Balam`, con los materiales `Body` (color de vértice: pelaje y rosetas),
@@ -121,7 +127,7 @@ glifos de los hombros y ajorcas, emisivo suave).
 | `Death` | 1.0 s | una vez | cae sobre su costado derecho; se queda en el último cuadro |
 | `Transform` | 0.6 s | una vez | brota, se alza rugiendo (0.14–0.28 s), deja caer las garras (0.40 s) y se asienta |
 
-### `yaxche.glb` — 8 599 triángulos, 542 KB, 39 huesos
+### `yaxche.glb` — 8 935 triángulos, 561 KB, 39 huesos
 
 Chiich Yaxché, «la abuela del claro»: la más vieja de los aluxes, guardiana de la gran
 ceiba. Es un personaje no jugador: el juego **no** debe recolorearla (por eso no tiene
@@ -131,7 +137,7 @@ llega a 1.60 m (el juego la agranda ×1.15).
 
 | Nodo (MeshInstance3D) | Uso | Triángulos | Materiales |
 | --- | --- | --- | --- |
-| `Yaxche` | cuerpo: cabeza, cabello y moño, flor, vestido, rebozo, collar | 7 645 | `Body`, `Eye`, `Jade` |
+| `Yaxche` | cuerpo: cabeza, cabello y moño, flor, vestido, rebozo, collar | 7 981 | `Body`, `Eye`, `Jade` |
 | `Staff` | bastón de ceiba con su retoño | 954 | `Body`, `Jade` |
 
 - `Body`: blanco, todo el color está en los vértices. Los blancos del vestido y del
