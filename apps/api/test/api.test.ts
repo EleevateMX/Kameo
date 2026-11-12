@@ -18,7 +18,7 @@ const config: Config = {
   port: 0, sessionSecret: 'test-session-secret-123456', ticketSecret: 'test-ticket-secret-123456',
   serviceKey: 'test-service-key-123456', databaseUrl: null, dataFile: null,
   gameServers: [{ id: 'gs-1', wsUrl: 'ws://localhost:9080' }], production: false,
-  host: '127.0.0.1',
+  host: '127.0.0.1', commit: 'abc1234',
   // Acceso de testers: una invitación vigente y otra vencida
   betaEnabled: true,
   betaInvites: [
@@ -131,7 +131,7 @@ function suite(label: string, makeStore: () => Promise<Store>) {
       assert.equal(mine[0].loadMs, 8422);
       assert.equal((mine[0].data as any).final, true);
       const health = await (await fetch(`${base}/health`)).json();
-      assert.deepEqual(health, { ok: true, db: true });
+      assert.deepEqual(health, { ok: true, db: true, commit: 'abc1234' });
     });
 
     test('perfil inicial y personalización del alux con validación', async () => {

@@ -25,6 +25,8 @@ export interface Config {
   /** Acceso temporal de testers por invitación (ver packages/shared-contracts/src/beta.ts). */
   betaEnabled: boolean;
   betaInvites: BetaInvite[];
+  /** Commit de Git desplegado (lo informa la plataforma); '' si no se conoce. */
+  commit: string;
 }
 
 export function parseGameServers(raw: string | undefined): GameServerRef[] {
@@ -55,5 +57,6 @@ export function loadConfig(): Config {
     host: process.env.API_HOST || '0.0.0.0',
     betaEnabled: betaAccessEnabled(process.env),
     betaInvites: parseBetaInvites(process.env.BETA_INVITES).invites,
+    commit: (process.env.RENDER_GIT_COMMIT || process.env.ALUX_COMMIT || '').replace(/[^0-9a-f]/gi, '').slice(0, 40),
   };
 }

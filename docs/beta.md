@@ -1,4 +1,4 @@
-# Beta privada: despliegue en Render
+# Beta privada (ALUX Closed Alpha 0.1): despliegue en Render
 
 Guía para publicar ALUX en una URL HTTPS pública, con acceso sólo para testers invitados, y para
 operarla: comprobar que está sana, ver registros y métricas, publicar versiones, volver atrás y
@@ -44,17 +44,22 @@ El Blueprint crea **dos** recursos y ninguno más. No toca otros proyectos de la
 
 | Recurso | Nombre | Plan | Región | Costo estimado |
 | --- | --- | --- | --- | --- |
-| Servicio web (Docker) | `alux-beta` | `0.5c-512mb` (antes *Starter*): 0.5 CPU, 512 MB | Ohio | ≈ US$7 al mes |
-| PostgreSQL 16 | `alux-beta-db` | `0.1c-256mb` (antes *Basic-256mb*), 1 GB de disco | Ohio | ≈ US$6 al mes + ≈ US$0.30 por el disco |
-| **Total** | | | | **≈ US$13–14 al mes**, cobro recurrente mientras existan |
+| Servicio web (Docker) | `alux-beta` | `0.5c-512mb` (antes *Starter*): 0.5 CPU, 512 MB | Ohio | US$7 al mes |
+| PostgreSQL 16 | `alux-beta-db` | `0.1c-256mb` (antes *Basic-256mb*), 1 GB de disco | Ohio | US$6 al mes + US$0.30 por el GB de disco |
+| **Total** | | | | **US$13.30 al mes**, cobro recurrente mientras existan |
+
+Precios de <https://render.com/pricing>, consultados el 12 de noviembre de 2026.
 
 - Render cobra por el tiempo que el recurso existe (prorrateado): borrarlos al terminar la beta
-  detiene el cargo. El plan de espacio de trabajo *Hobby* no tiene cuota propia.
-- **Las cifras son estimaciones** tomadas de resúmenes de precios de 2026; la página oficial no se
-  pudo leer de forma automática. **Render muestra el precio exacto antes de confirmar el
-  Blueprint**: compáralo ahí.
-- El ancho de banda de salida incluido es limitado. Una partida de cuatro jugadores gasta alrededor
-  de 0.4 GB por hora (estados del juego) más unos 8 MB por cada primera carga del cliente.
+  detiene el cargo. El espacio de trabajo *Hobby* cuesta US$0; el *Pro* añade US$25 al mes (no
+  hace falta para esta beta).
+- **Si la pantalla del Blueprint muestra otra cifra, otro plan u otro recurso, no confirmes.**
+  Render enseña el precio exacto antes de crear nada.
+- **Posibles cargos adicionales:**
+  - *Ancho de banda:* *Hobby* incluye 5 GB de salida al mes; el excedente cuesta US$0.15 por GB.
+    Una partida de cuatro jugadores gasta alrededor de 0.4 GB por hora y cada primera carga del
+    cliente unos 8 MB: los 5 GB dan para unas 11 horas de partida de cuatro al mes.
+  - *Minutos de construcción:* *Hobby* incluye 500 al mes; cada despliegue gasta entre 10 y 15.
 - Ohio es la región de Render más cercana a Yucatán junto con Virginia.
 
 **Alternativa sin costo (sólo para una prueba de humo):** cambia en `render.yaml` los dos `plan` a
@@ -70,11 +75,22 @@ conexión de Supabase). Las migraciones se aplican igual.
 ## 2. Preparar la rama `beta` y las invitaciones
 
 El servicio sólo despliega lo que llega a la rama **`beta`**. El trabajo diario sigue en otras
-ramas y no se publica solo.
+ramas y no se publica solo. Antes de publicar, la revisión previa confirma que es seguro:
+
+```bash
+npm run beta:preflight
+```
+
+Comprueba que `render.yaml` crea exactamente los dos recursos de la tabla, que no hay secretos en
+los archivos ni en el historial de Git, que la imagen no trae accesos de prueba abiertos, que las
+invitaciones se validan bien y que ninguna migración borra o altera datos. Al final dice qué
+commit se publicaría. Después:
 
 ```bash
 git push origin claude/tender-johnson-c2gk0s:beta
 ```
+
+Qué commit corresponde a cada versión publicada: [versiones.md](versiones.md).
 
 Genera una invitación por tester (ejemplo para cuatro personas, válidas 14 días):
 
@@ -157,6 +173,10 @@ npm run beta:check -- https://alux-beta-xxxx.onrender.com --code ALUX-XXXXX-XXXX
 Con el código de un tester (usa uno tuyo, de organizador) entra como él y recorre el camino
 completo: sesión, guardado, sala, ticket, cuatro segundos de partida por WebSocket seguro (estados
 por segundo y latencia) y registro de métricas. Sale con error si algo falla.
+
+Añade `--commit <hash>` para exigir que lo desplegado sea exactamente ese commit (el servicio lo
+informa en `/healthz`), y `--mark Nombre` antes de un reinicio y `--expect Nombre` después para
+comprobar que los datos persisten.
 
 **Registros:** en Render, servicio `alux-beta` → **Logs**. Cada línea lleva el proceso que la
 escribe:

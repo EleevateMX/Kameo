@@ -21,6 +21,7 @@
     "migrate": "npm run migrate -w @alux/api --",
     "beta:invites": "npm run --silent beta:invites -w @alux/api --",
     "beta:metrics": "npm run --silent beta:metrics -w @alux/api --",
-    "beta:check": "npm run --silent beta:check -w @alux/tests --"
+    "beta:check": "npm run --silent beta:check -w @alux/tests --",
+    "beta:preflight": "npm run --silent beta:preflight -w @alux/tests --"
   }
 }

@@ -131,7 +131,8 @@ export function createApp(store: Store, config: Config) {
   };
 
   // Disponibilidad: siempre 200 si la API está en pie; `db` dice si la base de datos responde.
-  app.get('/health', async (_req, res) => res.json({ ok: true, db: await store.ping() }));
+  // `commit` es la versión desplegada (Render la pone en RENDER_GIT_COMMIT); vacío en local.
+  app.get('/health', async (_req, res) => res.json({ ok: true, db: await store.ping(), commit: config.commit }));
 
   // ───────────── Métricas de sesión (beta) ─────────────
   // El navegador informa de su rendimiento cada minuto y al terminar. Una fila por sesión.

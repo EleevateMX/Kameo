@@ -8,6 +8,7 @@
     "test:e2e": "tsx e2e/four-players.ts",
     "test:flow": "tsx e2e/playtest-flow.ts",
     "beta:check": "tsx beta-check.ts",
+    "beta:preflight": "tsx beta-preflight.ts",
     "shots": "tsx e2e/screenshot.ts"
   },
   "dependencies": {

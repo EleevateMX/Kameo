@@ -19,6 +19,8 @@ const code = flag('code') || process.env.BETA_CODE || '';
 // Para comprobar la persistencia tras un reinicio: --mark deja un nombre de alux y --expect lo exige
 const mark = flag('mark');
 const expect = flag('expect');
+// --commit <hash> exige que la versión desplegada sea exactamente ese commit
+const wantCommit = flag('commit').toLowerCase();
 if (!base) {
   console.error('Uso: npm run beta:check -- https://tu-servicio.onrender.com [--code ALUX-…]');
   process.exit(1);
@@ -86,7 +88,12 @@ await step('API y base de datos', async () => {
   const body = await res.json();
   assert.equal(body.ok, true);
   assert.equal(body.db, true, 'la API no alcanza la base de datos');
-  return 'la base de datos responde';
+  const deployed = String(body.commit || '');
+  if (wantCommit) {
+    assert.ok(deployed, 'el servicio no informa de qué commit tiene desplegado');
+    assert.ok(deployed.startsWith(wantCommit) || wantCommit.startsWith(deployed), `está desplegado ${deployed.slice(0, 12)}, no ${wantCommit.slice(0, 12)}`);
+  }
+  return `la base de datos responde · versión desplegada: ${deployed ? deployed.slice(0, 12) : 'no informada'}`;
 });
 
 await step('Nada abierto sin sesión', async () => {
