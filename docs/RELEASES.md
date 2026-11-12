@@ -6,9 +6,9 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 | Versión | Estado | Contenido |
 | --- | --- | --- |
 | Closed Alpha 0.1 | Publicada el 12 nov 2026; **sustituida por la 0.2**. Commit `12fadbe`: es el punto de rollback | Claro de los Aluxes jugable de 1 a 4, combate, emboscada, victoria y derrota, audio provisional, acceso por invitación |
-| **Closed Alpha 0.2** | **Publicada** el 12 nov 2026 en <https://alux-beta.onrender.com> (commit `c28e32c`) | Introducción «El llamado», Chiich Yaxché con modelo propio y diálogo, primer objetivo narrativo, cinemáticas locales y compartidas con voto, progreso del capítulo en el perfil |
+| Closed Alpha 0.2 | Publicada el 12 nov 2026; **sustituida por la 0.2.1**. Commit `c28e32c`: es el punto de rollback | Introducción «El llamado», Chiich Yaxché con modelo propio y diálogo, primer objetivo narrativo, cinemáticas locales y compartidas con voto, progreso del capítulo en el perfil |
 
-| Alpha 0.3 (incrementos 1 y 2) | En la rama de trabajo, **sin publicar** | Sistema cinematográfico híbrido (vídeo en el navegador con respaldo del motor, fases, fundidos) y **«El sello cede» producida con Kling** |
+| **Closed Alpha 0.2.1** | **Publicada** en <https://alux-beta.onrender.com> | La 0.2 más las cinemáticas híbridas, **«El sello cede» producida con Kling** y los modelos de los personajes corregidos |
 
 ## Publicación en la rama `beta`
 
@@ -18,7 +18,36 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
 
-## Alpha 0.3 — incremento 2: «El sello cede» con Kling (en desarrollo, sin publicar)
+## ALUX Closed Alpha 0.2.1
+
+| | |
+| --- | --- |
+| **Código de la versión** | `e9a51c1bd2b3` (rama candidata `release/alpha-0.2.1-rc1`) |
+| **Commit publicado en `beta`** | El siguiente a ese: añade este registro y el nombre de la versión en el juego y en el portal. Es el que informa `/healthz`. |
+| **Fecha** | 12 de noviembre de 2026 |
+| **Autorizada por** | El dueño del proyecto, el 12 de noviembre de 2026 |
+| **Qué añade a la 0.2** | Sistema cinematográfico híbrido (vídeo en el navegador con respaldo del motor, fases de preparación y reanudación, fundidos), «El sello cede» producida con Kling (3 planos, 10 s, 2.6 MB) y los tres personajes con los hilos de sus prendas corregidos. |
+| **Qué no lleva** | El jefe Nojoch Tuunich ni las secuelas visibles del sello en el santuario: son de la Alpha 0.3 y siguen en la rama de trabajo. |
+| **Base de datos** | Sin cambios: no hay migraciones nuevas. |
+| **Recursos** | Los mismos dos; no se crea ninguno. |
+
+**Comprobado sobre el código de la versión antes de publicar:** API (10 de 10), simulación (427 840
+comprobaciones sin violaciones), servidor con bots (14 de 14), vídeos reales de Kling en un navegador,
+cinco casos de fallo del vídeo, flujo completo en navegador (14 pasos), cuatro navegadores (10 pasos,
+con los vídeos presentes) y la revisión previa, que ahora exige que los vídeos del manifiesto sean los
+definitivos: 3 declarados y presentes, ninguno de prueba.
+
+**Imagen desplegable:** verificada en local con los vídeos en el commit `bc353a7`. Entre ese commit y
+el de esta versión sólo cambian tres modelos, dos retratos, guiones de arte, documentación y pruebas;
+no se pudo repetir la construcción sobre el commit exacto porque el registro de imágenes base limitó
+las peticiones desde el entorno de pruebas. Render construye la suya y, si fallara, deja la 0.2 en
+servicio.
+
+**Volver a la 0.2:** en Render → `alux-beta` → **Events** → el despliegue del commit `c28e32c` →
+**Rollback**; o, desde Git, `git push origin c28e32c42925ae3c27b73b763772c84df8709a04:beta --force-with-lease`.
+La base de datos no necesita nada: el esquema es el mismo. Detalle en [beta.md](beta.md), sección 9.
+
+## Contenido de la 0.2.1 — «El sello cede» con Kling
 
 La primera cinemática producida con Kling, integrada sobre el sistema del incremento 1.
 Producción completa: [art/cinematicas/sello/kling/PRODUCCION.md](../art/cinematicas/sello/kling/PRODUCCION.md).
@@ -53,7 +82,7 @@ Es una medición sin tarjeta gráfica, pero apunta a un costo real en equipos mo
 **Sin comprobar:** con tarjeta gráfica y con personas; Safari y Firefox; cuatro personas viendo la
 escena a la vez; nada de esto en Render (la beta lleva la 0.2, sin estos vídeos).
 
-## Alpha 0.3 — incremento 1: cinemáticas híbridas (en desarrollo, sin publicar)
+## Contenido de la 0.2.1 — cinemáticas híbridas
 
 Kling pasa a ser obligatorio en las cinemáticas narrativas ([CINEMATICS.md](CINEMATICS.md)). Este
 incremento construye todo lo necesario para reproducir sus vídeos sin arriesgar la partida. **No
