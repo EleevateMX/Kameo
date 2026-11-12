@@ -10,6 +10,8 @@
 // No imprime el código ni ninguna cookie. Termina con código de salida 1 si algo falla.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import http from 'node:http';
+import https from 'node:https';
 import { PROTOCOL_VERSION } from '@alux/shared-contracts';
 
 const args = process.argv.slice(2);
@@ -119,14 +121,22 @@ await step('Descarga del juego', async () => {
   let total = 0;
   const parts: string[] = [];
   for (const f of ['index.js', 'index.pck', 'index.wasm']) {
-    const res = await fetch(`${base}/game/${f}`, { headers: { 'accept-encoding': 'br, gzip' } });
-    assert.equal(res.status, 200, `/game/${f} respondió ${res.status}`);
-    const len = Number(res.headers.get('content-length') || 0);
-    const bytes = (await res.arrayBuffer()).byteLength;
-    total += len || bytes;
-    parts.push(`${f} ${(bytes / 1048576).toFixed(1)} MB${res.headers.get('content-encoding') ? ` (${res.headers.get('content-encoding')})` : ''}`);
+    // Se cuentan los bytes tal como viajan (comprimidos), pidiéndolos como lo hace un navegador
+    const got = await new Promise<{ status: number; bytes: number; encoding: string }>((resolve, reject) => {
+      const req = (secure ? https : http).get(`${base}/game/${f}`, { headers: { 'accept-encoding': 'br, gzip' } }, (res) => {
+        let bytes = 0;
+        res.on('data', (chunk: Buffer) => { bytes += chunk.length; });
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, bytes, encoding: String(res.headers['content-encoding'] ?? '') }));
+        res.on('error', reject);
+      });
+      req.on('error', reject);
+      req.setTimeout(120_000, () => req.destroy(new Error(`la descarga de ${f} tardó demasiado`)));
+    });
+    assert.equal(got.status, 200, `/game/${f} respondió ${got.status}`);
+    total += got.bytes;
+    parts.push(`${f} ${(got.bytes / 1048576).toFixed(1)} MB${got.encoding ? ` (${got.encoding})` : ''}`);
   }
-  return `${parts.join(', ')} · transferidos ${(total / 1048576).toFixed(1)} MB`;
+  return `${parts.join(', ')} · total transferido ${(total / 1048576).toFixed(1)} MB`;
 });
 
 await step('WebSocket seguro al servidor de juego', async () => {
@@ -203,6 +213,21 @@ if (code) {
     assert.ok(rtts.length > 3, 'no llegaron respuestas de latencia');
     rtts.sort((a, b) => a - b);
     return `sala ${room.code} · ${(snaps / 4).toFixed(0)} estados/s · avanzó ${moved.toFixed(1)} m · latencia ${rtts[Math.floor(rtts.length / 2)].toFixed(0)} ms (máx. ${rtts[rtts.length - 1].toFixed(0)})`;
+  });
+
+  await step('Reconexión tras un corte', async () => {
+    assert.ok(room?.code, 'sin sala');
+    // La conexión anterior ya se cerró de golpe: se vuelve a entrar con un ticket nuevo, como hace el juego
+    const t = await (await call(`/api/v1/rooms/${room.code}/ticket`, { method: 'POST' })).json();
+    assert.ok(t.ticket, 'no se pudo pedir un ticket nuevo');
+    const { msg, ws } = await hello(t.wsUrl, t.ticket);
+    ws.close();
+    assert.equal(msg.t, 'welcome', `el servidor respondió ${JSON.stringify(msg).slice(0, 120)}`);
+    assert.equal(msg.rejoin, true, 'el servidor debe reconocer que es el mismo jugador que vuelve');
+    assert.equal(msg.id, me.id);
+    const z = msg.me[2];
+    assert.ok(Math.abs(z - 3.2) > 5, `debería conservar la posición a la que caminó (está en z=${z.toFixed(1)})`);
+    return `mismo jugador, mismo lugar (${msg.slot}) y la posición donde se quedó (z = ${z.toFixed(1)})`;
   });
 
   await step('Servidor de juego ↔ API y métricas de sesión', async () => {

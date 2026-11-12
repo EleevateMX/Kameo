@@ -14,7 +14,7 @@ informa el servicio, y `--commit <hash>` exige que sea uno concreto.
 | **Commit publicado en `beta`** | El siguiente a ese: sólo añade este registro. Es el que informará `/healthz` (`git rev-parse origin/beta`). |
 | **Publicada desde** | `claude/tender-johnson-c2gk0s` |
 | **Fecha** | 12 de noviembre de 2026 |
-| **Estado en Render** | **Sin desplegar todavía**: faltan la creación del Blueprint y la confirmación del costo. |
+| **Estado en Render** | **Desplegada** el 12 de noviembre de 2026 en <https://alux-beta.onrender.com> (juego: `wss://alux-beta.onrender.com/ws`). El servicio informa el commit `12fadbec9be468036f05b551c87282d19fcaca6f`. |
 
 **Recursos que crea** (y ninguno más): `alux-beta` (Docker, `0.5c-512mb`, Ohio, US$7 al mes) y
 `alux-beta-db` (PostgreSQL 16, `0.1c-256mb`, 1 GB, Ohio, US$6 + US$0.30 al mes).
@@ -35,8 +35,19 @@ tablas e índices, activan RLS y amplían una restricción; no borran ni modific
 | Cuatro navegadores contra esa imagen | **Inestable en el entorno de pruebas**: pasa 3 de 6 pasadas. Las que fallan lo hacen porque una pestaña, renderizando por software en una máquina de 4 núcleos, se congela más de 15 s y el servidor la desconecta. La misma prueba pasa sin Docker con el mismo código. |
 | Respaldo y restauración (`scripts/beta-backup.sh`) | Probado contra PostgreSQL 16: datos estropeados a propósito y recuperados |
 
-**Sin comprobar:** el despliegue real en Render, el acceso desde computadoras externas, Edge, el
-audio a oído, y FPS y latencia con tarjeta gráfica y por Internet.
+**Comprobado contra el servicio desplegado**, desde fuera de Render:
+
+| Comprobación | Resultado |
+| --- | --- |
+| `npm run beta:check` con una invitación: HTTPS, HSTS, API y base de datos, commit desplegado, rutas internas cerradas, sin entrada anónima, descarga del juego, `wss://`, sesión, guardado, partida por WebSocket (15 estados/s), reconexión con el mismo lugar y posición, latido y métricas | Pasa |
+| Sesión de un jugador en un navegador real (`tests/e2e/beta-solo.ts`): portal, carga del cliente Godot, audio del navegador activo, menú, altar, emboscada, derrota, reintentar y salir | Pasa |
+| Descarga del cliente | 8.2 MB con Brotli (10.6 MB con gzip) |
+
+![El cliente real jugando contra el servicio desplegado](img/beta-en-render.jpg)
+
+**Sin comprobar todavía:** cuatro jugadores a la vez en el servicio desplegado, persistencia tras un
+reinicio del servicio provocado a propósito, Edge, el audio a oído, y FPS y latencia con tarjeta
+gráfica desde las conexiones de los testers.
 
 **Volver a esta versión:** en Render, *Rollback* al despliegue de este commit; o, desde Git,
 `git push origin <commit publicado>:beta --force-with-lease` (sólo si `beta` avanzó con algo que

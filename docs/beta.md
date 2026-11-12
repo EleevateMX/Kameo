@@ -7,8 +7,9 @@ respaldar los datos.
 > **Estado.** Todo lo de esta guía está implementado y probado en local con la misma imagen y la
 > misma disposición que usa Render (`scripts/test-beta-image.sh`): migraciones, acceso sólo con
 > invitación, HTTPS/WSS a través de dos proxies, las dos pruebas con navegadores reales, métricas
-> y persistencia tras reiniciar. **El despliegue en Render no está hecho**: crear los servicios
-> requiere tu cuenta y tu aprobación del costo (paso 3). Tampoco se ha probado en Edge.
+> y persistencia tras reiniciar. **Desplegada en <https://alux-beta.onrender.com>** desde el 12 de
+> noviembre de 2026; lo comprobado contra el servicio real está en [versiones.md](versiones.md).
+> Falta la prueba con testers reales (cuatro a la vez, Edge, audio a oído, FPS con tarjeta gráfica).
 
 ![Portada de la beta: sólo se entra con un código de invitación personal](img/beta-portada.jpg)
 
