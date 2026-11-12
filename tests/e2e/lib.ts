@@ -118,6 +118,10 @@ export class Actor {
   slot = -1;
   snap: any = null;
   events: (string | number)[][] = [];
+  /** Mensajes de sala recibidos (cinemáticas, historia, recompensas). */
+  msgs: any[] = [];
+  /** Vota omitir cualquier cinemática compartida en cuanto empieza. */
+  autoSkip = false;
   constructor(room: string, public name: string, color: string, hat: number) {
     const ticket = signJwt({ aud: GAME_TICKET_AUDIENCE, sub: this.id, jti: randomUUID(), room, name, color, hat, forms: ['alux', 'balam'] },
       process.env.GAME_TICKET_SECRET || DEV_SECRETS.GAME_TICKET_SECRET, 60);
@@ -127,6 +131,11 @@ export class Actor {
       const m = JSON.parse(String(ev.data));
       if (m.t === 'welcome') this.slot = m.slot;
       if (m.t === 'snap') { this.snap = m; if (m.ev?.length) this.events.push(...m.ev); }
+      if (m.t === 'event') {
+        this.msgs.push(m);
+        if (this.autoSkip && m.e === 'cine_prep') this.ws.send(JSON.stringify({ t: 'cine_ready', id: m.id, v: 0 }));
+        if (this.autoSkip && m.e === 'cine') this.ws.send(JSON.stringify({ t: 'skip' }));
+      }
     };
   }
   me(): number[] | undefined { return this.snap?.p.find((p: number[]) => p[0] === this.slot); }
@@ -135,13 +144,15 @@ export class Actor {
   world(): number[] { return this.snap?.w ?? [0, 0, 1, 0, 0, 0, 1]; }
   foes() {
     return ((this.snap?.e ?? []) as number[][])
-      .map((e) => ({ id: e[0], kind: e[1], x: e[2], z: e[4], hp: e[6], state: ENEMY_STATES[e[8]] }))
+      .map((e) => ({ id: e[0], kind: e[1], x: e[2], z: e[4], hp: e[6], maxHp: e[7], state: ENEMY_STATES[e[8]] }))
       .filter((e) => e.state !== 'dead');
   }
   send(mx: number, mz: number, extra: { f?: string; a?: number; r?: number; j?: number } = {}) {
     if (this.ws.readyState !== WebSocket.OPEN) return;
     this.ws.send(JSON.stringify({ t: 'in', s: ++this.seq, mx, mz, j: extra.j ?? 0, f: extra.f ?? '', a: extra.a ?? 0, r: extra.r ?? 0 }));
   }
+  /** Igual que send, con el nombre que usan los bots del jefe (boss-bots.ts). */
+  input(mx: number, mz: number, extra: { f?: string; a?: number; r?: number; j?: number } = {}) { this.send(mx, mz, extra); }
   async walkTo(x: number, z: number, f = '', maxSeconds = 20) {
     const end = Date.now() + maxSeconds * 1000;
     while (Date.now() < end) {

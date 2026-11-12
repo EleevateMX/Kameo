@@ -173,7 +173,7 @@ assert.ok(cleared(), 'la emboscada se supera');
 await waitFor('panel de victoria', async () => (await ui(page)).result === true, 60_000);
 s = await state(page);
 assert.equal(s.encounter, 2);
-assert.match(s.ui.objective, /Santuario liberado/);
+assert.match(s.ui.objective, /Entra al santuario/, 'el objetivo invita a seguir: el guardián espera dentro');
 assert.equal(s.ui.captured, false, 'el ratón queda libre para pulsar los botones');
 assert.ok(s.stats.kills + s.stats.purified >= 8, `el resumen cuenta las 8 bajas (${s.stats.kills} + ${s.stats.purified})`);
 await shot(page, '06-victoria.png');
@@ -190,6 +190,12 @@ if (s.boss !== undefined) {
   await cast[0].walkTo(25.5, 0, 'alux', 25);
   const stay = cast[0].idle(1, 0);
   await waitFor('el guardián despierta', async () => (await state(page) as any).boss[0] === 1, 30_000);
+  // Su despertar es una cinemática compartida: se ve (con el motor si no hay vídeo) y se omite por mayoría
+  await waitFor('cinemática «El despertar»', async () => (await state(page) as any).cine === 'despertar', 60_000);
+  assert.equal(((await state(page)) as any).frozen, true, 'la sala está en pausa durante el despertar');
+  await shot(page, '06a-cinematica-despertar.png');
+  cast.forEach((a) => a.ws.send(JSON.stringify({ t: 'skip' })));
+  await waitFor('fin de «El despertar»', async () => (await state(page) as any).frozen === false && (await state(page) as any).cine === '', 60_000);
   await waitFor('barra de Silencio', async () => (await state(page) as any).boss_bar === true, 15_000);
   s = await state(page);
   assert.match(s.ui.objective, /glifos del guardián/, 'el objetivo explica qué hacer con él');
@@ -199,8 +205,8 @@ if (s.boss !== undefined) {
   ok(`Jefe: Nojoch Tuunich duerme en el patio y despierta para todos cuando entra un compañero (glifos ${s.boss[7]}/${s.boss[8]}, barra de Silencio en pantalla)`);
 }
 
-// 7) Otra ronda: hace falta el voto de todos
-await page.keyboard.press('Enter');
+// 7) Otra ronda: hace falta el voto de todos (se pide con su botón; Enter sólo cierra el panel)
+await page.evaluate(() => { (window as any).ALUX_ACTION = 'again'; });
 await waitFor('voto de la jugadora', async () => (await state(page) as any).votes === 1, 30_000);
 s = await state(page);
 assert.equal(s.encounter, 2, 'con un voto de cuatro la sala no se reinicia');
