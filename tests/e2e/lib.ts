@@ -72,18 +72,34 @@ export async function login(page: Page, name: string) {
 export async function driveTo(page: Page, x: number, z: number, opts: { timeoutMs?: number; stop?: number } = {}) {
   const end = Date.now() + (opts.timeoutMs ?? 60_000);
   let walking = false;
+  // Para detectar que se quedó atascado de frente contra un obstáculo y rodearlo
+  let mark = { x: NaN, z: NaN, at: Date.now() };
+  let side = 'KeyD';
+  let last: any = null;
   try {
     while (Date.now() < end) {
       const s = await state(page);
       const me = s?.players.find((p) => p.id === s.me);
       if (me) {
+        last = { x: me.x, z: me.z, dead: me.dead, ui: (s as any).ui, net: s!.net };
         const dx = x - me.x, dz = z - me.z;
         if (Math.hypot(dx, dz) < (opts.stop ?? 0.8)) return true;
         await page.evaluate((yaw) => { (window as any).ALUX_CAM_YAW = yaw; }, Math.atan2(dx, dz));
         if (!walking) { await page.keyboard.down('KeyW'); walking = true; }
+        if (!(Math.hypot(me.x - mark.x, me.z - mark.z) < 0.4)) {
+          mark = { x: me.x, z: me.z, at: Date.now() };
+        } else if (Date.now() - mark.at > 4000 && !me.dead) {
+          // lleva 4 s sin avanzar: un paso lateral, como haría una persona, y sigue
+          await page.keyboard.down(side);
+          await sleep(900);
+          await page.keyboard.up(side);
+          side = side === 'KeyD' ? 'KeyA' : 'KeyD';
+          mark = { x: NaN, z: NaN, at: Date.now() };
+        }
       }
       await sleep(120);
     }
+    console.log(`driveTo(${x}, ${z}) no llegó. Último estado: ${JSON.stringify(last)}`);
     return false;
   } finally {
     if (walking) await page.keyboard.up('KeyW');

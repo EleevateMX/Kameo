@@ -37,6 +37,7 @@ mapfile -t CODES < <(printf '%s\n' "$OUT" | grep -oE 'ALUX(-[A-Z0-9]{5}){4}')
 INVITES="$(printf '%s\n' "$OUT" | grep -E '^[a-z0-9-]+:[0-9a-f]{64}:' | head -1)"
 [ "${#CODES[@]}" = 5 ] && [ -n "$INVITES" ] || { echo "No se pudieron generar las invitaciones"; exit 1; }
 DB_PASS="$(rand)"; TICKET_SECRET="$(rand)"; SESSION="$(rand)"; SERVICE="$(rand)"
+COMMIT="$(git rev-parse HEAD)"   # en Render lo informa la plataforma (RENDER_GIT_COMMIT)
 
 echo "== Levantando PostgreSQL, ALUX y el proxy HTTPS de delante =="
 docker network create "$NET" >/dev/null 2>&1 || true
@@ -48,7 +49,7 @@ run_app() {
     -e PORT=10000 -e BASE_URL="https://localhost:${PORT_PUBLIC}" \
     -e DATABASE_URL="postgres://alux:${DB_PASS}@alux-beta-db:5432/alux" \
     -e SESSION_SECRET="$SESSION" -e GAME_TICKET_SECRET="$TICKET_SECRET" -e SERVICE_KEY="$SERVICE" \
-    -e BETA_ACCESS=invite -e BETA_INVITES="$INVITES" alux-beta >/dev/null
+    -e BETA_ACCESS=invite -e BETA_INVITES="$INVITES" -e ALUX_COMMIT="$COMMIT" alux-beta >/dev/null
 }
 run_app
 # El proxy de delante hace de balanceador de la plataforma: termina el HTTPS y reenvía en HTTP
@@ -69,7 +70,7 @@ check() { NODE_EXTRA_CA_CERTS=/tmp/alux-beta-root.crt NO_PROXY=localhost no_prox
 echo "== Estado de las migraciones =="
 docker logs alux-beta-app 2>&1 | grep -E "migraciones|inicio" | head -12
 echo "== Comprobación completa con una invitación =="
-check --code "${CODES[0]}" --mark "Persiste"
+check --code "${CODES[0]}" --mark "Persiste" --commit "$COMMIT"
 echo "== Memoria en uso (límite del contenedor: 512 MB) =="
 docker stats --no-stream --format '{{.Name}}  {{.MemUsage}}  CPU {{.CPUPerc}}' alux-beta-app alux-beta-db
 
