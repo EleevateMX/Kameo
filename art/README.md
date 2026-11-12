@@ -8,11 +8,12 @@ reproducible: los `.glb` salen idénticos, byte a byte, cada vez que se ejecutan
 | --- | --- |
 | `blender/build_alux.py` | Genera `game/assets/characters/alux.glb` (el alux y sus cuatro tocados). |
 | `blender/build_balam.py` | Genera `game/assets/characters/balam.glb` (Balam, el jaguar). |
+| `blender/build_yaxche.py` | Genera `game/assets/characters/yaxche.glb` (Chiich Yaxché, la abuela del claro, con su bastón). Reutiliza las medidas de la cabeza de `build_alux.py`. |
 | `blender/alux_common.py` | Utilidades: mallas, dibujos recortados en la superficie, oclusión, esqueleto, cinemática inversa, horneado de animaciones, exportación, renders. |
-| `blender/render_previews.py` | Renders de vista previa en `previews/` y retratos del HUD en `game/assets/ui/`. |
+| `blender/render_previews.py` | Renders de vista previa en `previews/` y retratos (HUD y diálogos) en `game/assets/ui/`. |
 | `godot/check_characters.gd` | Comprobación sin ventana de lo que Godot importa. |
 | `godot/render_check.gd` | Capturas con el renderer real de Godot (bajo `xvfb`). |
-| `previews/` | Renders de referencia. `*_hoja.png` es la hoja de contacto; `godot_validacion.png` son capturas hechas con Godot. |
+| `previews/` | Renders de referencia. `*_hoja.png` es la hoja de contacto; `godot_validacion.png` y `yaxche_godot_hoja.png` son capturas hechas con Godot. |
 
 ## Cómo regenerar
 
@@ -24,15 +25,20 @@ python3 -m venv .tools/blender-venv
 
 .tools/blender-venv/bin/python art/blender/build_alux.py
 .tools/blender-venv/bin/python art/blender/build_balam.py
+.tools/blender-venv/bin/python art/blender/build_yaxche.py
 .tools/blender-venv/bin/python art/blender/render_previews.py alux        # opcional
 .tools/blender-venv/bin/python art/blender/render_previews.py balam       # opcional
-.tools/blender-venv/bin/python art/blender/render_previews.py portraits   # retratos del HUD
+.tools/blender-venv/bin/python art/blender/render_previews.py yaxche      # opcional
+.tools/blender-venv/bin/python art/blender/render_previews.py portraits   # los tres retratos
+.tools/blender-venv/bin/python art/blender/render_previews.py portraits yaxche   # solo el suyo
 
 # comprobar en Godot
 .tools/godot --headless --path game --import
 .tools/godot --headless --path game --script "$PWD/art/godot/check_characters.gd"
 xvfb-run -a .tools/godot --rendering-driver opengl3 --path game --resolution 480x480 \
-    --script "$PWD/art/godot/render_check.gd" -- /tmp/capturas
+    --script "$PWD/art/godot/render_check.gd" -- /tmp/capturas          # todas las tomas
+xvfb-run -a .tools/godot --rendering-driver opengl3 --path game --resolution 480x480 \
+    --script "$PWD/art/godot/render_check.gd" -- /tmp/capturas yaxche   # solo las de un personaje
 ```
 
 Los renders usan Cycles en CPU con 2 hilos. Para cambiar una forma, un color o una
@@ -115,10 +121,54 @@ glifos de los hombros y ajorcas, emisivo suave).
 | `Death` | 1.0 s | una vez | cae sobre su costado derecho; se queda en el último cuadro |
 | `Transform` | 0.6 s | una vez | brota, se alza rugiendo (0.14–0.28 s), deja caer las garras (0.40 s) y se asienta |
 
-### Retratos del HUD
+### `yaxche.glb` — 8 599 triángulos, 542 KB, 39 huesos
 
-`game/assets/ui/portrait_alux.png` y `portrait_balam.png`: 256×256, fondo
-transparente, unos 11 KB cada uno, con el personaje dentro del círculo inscrito.
+Chiich Yaxché, «la abuela del claro»: la más vieja de los aluxes, guardiana de la gran
+ceiba. Es un personaje no jugador: el juego **no** debe recolorearla (por eso no tiene
+`Tunic` ni `Collar`). Está modelada a la escala del alux, con la misma cabeza, pero
+encorvada, panzona y de piernas cortas: mide 1.27 m hasta la coronilla y su bastón
+llega a 1.60 m (el juego la agranda ×1.15).
+
+| Nodo (MeshInstance3D) | Uso | Triángulos | Materiales |
+| --- | --- | --- | --- |
+| `Yaxche` | cuerpo: cabeza, cabello y moño, flor, vestido, rebozo, collar | 7 645 | `Body`, `Eye`, `Jade` |
+| `Staff` | bastón de ceiba con su retoño | 954 | `Body`, `Jade` |
+
+- `Body`: blanco, todo el color está en los vértices. Los blancos del vestido y del
+  cabello van un poco bajos (`#f0eadf`, `#dedad3`) para que no se quemen si el juego
+  aclara el material como hace con los aluxes.
+- `Eye`: el mismo iris de jade emisivo que el alux (energía 1.2).
+- `Jade`: en `Yaxche`, las cuentas del collar; en `Staff`, **solo** el botón del
+  retoño y las tres luciérnagas. Para que el botón brille más (en `Bless`), basta
+  poner un material propio en esa superficie del nodo `Staff`
+  (`set_surface_override_material`), sin tocar el recurso compartido con el collar.
+- Esqueleto: los 33 huesos del alux con sus mismos nombres (`SashTail` y `Bag` quedan
+  sin malla), más `Index_L` (el dedo que regaña), `ShawlEnd_L`/`ShawlEnd_R` (puntas
+  del rebozo), `StaffBone` (el bastón, hijo de `Hand_R`), `Sprout` (retoño y botón,
+  hijo de `StaffBone`) y `Fireflies` (luciérnagas, hijo de `StaffBone`, con la cabeza
+  en el centro del botón: sirve para colgarle un `BoneAttachment3D` con partículas).
+  El hueso no se llama `Staff` porque Godot lo renombraría al chocar con el nodo.
+- La pose de reposo ya es la suya: apoyada en el bastón, que sujeta con la mano
+  derecha. El bastón sigue a la mano en todas las animaciones y, mientras no se
+  levanta a propósito, la contera no se mueve del suelo aunque el cuerpo se meza.
+
+| Animación | Duración | Tipo | Notas |
+| --- | --- | --- | --- |
+| `Idle` | 3.0 s | ciclo | respira, se mece sobre el bastón, parpadea (0.6 y 1.7 s), sacude la oreja derecha (2.05–2.4 s); las luciérnagas rondan el botón |
+| `Talk` | 2.4 s | ciclo | gesticula con la mano izquierda, asiente, abre y cierra la boca; un golpecito de bastón a **1.33 s** |
+| `Scold` | 1.2 s | una vez | frunce el ceño y menea el índice (0.16–1.0 s); golpes de bastón a **0.34 s** y **0.80 s** |
+| `Bless` | 1.6 s | una vez | alza el bastón, lo sostiene con los ojos entornados entre **0.55 y 1.05 s** (ahí va el brillo del botón, que pone el juego) y lo vuelve a apoyar a 1.42 s |
+| `Run`, `Fall` | 3.0 s | ciclo | copias exactas de `Idle`, por si el código del avatar las pide |
+
+`Scold` y `Bless` empiezan y acaban en la pose neutra, muy cerca del arranque de `Idle`.
+
+### Retratos del HUD y de los diálogos
+
+`game/assets/ui/portrait_alux.png`, `portrait_balam.png` y `portrait_yaxche.png`:
+256×256, fondo transparente, unos 11–12 KB cada uno (PNG de paleta con
+transparencia; Godot los importa como RGBA), con el personaje dentro del círculo
+inscrito. El de la abuela está encuadrado un 10 % más abierto que el del alux para
+que quepa el botón de jade del bastón.
 
 ## Qué sigue siendo provisional
 
@@ -137,3 +187,8 @@ vida, pero no sustituye a un modelado y una animación hechos a mano.
   `Death` y `Swim` las piernas van por cinemática directa y puede haber pequeños
   cruces con el suelo o la ropa. Las mangas atraviesan el jubón al levantar los brazos.
 - **Expresión.** La boca del alux solo se abre y se estrecha (un hueso); los ojos no giran.
+- **Abuela Yaxché.** El rebozo es una esclavina rígida con dos puntas: al levantar un
+  brazo (`Scold`, `Bless`) sube con él y se arruga, y el antebrazo derecho roza la
+  punta de ese lado. La mano izquierda solo separa el índice; el puño derecho no se
+  abre. Al alzarlo en `Bless`, el bastón se desliza unos centímetros dentro del puño.
+  El cabello es un casquete liso con mechas pintadas, sin volumen de pelo.

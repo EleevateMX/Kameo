@@ -3,11 +3,12 @@
 Uso (desde la raíz del repo):
     .tools/blender-venv/bin/python art/blender/render_previews.py alux      [carpeta] [res] [filtro]
     .tools/blender-venv/bin/python art/blender/render_previews.py balam     [carpeta] [res] [filtro]
-    .tools/blender-venv/bin/python art/blender/render_previews.py portraits
+    .tools/blender-venv/bin/python art/blender/render_previews.py yaxche    [carpeta] [res] [filtro]
+    .tools/blender-venv/bin/python art/blender/render_previews.py portraits [personaje]
 
 Las vistas van a art/previews/ (más una hoja de contacto <personaje>_hoja.png) y los
-retratos a game/assets/ui/portrait_alux.png y portrait_balam.png (256×256, fondo
-transparente). Giro de cámara 0 = de frente, 90 = a la izquierda del personaje,
+retratos a game/assets/ui/portrait_alux.png, portrait_balam.png y portrait_yaxche.png
+(256×256, fondo transparente; con [personaje] solo se hace el suyo). Giro de cámara 0 = de frente, 90 = a la izquierda del personaje,
 180 = por detrás.
 """
 import os
@@ -58,6 +59,17 @@ BALAM_SHOTS = [
     ("balam_21_death", "Death", 1.0, 60, 28, None, (0, 0.1, 0.3), 3.9),
 ]
 
+YAXCHE_SHOTS = [
+    ("yaxche_01_frente34", None, 0, 30, 10, None),
+    ("yaxche_02_lado", None, 0, 90, 5, None),
+    ("yaxche_03_espalda", None, 0, 180, 12, None),
+    ("yaxche_04_cara", None, 0, 14, 4, None, (0, -0.06, 0.97), 1.7),
+    ("yaxche_10_idle", "Idle", 2.3, 48, 8, None),
+    ("yaxche_11_talk", "Talk", 0.6, 20, 8, None),
+    ("yaxche_12_scold", "Scold", 0.62, 10, 8, None, (0, -0.05, 0.85), 2.9),
+    ("yaxche_13_bless", "Bless", 0.8, 20, 6, None, (0, -0.05, 1.0), 4.6),
+]
+
 
 def shrink_png(path, colors=200):
     """Reduce el PNG a una paleta para no engordar el repo (necesita Pillow)."""
@@ -103,6 +115,9 @@ def previews(who, outdir, res, flt):
     if who == "alux":
         import build_alux as mod
         shots, target, dist = ALUX_SHOTS, (0, 0, 0.78), 3.2
+    elif who == "yaxche":
+        import build_yaxche as mod
+        shots, target, dist = YAXCHE_SHOTS, (0, -0.05, 0.78), 3.6
     else:
         import build_balam as mod
         shots, target, dist = BALAM_SHOTS, (0, 0.15, 0.55), 3.9
@@ -127,12 +142,16 @@ def previews(who, outdir, res, flt):
     contact_sheet(outdir, who)
 
 
-def portraits():
-    """Retratos de cabeza y hombros para el HUD: luz plana y amable, fondo transparente."""
-    outdir = os.path.join(REPO, "game", "assets", "ui")
+def portraits(only=""):
+    """Retratos de cabeza y hombros para el HUD y los diálogos: luz plana y amable, fondo
+    transparente. `only` limita a un personaje (los demás retratos no se tocan)."""
+    outdir = os.environ.get("KAMEO_UI_DIR") or os.path.join(REPO, "game", "assets", "ui")
     os.makedirs(outdir, exist_ok=True)
     for who, hat, target, yaw, pitch, dist in (("alux", "Hat_Palma", (0.04, 0, 1.10), 24, 4, 2.0),
-                                               ("balam", None, (0.03, -0.66, 0.885), 32, 6, 1.28)):
+                                               ("balam", None, (0.03, -0.66, 0.885), 32, 6, 1.28),
+                                               ("yaxche", None, (-0.02, -0.085, 1.03), 24, 4, 2.2)):
+        if only and who != only:
+            continue
         mod = __import__("build_" + who)
         arm, objs = mod.build()
         cam = kc.setup_preview(ground=False, sky="#ffffff", ambient=1.0, key=1.4)
@@ -147,7 +166,7 @@ def portraits():
 def main():
     who = sys.argv[1] if len(sys.argv) > 1 else "alux"
     if who == "portraits":
-        portraits()
+        portraits(sys.argv[2] if len(sys.argv) > 2 else "")
         return
     outdir = sys.argv[2] if len(sys.argv) > 2 else os.path.join(REPO, "art", "previews")
     res = int(sys.argv[3]) if len(sys.argv) > 3 else 384

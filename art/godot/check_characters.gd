@@ -85,14 +85,15 @@ func _check(path: String) -> void:
 	for e in nodes:
 		if e[0] is Skeleton3D:
 			var sk: Skeleton3D = e[0]
-			for bname in ["Head", "Mouth", "Ear_L", "Foot_L", "Jaw", "Tail4", "FrontPaw_L"]:
+			for bname in ["Head", "Mouth", "Ear_L", "Foot_L", "Jaw", "Tail4", "FrontPaw_L", "Hand_R", "StaffBone", "Sprout", "Fireflies"]:
 				var i := sk.find_bone(bname)
 				if i >= 0:
 					print("  hueso ", bname, " en ", (_gt(sk, root) * sk.get_bone_global_rest(i)).origin.snapped(Vector3(0.001, 0.001, 0.001)))
 	root.queue_free()
 
 func _init() -> void:
-	for p in ["res://assets/characters/alux.glb", "res://assets/characters/balam.glb"]:
+	for p in ["res://assets/characters/alux.glb", "res://assets/characters/balam.glb",
+			"res://assets/characters/yaxche.glb"]:
 		if ResourceLoader.exists(p):
 			_check(p)
 		else:

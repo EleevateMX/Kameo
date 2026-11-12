@@ -2,7 +2,8 @@ extends SceneTree
 ## Capturas con el renderer real de Godot (Compatibility/OpenGL), para ver los .glb
 ## tal como se verán en el juego. Sin GPU funciona con Mesa por software bajo xvfb:
 ##   xvfb-run -a .tools/godot --rendering-driver opengl3 --path game --resolution 480x480 \
-##       --script "$PWD/art/godot/render_check.gd" -- /carpeta/de/salida
+##       --script "$PWD/art/godot/render_check.gd" -- /carpeta/de/salida [personaje]
+## Con [personaje] (alux, balam o yaxche) solo se hacen sus tomas.
 var out_dir := "user://"
 var shots := [
 	# glb, anim, t, yaw, pitch, dist, target, hat, name
@@ -22,6 +23,14 @@ var shots := [
 	["balam", "Pounce", 0.25, 80.0, 5.0, 4.2, Vector3(0, 0.65, 0), "", "b06"],
 	["balam", "Transform", 0.25, 60.0, 5.0, 4.4, Vector3(0, 0.8, 0), "", "b07"],
 	["balam", "Charge", 0.2, 40.0, -15.0, 3.6, Vector3(0, 0.5, 0), "", "b08"],
+	["yaxche", "", 0.0, 30.0, 10.0, 3.6, Vector3(0, 0.78, 0.05), "", "y01"],
+	["yaxche", "", 0.0, 180.0, 12.0, 3.6, Vector3(0, 0.78, 0.05), "", "y02"],
+	["yaxche", "", 0.0, 14.0, 4.0, 1.7, Vector3(0, 0.97, 0.06), "", "y03"],
+	["yaxche", "Idle", 2.3, 300.0, -20.0, 3.0, Vector3(0, 0.75, 0.05), "", "y04"],
+	["yaxche", "Idle", 1.0, 90.0, 5.0, 3.6, Vector3(0, 0.78, 0.05), "", "y05"],
+	["yaxche", "Talk", 0.6, 20.0, 8.0, 3.6, Vector3(0, 0.78, 0.05), "", "y06"],
+	["yaxche", "Scold", 0.62, 10.0, 8.0, 2.9, Vector3(0, 0.85, 0.05), "", "y07"],
+	["yaxche", "Bless", 0.8, 20.0, 6.0, 4.6, Vector3(0, 1.0, 0.05), "", "y08"],
 ]
 var idx := 0
 var wait := 0
@@ -36,6 +45,8 @@ func _initialize() -> void:
 	if not out_dir.ends_with("/"):
 		out_dir += "/"
 	DirAccess.make_dir_recursive_absolute(out_dir)
+	if args.size() > 1:
+		shots = shots.filter(func(s): return s[0] == args[1])
 	get_root().size = Vector2i(480, 480)
 	world = Node3D.new()
 	get_root().add_child(world)
