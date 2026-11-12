@@ -11,7 +11,8 @@ Versión actual: **2** (la 2 añade el combate).
 | `in` | `s` secuencia · `mx`, `mz` dirección (−1…1) · `j` salto 0/1 · `f` forma deseada o `""` · `a` botones (1 primaria, 2 secundaria, 4 especial) · `r` giro de puntería en radianes | Uno por tick (30 por segundo). |
 | `ping` | `c` marca de tiempo del cliente | Cada 2 s, para medir la latencia. |
 | `talk` | `n` id del personaje | Al terminar de leer un diálogo. El servidor comprueba que el jugador está junto al personaje y anota el avance de la historia de la sala. |
-| `skip` | — | Voto para omitir la cinemática compartida en curso. Se omite cuando vota la mayoría de los conectados. Fuera de una cinemática se ignora. |
+| `cine_ready` | `id` de la cinemática · `v` 1 tiene el vídeo, 0 verá la escena del motor | Respuesta a `cine_prep`, cuando el cliente terminó su fundido de entrada. Sólo acorta la espera: quien no contesta retrasa el inicio como mucho 5 s. |
+| `skip` | — | Voto para omitir la cinemática compartida. Sólo cuenta durante la reproducción; se omite cuando vota la mayoría de los conectados. |
 | `again` | `v` 1 (por defecto) vota, 0 retira el voto | Sólo con la emboscada superada: pide otra ronda. La sala se reinicia cuando votan todos los conectados. |
 
 No existe ningún mensaje para fijar posición, hacer daño, curarse, abrir puertas o pedir recompensas.
@@ -24,9 +25,25 @@ No existe ningún mensaje para fijar posición, hacer daño, curarse, abrir puer
 | `welcome` | Tu id, lugar (0–3), sala, formas, tu estado y vida, lista de jugadores, estado del mundo, enemigos, `rejoin`. |
 | `roster` | Lista de jugadores (nombre, color, accesorio, conectado). |
 | `snap` | 15 por segundo: `p` jugadores, `e` enemigos, `w` mundo, `ev` eventos de combate desde el estado anterior. |
-| `event` | `gate_open` (quiénes lo abrieron), `reward` (recompensa, si se guardó y si era nueva), `defeat` (todo el grupo cayó), `restart` (empieza otra ronda), `story` (avanzó la historia: qué, con qué personaje y quién), `cine` (empieza una cinemática compartida: id y duración) o `cine_end` (terminó, y si fue por votos). |
+| `event` | `gate_open` (quiénes lo abrieron), `reward` (recompensa, si se guardó y si era nueva), `defeat` (todo el grupo cayó), `restart` (empieza otra ronda), `story` (avanzó la historia: qué, con qué personaje y quién), `cine_prep` (la sala se pausa para una cinemática compartida: id y espera máxima), `cine` (orden de inicio: id, duración y `at`, los segundos ya transcurridos para quien se engancha a mitad) o `cine_end` (terminó, y si fue por votos). |
 | `pong` | Eco de `c`. |
 | `error` | `code` y mensaje. Tras un error el servidor cierra la conexión. |
+
+### Cinemáticas compartidas
+
+`PREPARING → PLAYING → RESUMING`, siempre en ese orden y dictadas por el servidor (valor 14 del estado
+del mundo: 1, 2, 3; 0 si no hay ninguna). La sala está en pausa en las tres: las entradas de
+movimiento y ataque se ignoran y el combate no avanza.
+
+| Fase | Empieza con | Termina cuando |
+| --- | --- | --- |
+| Preparación | `cine_prep` | Todos los conectados enviaron `cine_ready`, o pasan 5 s |
+| Reproducción | `cine` | Se cumple la duración, o vota omitir la mayoría de los conectados |
+| Reanudación | `cine_end` | Pasa 1 s; después el estado del mundo vuelve a fase 0 |
+
+Quien entra o se reconecta recibe, tras el `welcome`, el `cine_prep` (con la espera que queda) o el
+`cine` (con `at`) de la fase en curso. El vídeo nunca viaja por este canal: cada navegador lo
+descarga por HTTP. Detalle y motivos: [CINEMATICS.md](CINEMATICS.md).
 
 ### `snap.p` — jugadores
 

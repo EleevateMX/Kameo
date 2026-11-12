@@ -41,6 +41,8 @@ class Bot {
   closed = false;
   seq = 0;
   slot = -1;
+  /** Respuesta a la preparación de una cinemática: true «tengo el vídeo», false «veré la del motor», null no contesta. */
+  autoReady: boolean | null = false;
 
   constructor(public id: string, public name: string) {}
 
@@ -62,7 +64,10 @@ class Bot {
         if (m.t === 'welcome') { this.welcome = m; this.slot = m.slot; this.roster = m.players; resolve(); }
         else if (m.t === 'roster') this.roster = m.players;
         else if (m.t === 'snap') { this.snap = m; if (m.ev?.length) this.combat.push(...m.ev); }
-        else if (m.t === 'event') this.events.push(m);
+        else if (m.t === 'event') {
+          this.events.push(m);
+          if (m.e === 'cine_prep' && this.autoReady !== null) this.send({ t: 'cine_ready', id: m.id, v: this.autoReady ? 1 : 0 });
+        }
         else if (m.t === 'error') { this.error = m; resolve(); }
       };
       this.ws.onclose = () => { this.closed = true; resolve(); };
@@ -622,81 +627,220 @@ async function stepOntoPlate(bot: Bot, x: number, z: number) {
   return (bot.snap?.w[11] ?? 0) > 0;
 }
 
-test('cinemática compartida: la sala se pausa, se omite por mayoría y ningún cliente la termina solo', async () => {
-  // Dos jugadores: hace falta el voto de los dos
+const phase = (bot: Bot) => bot.snap?.w[13] ?? 0;
+const until = async (what: string, cond: () => boolean, ms = 8000) => {
+  const end = Date.now() + ms;
+  while (Date.now() < end) { if (cond()) return; await sleep(25); }
+  assert.fail(`no ocurrió a tiempo: ${what}`);
+};
+const count = (bot: Bot, e: string) => bot.events.filter((ev) => ev.e === e).length;
+
+test('cinemática compartida: preparación, orden de inicio, pausa, voto de mayoría y reanudación', async () => {
+  // Dos jugadores que contestan a mano: hace falta el voto de los dos
   const room = 'CINE02';
   const a = new Bot(randomUUID(), 'Uno');
   const b = new Bot(randomUUID(), 'Dos');
+  a.autoReady = b.autoReady = null;
   await a.connect(ticket({ id: a.id, room, name: a.name }));
   await b.connect(ticket({ id: b.id, room, name: b.name }));
   await sleep(300);
-  assert.equal(a.snap!.w[11], 0, 'sin cinemática al empezar');
+  assert.deepEqual([a.snap!.w[11], phase(a)], [0, 0], 'sin cinemática al empezar');
   // Uno ya está en su altar; el otro se queda a dos pasos y entra cuando toca
   assert.deepEqual(await Promise.all([a.walkTo(0, -15.5, 14), b.walkTo(15.4, -4.5, 16)]), [true, true]);
-  assert.ok(await stepOntoPlate(b, 17.5, -5), 'al pisar el segundo altar empieza la cinemática');
+  assert.ok(await stepOntoPlate(b, 17.5, -5), 'al pisar el segundo altar la sala se pausa');
   await sleep(300);
+
+  // PREPARING: aviso a todos, sala en pausa, todavía sin orden de inicio
   for (const bot of [a, b]) {
-    const ev = bot.events.filter((e) => e.e === 'cine');
-    assert.equal(ev.length, 1, 'al abrir el santuario empieza la cinemática para todos');
-    assert.equal(ev[0].id, 'sello');
-    assert.ok(ev[0].dur > 5 && ev[0].dur < 10);
+    const prep = bot.events.filter((e) => e.e === 'cine_prep');
+    assert.equal(prep.length, 1, 'el servidor avisa a todos de que se preparen');
+    assert.equal(prep[0].id, 'sello');
+    assert.ok(prep[0].wait >= 3 && prep[0].wait <= 8, 'con un tiempo máximo de espera');
+    assert.equal(phase(bot), 1, 'fase de preparación');
     assert.ok(bot.snap!.w[11] > 0, 'la sala está en pausa');
+    assert.equal(count(bot, 'cine'), 0, 'nadie empieza por su cuenta');
   }
   // En pausa nadie se mueve, nadie ataca y nadie recibe daño
   const where = b.pos();
-  for (let i = 0; i < 40; i++) { b.input(-1, 0, { a: 1, j: 1 }); await sleep(33); }
-  assert.ok(Math.hypot(b.pos().x - where.x, b.pos().z - where.z) < 0.3, 'en pausa el personaje no camina');
+  for (let i = 0; i < 20; i++) { b.input(-1, 0, { a: 1, j: 1 }); await sleep(33); }
+  assert.ok(Math.hypot(b.pos().x - where.x, b.pos().z - where.z) < 0.3, 'durante la preparación el personaje no camina');
+  // Todavía no se puede votar, ni dar por lista una escena que no es
+  a.send({ t: 'skip' });
+  a.send({ t: 'cine_ready', id: 'otra', v: 1 });
+  await sleep(300);
+  assert.equal(a.snap!.w[12], 0, 'en la preparación no se vota');
+  assert.equal(phase(a), 1);
+  // Con uno listo se sigue esperando al otro; con los dos, orden de inicio para todos a la vez
+  a.send({ t: 'cine_ready', id: 'sello', v: 1 });
+  await sleep(400);
+  assert.equal(phase(a), 1, 'falta el segundo jugador');
+  b.send({ t: 'cine_ready', id: 'sello', v: 0 });   // sin vídeo: verá la del motor
+  await until('orden de inicio', () => count(a, 'cine') === 1 && count(b, 'cine') === 1 && phase(a) === 2 && phase(b) === 2, 2000);
+  for (const bot of [a, b]) {
+    const ev = bot.events.filter((e) => e.e === 'cine')[0];
+    assert.equal(ev.id, 'sello');
+    assert.equal(ev.at, 0, 'empieza desde el principio');
+    assert.ok(ev.dur > 5 && ev.dur < 12);
+  }
+
+  // PLAYING: sigue la pausa
+  const still = b.pos();
+  for (let i = 0; i < 30; i++) { b.input(-1, 0, { a: 1, j: 1 }); await sleep(33); }
+  assert.ok(Math.hypot(b.pos().x - still.x, b.pos().z - still.z) < 0.3, 'en pausa el personaje no camina');
   assert.equal(b.hp(), 100);
   assert.equal(b.foes().filter((f) => f.state !== 'idle').length, 0, 'los enemigos esperan');
   // Un voto de dos no basta; con el segundo se omite
   a.send({ t: 'skip' });
   await sleep(400);
   assert.equal(a.snap!.w[12], 1, 'un voto contado');
-  assert.ok(a.snap!.w[11] > 0, 'con un voto de dos sigue');
-  assert.equal(a.events.filter((e) => e.e === 'cine_end').length, 0);
+  assert.equal(phase(a), 2, 'con un voto de dos sigue');
+  assert.equal(count(a, 'cine_end'), 0);
   b.send({ t: 'skip' });
-  await sleep(400);
+  await until('fin por mayoría', () => count(a, 'cine_end') === 1 && count(b, 'cine_end') === 1, 2000);
   for (const bot of [a, b]) {
-    assert.equal(bot.snap!.w[11], 0, 'omitida por mayoría');
     const end = bot.events.filter((e) => e.e === 'cine_end');
-    assert.equal(end.length, 1);
     assert.deepEqual([end[0].id, end[0].skipped], ['sello', true]);
   }
+
+  // RESUMING: un instante más de pausa (sin daño) mientras los clientes vuelven al juego
+  await until('fase de reanudación', () => phase(b) === 3, 1000);
+  assert.ok(b.snap!.w[11] > 0, 'la sala sigue en pausa al reanudar');
+  const back = b.pos();
+  for (let i = 0; i < 10; i++) { b.input(-1, 0); await sleep(33); }
+  assert.ok(Math.hypot(b.pos().x - back.x, b.pos().z - back.z) < 0.3, 'tampoco se camina mientras se reanuda');
+  assert.equal(b.hp(), 100, 'nadie recibe daño en la transición');
+  await until('partida reanudada', () => phase(a) === 0 && phase(b) === 0 && a.snap!.w[11] === 0, 3000);
   const from = b.pos();
   for (let i = 0; i < 30; i++) { b.input(-1, 0); await sleep(33); }
   assert.ok(Math.hypot(b.pos().x - from.x, b.pos().z - from.z) > 1,
     `al terminar se recupera el control (de ${from.x.toFixed(1)},${from.z.toFixed(1)} a ${b.pos().x.toFixed(1)},${b.pos().z.toFixed(1)}; vida ${b.hp()}, caído ${b.dead()}, banderas ${b.me()![11]})`);
-  // Votar fuera de una cinemática no hace nada
+  // Votar fuera de una cinemática no hace nada, y la escena no se repite
   a.send({ t: 'skip' });
   await sleep(300);
   assert.equal(a.snap!.w[12], 0);
+  assert.deepEqual([count(a, 'cine_prep'), count(a, 'cine'), count(a, 'cine_end')], [1, 1, 1], 'cada evento, una sola vez');
   a.close();
   b.close();
 
-  // Un jugador solo: sin votos termina sola al cumplirse su duración
+  // Un cliente que nunca avisa (versión vieja, vídeo colgado) no bloquea: se agota la espera y empieza
   const c = new Bot(randomUUID(), 'Sola');
+  c.autoReady = null;
   await c.connect(ticket({ id: c.id, room: 'CINE01', name: c.name }));
   await sleep(300);
   assert.ok(await c.walkTo(15.4, -4.5, 16));
   assert.ok(await stepOntoPlate(c, 17.5, -5));
+  const prepAt = Date.now();
+  await c.fight(() => undefined, () => count(c, 'cine') === 1, 10);
+  const waited = (Date.now() - prepAt) / 1000;
+  assert.ok(waited > 3.5 && waited < 6.5, `espera como mucho el tiempo máximo (${waited.toFixed(1)} s)`);
+  // …y sin votos termina sola al cumplirse su duración
   const started = Date.now();
-  await c.fight(() => undefined, () => c.snap!.w[11] === 0, 15);
+  await c.fight(() => undefined, () => count(c, 'cine_end') === 1, 15);
   const took = (Date.now() - started) / 1000;
-  assert.ok(took > 5 && took < 9, `dura lo que dura su guion (${took.toFixed(1)} s)`);
+  assert.ok(took > 5 && took < 12, `dura lo que dura su guion (${took.toFixed(1)} s)`);
   assert.equal(c.events.filter((e) => e.e === 'cine_end')[0].skipped, false);
+  await c.fight(() => undefined, () => phase(c) === 0, 4);
+  assert.equal(phase(c), 0, 'y la partida se reanuda');
   c.close();
 
-  // Un jugador solo que vota: se omite al instante
+  // Un jugador solo que avisa y vota: empieza enseguida y se omite al instante
   const d = new Bot(randomUUID(), 'Prisa');
+  d.autoReady = true;
   await d.connect(ticket({ id: d.id, room: 'CINE00', name: d.name }));
   await sleep(300);
   assert.ok(await d.walkTo(15.4, -4.5, 16));
   assert.ok(await stepOntoPlate(d, 17.5, -5));
+  await until('inicio inmediato', () => count(d, 'cine') === 1, 1500);
   d.send({ t: 'skip' });
-  await sleep(400);
-  assert.equal(d.snap!.w[11], 0, 'solo: su voto es mayoría');
-  assert.equal(d.events.filter((e) => e.e === 'cine_end')[0].skipped, true);
+  await until('omitida', () => count(d, 'cine_end') === 1, 1500);
+  assert.equal(d.events.filter((e) => e.e === 'cine_end')[0].skipped, true, 'solo: su voto es mayoría');
   d.close();
+});
+
+test('cinemática compartida: quien se va no bloquea, quien vuelve o llega se engancha y nada se duplica', async () => {
+  const room = 'CINE03';
+  const a = new Bot(randomUUID(), 'Queda');
+  const b = new Bot(randomUUID(), 'Se va');
+  a.autoReady = true;
+  b.autoReady = null;
+  await a.connect(ticket({ id: a.id, room, name: a.name }));
+  await b.connect(ticket({ id: b.id, room, name: b.name }));
+  await sleep(300);
+  assert.deepEqual(await Promise.all([a.walkTo(0, -15.5, 14), b.walkTo(15.4, -4.5, 16)]), [true, true]);
+  assert.ok(await stepOntoPlate(b, 17.5, -5));
+  await sleep(300);
+  assert.equal(phase(a), 1, 'esperando al jugador que no ha avisado');
+  // El que faltaba se desconecta en plena preparación: la sala no se queda esperándolo
+  b.close();
+  await until('empieza sin el ausente', () => count(a, 'cine') === 1 && phase(a) === 2, 2500);
+
+  // Vuelve a mitad de la escena: el servidor le dice cuál es y por dónde va
+  await sleep(1500);
+  b.events = [];
+  await b.connect(ticket({ id: b.id, room, name: b.name }));
+  assert.equal(b.welcome!.rejoin, true);
+  assert.equal(b.welcome!.w[13], 2, 'la sala sigue reproduciendo');
+  await until('enganche del que vuelve', () => count(b, 'cine') === 1, 1500);
+  const joinB = b.events.filter((e) => e.e === 'cine')[0];
+  assert.equal(joinB.id, 'sello');
+  assert.ok(joinB.at >= 1 && joinB.at < joinB.dur, `con el tiempo transcurrido (${joinB.at} de ${joinB.dur} s)`);
+  assert.equal(count(b, 'cine_prep'), 0, 'sin volver a prepararse');
+  // Llega un jugador nuevo: también se engancha, y la sala sigue en pausa para él
+  const c = new Bot(randomUUID(), 'Llega');
+  await c.connect(ticket({ id: c.id, room, name: c.name }));
+  await until('enganche del que llega', () => count(c, 'cine') === 1, 1500);
+  assert.ok(c.events.filter((e) => e.e === 'cine')[0].at > joinB.at - 0.2);
+  await sleep(300);
+  const where = c.pos();
+  for (let i = 0; i < 15; i++) { c.input(1, 0); await sleep(33); }
+  assert.ok(Math.hypot(c.pos().x - where.x, c.pos().z - where.z) < 0.3, 'quien llega tampoco se mueve durante la escena');
+  // Ahora son tres: un voto ya no basta, dos sí
+  c.send({ t: 'skip' });
+  await sleep(350);
+  assert.deepEqual([a.snap!.w[12], phase(a)], [1, 2], 'un voto de tres no la termina');
+  b.send({ t: 'skip' });
+  await until('fin para los tres', () => [a, b, c].every((bot) => count(bot, 'cine_end') === 1), 2000);
+  await until('reanudada', () => [a, b, c].every((bot) => phase(bot) === 0), 3000);
+  // Nada duplicado para quien estuvo todo el rato
+  assert.deepEqual([count(a, 'cine_prep'), count(a, 'cine'), count(a, 'cine_end'), count(a, 'gate_open')], [1, 1, 1, 1]);
+  assert.equal(a.snap!.w[3], 1, 'y la emboscada empieza una sola vez');
+  // Volver después de la escena no la repite
+  b.close();
+  await sleep(300);
+  b.events = [];
+  await b.connect(ticket({ id: b.id, room, name: b.name }));
+  await sleep(500);
+  assert.deepEqual([count(b, 'cine_prep'), count(b, 'cine')], [0, 0], 'al volver después no hay escena');
+  [a, b, c].forEach((bot) => bot.close());
+
+  // Reconexión en plena preparación: recibe el aviso con la espera que queda
+  const p = new Bot(randomUUID(), 'Corte');
+  const q = new Bot(randomUUID(), 'Firme');
+  p.autoReady = q.autoReady = null;
+  await p.connect(ticket({ id: p.id, room: 'CINE04', name: p.name }));
+  await q.connect(ticket({ id: q.id, room: 'CINE04', name: q.name }));
+  await sleep(300);
+  assert.deepEqual(await Promise.all([q.walkTo(0, -15.5, 14), p.walkTo(15.4, -4.5, 16)]), [true, true]);
+  assert.ok(await stepOntoPlate(p, 17.5, -5));
+  await sleep(700);
+  p.close();
+  await sleep(200);
+  p.events = [];
+  await p.connect(ticket({ id: p.id, room: 'CINE04', name: p.name }));
+  assert.equal(p.welcome!.w[13], 1, 'la sala sigue preparándose');
+  await until('aviso al que vuelve', () => count(p, 'cine_prep') === 1, 1500);
+  const again = p.events.filter((e) => e.e === 'cine_prep')[0];
+  assert.ok(again.wait > 1.5 && again.wait < 4.6, `con la espera que queda (${again.wait} s)`);
+  p.send({ t: 'cine_ready', id: 'sello', v: 0 });
+  q.send({ t: 'cine_ready', id: 'sello', v: 1 });
+  await until('inicio', () => count(p, 'cine') === 1 && count(q, 'cine') === 1, 1500);
+  assert.equal(count(q, 'cine_prep'), 1, 'quien no se fue no recibe avisos repetidos');
+  p.send({ t: 'skip' });
+  q.send({ t: 'skip' });
+  await until('fin', () => count(p, 'cine_end') === 1 && count(q, 'cine_end') === 1, 2000);
+  await until('reanudada', () => phase(p) === 0 && phase(q) === 0, 3000);
+  p.close();
+  q.close();
 });
 
 test('una conexión que deja de enviar se libera sola y el jugador puede volver', async () => {

@@ -60,6 +60,9 @@ const DIALOGUES := {
 ##   who/text  subtítulo (opcional)
 ##   sound     efecto al empezar el plano (opcional)
 ##   title     rótulo grande (opcional)
+##   video     id de un vídeo que sustituye al plano si el navegador lo tiene listo (opcional).
+##             El plano del motor corre igual por debajo: es lo que se ve si el vídeo falta o falla.
+##             Los archivos y su manifiesto están en game/web/static/video (docs/CINEMATICS.md).
 const CUTSCENES := {
 	## «El sello cede»: compartida. La empieza el servidor cuando el grupo abre el santuario por
 	## primera vez; mientras dura, la sala está en pausa. Se omite por mayoría.
@@ -67,9 +70,9 @@ const CUTSCENES := {
 		"title": "El sello cede", "shared": true,
 		"shots": [
 			{"dur": 3.5, "from": [Vector3(15.5, 3.2, 4.0), Vector3(26, 3.2, 0)], "to": [Vector3(17.5, 2.6, 2.2), Vector3(27, 3.8, 0)],
-				"text": "Cada alux en su altar, y el sello cede…", "sound": "santuario_abre"},
-			{"dur": 3.5, "from": [Vector3(8.5, 5.5, -7.0), Vector3(15, 0.8, 0)], "to": [Vector3(10.0, 3.6, -5.0), Vector3(15, 0.8, 0)],
-				"text": "…pero quienes lo cuidaban ya no recuerdan a quién. ¡Los Olvidados despiertan!"},
+				"text": "Cada alux en su altar, y el sello cede…", "sound": "santuario_abre", "video": "sello_1"},
+			{"dur": 3.5, "from": [Vector3(14.5, 4.2, -5.5), Vector3(19.0, 0.8, 0.5)], "to": [Vector3(15.6, 2.6, -3.6), Vector3(17.8, 0.7, 0.6)],
+				"text": "…pero quienes lo cuidaban ya no recuerdan a quién. ¡Los Olvidados despiertan!", "video": "sello_2"},
 		],
 	},
 	## «El llamado»: introducción del Capítulo I. Local (cada jugador la ve al entrar; no detiene a nadie).
@@ -87,6 +90,37 @@ const CUTSCENES := {
 		],
 	},
 }
+
+
+## Fases de una cinemática compartida (las dicta el servidor; viajan en el estado del mundo).
+##   PREPARING  la sala ya está en pausa; cada cliente funde a negro y avisa de si tiene el vídeo
+##   PLAYING    todos la ven; se puede votar para omitirla
+##   RESUMING   terminó: unos instantes más de pausa mientras cada cliente vuelve al juego
+const CINE_NONE := 0
+const CINE_PREPARING := 1
+const CINE_PLAYING := 2
+const CINE_RESUMING := 3
+const CINE_PREP_MAX := 5.0      # espera máxima a que los clientes estén listos
+const CINE_RESUME := 1.0        # pausa de cortesía al terminar (nadie recibe daño)
+
+
+## Ids de todos los vídeos que usan las cinemáticas (para precargarlos).
+static func video_ids() -> Array:
+	var ids := []
+	for id in CUTSCENES:
+		for shot in CUTSCENES[id].shots:
+			if shot.has("video") and not ids.has(shot.video):
+				ids.append(shot.video)
+	return ids
+
+
+## Ids de los vídeos de una cinemática.
+static func cutscene_videos(id: String) -> Array:
+	var ids := []
+	for shot in CUTSCENES.get(id, {}).get("shots", []):
+		if shot.has("video"):
+			ids.append(shot.video)
+	return ids
 
 
 ## Duración total de una cinemática, en segundos (0 si no existe).

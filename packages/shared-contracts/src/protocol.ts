@@ -40,7 +40,12 @@ export type ClientMessage =
   /** El jugador terminó de hablar con un personaje (n = su id). El servidor comprueba que está a su lado. */
   | { t: 'talk'; n: string }
   /** Voto para omitir la cinemática compartida en curso. Se omite cuando vota la mayoría de los conectados. */
-  | { t: 'skip' };
+  | { t: 'skip' }
+  /**
+   * Respuesta a `cine_prep`: el cliente terminó su transición de entrada. v = 1 si tiene el vídeo,
+   * 0 si verá la escena del motor. Sólo acorta la espera: sin respuesta, la escena empieza igual.
+   */
+  | { t: 'cine_ready'; id: string; v: 0 | 1 };
 
 /**
  * Estado simulado del jugador (19 valores):
@@ -55,8 +60,8 @@ export const SNAP_SLOT = 0, SNAP_ACK = 1, SNAP_ON = 2, SNAP_HP = 3, SNAP_X = 4, 
 /**
  * [santuarioAbierto, altares, altaresNecesarios, emboscada(0 pendiente/1 en curso/2 superada/3 fallida),
  *  enemigosRestantes, puntoDeReaparición, braseroListo, votosOtraRonda, conectados, segundosDeEsperaDeLosAltares,
- *  banderasDeHistoria(1 = alguien habló con Chiich Yaxché), segundosDeCinemáticaCompartida(0 = ninguna),
- *  votosParaOmitirla]
+ *  banderasDeHistoria(1 = alguien habló con Chiich Yaxché), segundosDeCinemáticaCompartida(0 = ninguna; >0 = sala en pausa),
+ *  votosParaOmitirla, faseDeLaCinemática(0 ninguna, 1 preparación, 2 reproducción, 3 reanudación)]
  */
 export type WorldStateArray = number[];
 /** [id, tipo(0 piedra, 1 corrupta), x, y, z, giro, vida, vidaMáx, estado, slotObjetivo] */
@@ -96,8 +101,14 @@ export type ServerMessage =
   | { t: 'event'; e: 'defeat' | 'restart' }
   /** Avance de la historia de la sala: k = 'talked' (alguien habló con el personaje npc). */
   | { t: 'event'; e: 'story'; k: string; npc: string; by: string }
-  /** Cinemática compartida: la empieza y la termina el servidor; mientras dura, la sala está en pausa. */
-  | { t: 'event'; e: 'cine'; id: string; dur: number }
+  /**
+   * Cinemática compartida: la dirige el servidor y la sala está en pausa en sus tres fases.
+   * cine_prep: prepárense (wait = segundos máximos de espera) → cine: orden de inicio para todos
+   * (at = segundos ya transcurridos, para quien se engancha a mitad) → cine_end: terminó; la sala
+   * sigue en pausa un instante más (fase de reanudación) y luego continúa la partida.
+   */
+  | { t: 'event'; e: 'cine_prep'; id: string; wait: number }
+  | { t: 'event'; e: 'cine'; id: string; dur: number; at: number }
   | { t: 'event'; e: 'cine_end'; id: string; skipped: boolean }
   | { t: 'pong'; c: number }
   | { t: 'error'; code: string; msg: string };

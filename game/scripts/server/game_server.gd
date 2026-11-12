@@ -88,7 +88,10 @@ class Room:
 	var story := 0               # banderas del progreso narrativo (Story.F_*)
 	# Cinemática compartida en curso: mientras dura, la sala está en pausa
 	var cine := ""               # id de la cinemática ("" si no hay)
-	var cine_t := 0.0            # segundos que le quedan
+	var cine_phase := 0          # Story.CINE_*
+	var cine_t := 0.0            # segundos que le quedan a la fase en curso
+	var cine_len := 0.0          # duración de la reproducción
+	var cine_ready := {}         # pid -> true si tiene el vídeo, false si verá la versión del motor
 	var cine_votes := {}         # pid -> true: votó por omitirla
 	var cines_seen := {}         # id -> true: ya se reprodujo en esta sala
 
@@ -319,9 +322,14 @@ func _handle(c: Conn, msg: Dictionary) -> void:
 					if q.conn_id != 0:
 						present.append(q.id)
 				_grant_reward(room, REWARD_CALL, present)
+		"cine_ready":
+			# El cliente terminó su transición de entrada y dice si tiene el vídeo. Sólo sirve para
+			# no hacer esperar a nadie: la escena empieza igual cuando se agota la espera.
+			if room.cine_phase == Story.CINE_PREPARING and str(msg.get("id", "")) == room.cine:
+				room.cine_ready[p.id] = _num(msg.get("v", 0.0)) != 0.0
 		"skip":
 			# Voto para omitir la cinemática compartida en curso (se cuenta en _tick_room)
-			if not room.cine.is_empty():
+			if room.cine_phase == Story.CINE_PLAYING:
 				room.cine_votes[p.id] = true
 		"again":
 			# Voto para jugar otra ronda. Sólo cuenta con la emboscada superada; la sala
@@ -421,6 +429,7 @@ func _handle_hello(c: Conn, msg: Dictionary) -> void:
 		"players": _roster(room), "w": _world_state(room), "e": room.combat.snapshot(), "tick_rate": Sim.TICK_RATE,
 	})
 	_broadcast_roster(room)
+	_send_cine_state(room, c)
 	print("[alux] %s %s en %s (%d/%d)" % [p.name, "volvió" if rejoin else "entró", code, room.players.size(), MAX_PLAYERS])
 
 
@@ -462,10 +471,10 @@ func _world_state(room: Room) -> Array:
 		if p.conn_id != 0 and room.cine_votes.has(p.id):
 			skip_votes += 1
 	##  braseroListo, votosOtraRonda, conectados, segundosDeEsperaDeLosAltares, banderasDeHistoria,
-	##  segundosDeCinemáticaCompartida, votosParaOmitirla]
+	##  segundosDeCinemáticaCompartida (>0 mientras la sala está en pausa), votosParaOmitirla, faseDeLaCinemática]
 	return [1 if room.gate_open else 0, mask, room.need, room.combat.encounter, room.combat.wave_alive(),
 		room.combat.checkpoint, 1 if room.combat.brazier_cd <= 0.0 else 0, votes, connected, int(ceil(room.lock_t)), room.story,
-		int(ceil(room.cine_t)) if not room.cine.is_empty() else 0, skip_votes]
+		maxi(1, int(ceil(room.cine_t))) if room.cine_phase != Story.CINE_NONE else 0, skip_votes, room.cine_phase]
 
 
 # ───────────────────────── Simulación de sala ─────────────────────────
@@ -480,17 +489,34 @@ func _tick_room(room: Room) -> void:
 
 	# Cinemática compartida: la sala entera está en pausa hasta que termine su duración
 	# o la mayoría de los conectados vote por omitirla. Ningún cliente la termina por su cuenta.
-	var frozen := not room.cine.is_empty()
+	# Fases: PREPARING (los clientes se preparan) → PLAYING → RESUMING (vuelven al juego) → nada.
+	# La sala sigue en pausa en las tres: nadie se mueve ni recibe daño durante las transiciones.
+	var frozen := room.cine_phase != Story.CINE_NONE
 	if frozen:
 		room.cine_t -= Sim.DT
-		var skip_votes := 0
-		for p in everyone:
-			if p.conn_id != 0 and room.cine_votes.has(p.id):
-				skip_votes += 1
-		var voted_out := connected > 0 and skip_votes >= Story.skip_votes_needed(connected)
-		if room.cine_t <= 0.0 or voted_out or connected == 0:
-			_end_cine(room, voted_out)
-			frozen = false
+		match room.cine_phase:
+			Story.CINE_PREPARING:
+				var ready := 0
+				for p in everyone:
+					if p.conn_id != 0 and room.cine_ready.has(p.id):
+						ready += 1
+				# Empieza cuando todos los conectados avisan, o al agotarse la espera
+				if connected == 0 or ready >= connected or room.cine_t <= 0.0:
+					_play_cine(room, connected, ready)
+			Story.CINE_PLAYING:
+				var skip_votes := 0
+				for p in everyone:
+					if p.conn_id != 0 and room.cine_votes.has(p.id):
+						skip_votes += 1
+				var voted_out := connected > 0 and skip_votes >= Story.skip_votes_needed(connected)
+				if room.cine_t <= 0.0 or voted_out or connected == 0:
+					_end_cine(room, voted_out)
+			Story.CINE_RESUMING:
+				if room.cine_t <= 0.0:
+					room.cine = ""
+					room.cine_phase = Story.CINE_NONE
+					room.cine_t = 0.0
+					frozen = false
 
 	connected = 0
 	for p in everyone:
@@ -592,17 +618,44 @@ func _start_cine(room: Room, id: String) -> void:
 		return
 	room.cines_seen[id] = true
 	room.cine = id
-	room.cine_t = length
+	room.cine_len = length
+	room.cine_phase = Story.CINE_PREPARING
+	room.cine_t = Story.CINE_PREP_MAX
+	room.cine_ready.clear()
 	room.cine_votes.clear()
-	_broadcast(room, {"t": "event", "e": "cine", "id": id, "dur": snappedf(length, 0.1)})
+	_broadcast(room, {"t": "event", "e": "cine_prep", "id": id, "wait": Story.CINE_PREP_MAX})
+
+
+## Orden de inicio compartida: todos empiezan a ver la escena al recibirla.
+func _play_cine(room: Room, connected: int, ready: int) -> void:
+	var with_video := 0
+	for pid in room.cine_ready:
+		if room.cine_ready[pid]:
+			with_video += 1
+	print("[alux] Sala %s: cinemática «%s» empieza con %d/%d clientes listos (%d con vídeo) tras %.1f s" % [
+		room.code, room.cine, ready, connected, with_video, Story.CINE_PREP_MAX - maxf(room.cine_t, 0.0)])
+	room.cine_phase = Story.CINE_PLAYING
+	room.cine_t = room.cine_len
+	room.cine_votes.clear()
+	_broadcast(room, {"t": "event", "e": "cine", "id": room.cine, "dur": snappedf(room.cine_len, 0.1), "at": 0.0})
 
 
 func _end_cine(room: Room, skipped: bool) -> void:
-	var id := room.cine
-	room.cine = ""
-	room.cine_t = 0.0
+	room.cine_phase = Story.CINE_RESUMING
+	room.cine_t = Story.CINE_RESUME
 	room.cine_votes.clear()
-	_broadcast(room, {"t": "event", "e": "cine_end", "id": id, "skipped": skipped})
+	room.cine_ready.clear()
+	_broadcast(room, {"t": "event", "e": "cine_end", "id": room.cine, "skipped": skipped})
+
+
+## Quien entra o vuelve a mitad de una cinemática recibe en qué punto está.
+func _send_cine_state(room: Room, c: Variant) -> void:
+	match room.cine_phase:
+		Story.CINE_PREPARING:
+			_send(c, {"t": "event", "e": "cine_prep", "id": room.cine, "wait": snappedf(maxf(room.cine_t, 0.0), 0.1)})
+		Story.CINE_PLAYING:
+			_send(c, {"t": "event", "e": "cine", "id": room.cine, "dur": snappedf(room.cine_len, 0.1),
+				"at": snappedf(room.cine_len - maxf(room.cine_t, 0.0), 0.1)})
 
 
 func _on_encounter_clear(room: Room) -> void:
