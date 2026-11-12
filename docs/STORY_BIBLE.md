@@ -1,8 +1,8 @@
 # Biblia narrativa de ALUX
 
 Universo, personajes, historia y reglas para escribir dentro de él. Es la referencia para diálogos,
-cinemáticas y diseño de capítulos. Lo marcado como **(propuesta)** espera tu aprobación creativa;
-lo demás ya está en el juego o decidido.
+cinemáticas y diseño de capítulos. Lo marcado como **(nombre de trabajo)** está aprobado para
+trabajar y pendiente de que lo revise alguien que hable maya yucateco.
 
 ## Reglas del universo
 
@@ -46,9 +46,9 @@ decide caminar con el alux, y desde entonces el alux puede tomar su forma.
 | Capítulo | Espíritu | Forma | Qué representa | Estado |
 | --- | --- | --- | --- | --- |
 | I | **Balam**, el jaguar de la noche | Jaguar | Valor: el que camina delante | En el juego |
-| II | **Áayin**, el lagarto del agua quieta **(propuesta)** | Guardián del Cenote | Memoria: lo que el agua guarda | Planeado |
-| III | **Tuunich**, el que no se mueve **(propuesta)** | Guardián de Obsidiana | Firmeza: sostener a los demás | Planeado |
-| IV | **Toh**, el pájaro del péndulo **(propuesta)** | Ave del Viento | Ligereza: ver desde arriba | Planeado |
+| II | **Áayin**, el lagarto del agua quieta **(nombre de trabajo)** | Guardián del Cenote | Memoria: lo que el agua guarda | Planeado |
+| III | **Tuunich**, el que no se mueve **(nombre de trabajo)** | Guardián de Obsidiana | Firmeza: sostener a los demás | Planeado |
+| IV | **Toh**, el pájaro del péndulo **(nombre de trabajo)** | Ave del Viento | Ligereza: ver desde arriba | Planeado |
 | V | **Kukulkán** | Serpiente emplumada | El canto completo; sólo existe cuando los cuatro actúan juntos | Planeado |
 
 Cada vínculo tiene su escena: el espíritu aparece, pone a prueba al grupo y, si lo acepta, se vuelve
@@ -64,7 +64,7 @@ una cinemática** en lugar de bloquear la forma (ver [CINEMATICS.md](CINEMATICS.
 | **Chiich Yaxché**, la abuela del claro | La alux más vieja, hoy casi espíritu, atada a la gran ceiba. Guía del Capítulo I. | Regañona y cariñosa. Llama a los aluxes "muñecos de barro". Frases cortas, refranes, impaciencia fingida. | En el juego (modelo provisional) |
 | **Balam** | El jaguar de la noche. No habla: mira, ruge, empuja con el hocico. | — | En el juego como forma |
 | **Nojoch Tuunich**, el Guardián Dormido | Coloso de piedra que cuidaba el santuario del claro. El Silencio le hizo olvidar a quién cuidaba. Jefe del Capítulo I; al vencerlo recuerda, y se queda como aliado. | Lento, grave, pocas palabras. | Diseñado, sin implementar |
-| **El que Calla** **(propuesta)** | Antagonista. El primer guardián de piedra, que vio cómo la gente dejaba de recordar los pactos y decidió que era mejor que nadie recordara nada, tampoco el dolor. Extiende el Silencio creyendo que protege. | Sereno, nunca grita. Cree tener razón. | Planeado (se insinúa en el II, aparece en el V) |
+| **El que Calla** **(nombre de trabajo)** | Antagonista. El primer guardián de piedra, que vio cómo la gente dejaba de recordar los pactos y decidió que era mejor que nadie recordara nada, tampoco el dolor. Extiende el Silencio creyendo que protege. | Sereno, nunca grita. Cree tener razón. | Planeado (se insinúa en el II, aparece en el V) |
 
 ## La historia por capítulos
 

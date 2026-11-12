@@ -6,7 +6,7 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 | Versión | Estado | Contenido |
 | --- | --- | --- |
 | Closed Alpha 0.1 | **Publicada** en <https://alux-beta.onrender.com> | Claro de los Aluxes jugable de 1 a 4, combate, emboscada, victoria y derrota, audio provisional, acceso por invitación |
-| Alpha 0.2 (incremento 1) | En la rama de trabajo, **sin publicar** | Introducción «El llamado», Chiich Yaxché con diálogo, primer objetivo narrativo, reproductor de cinemáticas |
+| Alpha 0.2 (incrementos 1 y 2) | En la rama de trabajo, **sin publicar** | Introducción «El llamado», Chiich Yaxché con modelo propio y diálogo, primer objetivo narrativo, cinemáticas locales y compartidas con voto, progreso del capítulo en el perfil |
 
 ## Publicación en la rama `beta`
 
@@ -41,7 +41,36 @@ valor al estado del mundo. Un cliente de la 0.1 seguiría funcionando contra est
 ![La introducción y el diálogo en un navegador real](img/alpha02-navegador.jpg)
 
 **Sin comprobar:** con tarjeta gráfica, con personas, y contra el servicio desplegado (no está publicada).
-**Provisional:** el modelo de Chiich Yaxché.
+
+**Incremento 2.** Amplía el protocolo sin romperlo: un mensaje (`skip`), dos eventos (`cine`,
+`cine_end`) y dos valores más al final del estado del mundo. No hay migraciones nuevas.
+
+| Novedad | Detalle |
+| --- | --- |
+| Cinemáticas compartidas | Las empieza y las termina el servidor. Mientras duran, la sala está en pausa: nadie se mueve ni recibe daño y los enemigos esperan. Cada sala las ve una sola vez. |
+| «El sello cede» | La primera (2 planos, 7 s): se reproduce para todo el grupo cuando abre el santuario por primera vez, justo antes de la emboscada. |
+| Voto para omitir | Enter vota. Se omite con la mayoría de los conectados (1 de 1, 2 de 2, 2 de 3, 3 de 4); en pantalla se ve cuántos votos van. Quien se desconecta deja de contar. |
+| Progreso del capítulo | Al hablar con la abuela, el servidor guarda «El llamado de la abuela» en el perfil de quienes estén conectados (una vez por jugador) y el portal lo muestra junto a los sellos. |
+| Chiich Yaxché, modelo propio | Hecho en Blender por código, como el alux y Balam: 8 599 triángulos, 39 huesos, 542 KB. Animaciones de reposo, hablar, regañar y bendecir; el brote de jade del bastón late. Retrato propio en el diálogo. |
+| Toma de prueba de Kling | Una toma de 5 s de «El vínculo de Balam» para medir el costo: **50 créditos**. No está en el juego. Ver [CINEMATICS.md](CINEMATICS.md). |
+
+| Comprobación (en local) | Resultado |
+| --- | --- |
+| API | 10 de 10 |
+| Simulación | Sin violaciones (el mundo compartido no cambió) |
+| Servidor con bots | 13 de 13, con la prueba nueva: la escena pausa la sala, un voto de cuatro no basta, tres la terminan, y no se repite en la misma sala |
+| Flujo en navegador | Pasa completo: introducción, diálogo, escena compartida con voto, victoria, otra ronda, derrota, reintento y salida |
+| Cuatro navegadores | Pasa: movimiento, transformación, combate sincronizado, reconexión, sala llena y recarga |
+| Rendimiento (mismo método que el incremento 1) | 6.7 FPS en mínima y 4.7 en baja, frente a 7.2 y 5.0 del incremento 1: **una bajada de alrededor del 7 %**, atribuible al modelo nuevo (antes eran piezas sin esqueleto). Está cerca del margen de error de esta medición; hay que confirmarlo con tarjeta gráfica. |
+
+![Chiich Yaxché, el diálogo con su retrato y la escena compartida «El sello cede»](img/alpha02-incremento2.jpg)
+
+**Corregido en las pruebas, no en el juego:** el paso de la derrota en la prueba de flujo dependía de
+observar una fase que dura pocos segundos; con el equipo cargado se la perdía. Ahora un testigo dentro
+de la página la registra.
+
+**Sin comprobar:** con tarjeta gráfica, con personas (¿se entiende el voto?, ¿molesta la pausa?) y
+contra el servicio desplegado.
 
 ## ALUX Closed Alpha 0.1
 

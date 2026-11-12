@@ -11,12 +11,12 @@ Pruebas: [PLAYTEST.md](PLAYTEST.md) · Versiones: [RELEASES.md](RELEASES.md).
 | Área | Estado real |
 | --- | --- |
 | Versión publicada | **Closed Alpha 0.1** en <https://alux-beta.onrender.com> (rama `beta`, commit `12fadbe`). Rollback: [beta.md](beta.md), sección 9. |
-| Versión en desarrollo | **Alpha 0.2**, primer incremento hecho en la rama de trabajo. **No publicada.** |
+| Versión en desarrollo | **Alpha 0.2**, incrementos 1 y 2 hechos en la rama de trabajo. **No publicada**: candidata a beta cuando des el visto bueno. |
 | Multijugador | Servidor autoritativo, 4 jugadores, reconexión, salas. Verificado con bots, navegadores y contra el servicio desplegado (un jugador). **Cuatro personas reales a la vez: sin probar.** |
 | Combate y formas | Alux y Balam, dos enemigos, emboscada, derrota y otra ronda. Datos modulares (`combat_def.gd`). Equilibrio sin probar con personas. |
-| Historia | Introducción, un personaje con diálogo y primer objetivo narrativo (Alpha 0.2). Sin jefe ni cierre de capítulo. |
+| Historia | Introducción, un personaje con diálogo, primer objetivo narrativo y una escena compartida (Alpha 0.2). Sin jefe ni cierre de capítulo. |
 | Escenario | Un solo mapa, definido en un único archivo compartido (`world_def.gd`). **No hay soporte para varias zonas.** |
-| Arte | Alux y Balam modelados (Blender, por código). Enemigos y Chiich Yaxché con modelos provisionales. |
+| Arte | Alux, Balam y Chiich Yaxché modelados (Blender, por código). Enemigos con modelos provisionales. |
 | Audio | 38 sonidos generados por código. **Nadie los ha escuchado.** |
 | Rendimiento | Medido sólo con render por software. **Sin datos de tarjeta gráfica**; las métricas de cada sesión real ya se registran. |
 | Acceso y datos | Invitaciones individuales, PostgreSQL en Render, migraciones automáticas. Discord real pendiente de credenciales. |
@@ -52,7 +52,8 @@ Las fechas no se fijan: cada versión sale cuando cumple sus criterios.
 | Incremento | Contenido | Estado |
 | --- | --- | --- |
 | 1 | Reproductor de cinemáticas (locales), introducción «El llamado», Chiich Yaxché (modelo provisional) con diálogos según el momento de la historia, objetivo «Habla con Chiich Yaxché», marca en la brújula, progreso anotado por el servidor. | **Hecho y probado** |
-| 2 | Modelo propio de Chiich Yaxché (Blender); cinemáticas compartidas con voto para omitir (lo necesita el jefe); progreso del capítulo guardado en el perfil; correcciones que salgan de la primera sesión con testers (audio, equilibrio, rendimiento). | Pendiente |
+| 2 | Cinemáticas compartidas con voto de mayoría y sala en pausa, con la primera («El sello cede», al abrir el santuario); progreso del capítulo guardado en el perfil; modelo propio de Chiich Yaxché (Blender). | **Hecho y probado** (detalle en [RELEASES.md](RELEASES.md)) |
+| 3 | Correcciones que salgan de la primera sesión con testers (audio, equilibrio, rendimiento). | Pendiente: aún no ha habido sesión |
 
 **Criterios de aceptación:** un jugador nuevo ve la introducción, habla con la abuela y sabe qué
 hacer sin ayuda externa; con cuatro jugadores cada quien puede leer el diálogo a su ritmo sin detener
@@ -115,11 +116,15 @@ Historia, jefe y cierre de Los Secretos del Cenote, con la misma estructura que 
 | Varias zonas | Bloquea todo el Capítulo II | 0.5 |
 | Capacidad del servidor | 512 MB compartidos; un jefe y más salas pueden pedir el plan siguiente (US$25 al mes) | Medir en 0.3 |
 
-## Decisiones que necesitan tu aprobación
+## Decisiones tomadas
 
-| Decisión | Opciones | Recomendación |
+| Decisión | Resuelto (12 nov 2026) | Efecto |
 | --- | --- | --- |
-| ¿Balam se desbloquea jugando? | **A.** Sigue disponible desde el inicio y la historia cuenta el vínculo. **B.** Los jugadores nuevos empiezan sin Balam y lo reciben tras la escena del vínculo. | **B** a partir de 0.4, cuando exista la escena; hasta entonces, A. Quien ya lo tiene lo conserva. |
-| Nombres de los espíritus (Áayin, Tuunich, Toh) y del antagonista (El que Calla) | Aprobar, cambiar o proponer otros | Aprobar como nombres de trabajo y revisarlos con un hablante de maya. |
-| Primera cinemática con Kling | «El vínculo de Balam» (storyboard en [CINEMATICS.md](CINEMATICS.md)) | Producirla en 0.4, no antes: los modelos todavía van a cambiar. |
-| Voto para omitir cinemáticas compartidas | Unanimidad, mayoría, o que decida quien creó la sala | Mayoría de los conectados; un jugador solo omite al instante. |
+| ¿Balam se desbloquea jugando? | **Sí, a partir de la 0.4**, cuando exista la escena del vínculo. Hasta entonces sigue disponible desde el inicio; quien ya lo tiene lo conserva. | Trabajo previsto en 0.4 |
+| Nombres de los espíritus y del antagonista | **Aprobados como nombres de trabajo**: Áayin, Tuunich, Toh y El que Calla. Falta la revisión de un hablante de maya yucateco. | [STORY_BIBLE.md](STORY_BIBLE.md) |
+| Primera cinemática con Kling | **Storyboard de «El vínculo de Balam» aprobado.** Se produce en 0.4. La toma de prueba ya se hizo: 50 créditos por 5 s. | [CINEMATICS.md](CINEMATICS.md) |
+| Voto para omitir cinemáticas compartidas | **Mayoría de los conectados**; un jugador solo omite al instante. | Implementado en 0.2 |
+
+## Decisiones abiertas
+
+Ninguna bloquea el trabajo en curso. Las próximas llegarán con el diseño fino del jefe (0.3).

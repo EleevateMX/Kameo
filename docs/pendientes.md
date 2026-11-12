@@ -58,15 +58,20 @@ como pendiente debe darse por hecho.
     sin sonido posicional real (sólo se atenúa por distancia) y sin música adaptativa.
   - Cinemática de introducción: aplazada hasta tener modelos definitivos (decisión del proyecto).
 - **Historia (Alpha 0.2)**
-  - Hecho: introducción dentro del motor, Chiich Yaxché con diálogo y primer objetivo narrativo.
-  - El modelo de Chiich Yaxché es provisional (el del alux con piezas añadidas).
-  - Las cinemáticas compartidas con voto para omitir están diseñadas, no implementadas.
-  - El avance de la historia vive en la sala: se pierde al cerrarla y no se guarda en el perfil.
+  - Hecho: introducción dentro del motor, Chiich Yaxché con modelo propio y diálogo, primer objetivo
+    narrativo, cinemáticas compartidas con voto de mayoría («El sello cede») y progreso del capítulo
+    guardado en el perfil.
+  - Sin probar con personas: si el voto para omitir se entiende y si la pausa de la sala molesta.
+  - El perfil guarda que se escuchó el llamado, pero una sala nueva empieza la historia desde el
+    principio: todavía no se salta lo ya visto por todo el grupo.
+  - El rebozo de la abuela es rígido: en los gestos amplios se nota.
   - Los planos de cinemática sólo mueven la cámara, ponen texto y lanzan un sonido; todavía no
     animan personajes ni tienen fundidos.
   - Los diálogos son lineales, sin voces, y sólo en español.
-  - Nombres de espíritus y antagonista: propuestos, sin aprobar ni revisar con un hablante de maya.
-  - Ningún vídeo de Kling producido; el storyboard de «El vínculo de Balam» espera aprobación.
+  - Nombres de espíritus y antagonista: aprobados como nombres de trabajo; falta la revisión de un
+    hablante de maya yucateco.
+  - Kling: storyboard de «El vínculo de Balam» aprobado y una toma de prueba hecha (50 créditos por
+    5 s). La producción (0.4) necesita autorización de créditos: unos 500–750 con repeticiones.
 - **Partida**
   - Hecho: ciclo completo (bienvenida, altares, emboscada, victoria o derrota, otra ronda, salir),
     menú con ajustes y avisos de conexión. Detalle en [PLAYTEST.md](PLAYTEST.md).

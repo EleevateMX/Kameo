@@ -92,7 +92,7 @@ Los personajes no tienen colisión y su posición y alcance están en `shared/st
 | Formas vinculadas | Perfil del jugador (`unlocks`) | En el juego (Alux y Balam de inicio) |
 | Sello del Claro | Perfil (`rewards_ledger`), una vez por jugador | En el juego |
 | Plumas de Kukulkán | Perfil; una por capítulo | Planeado (0.4): el sello pasa a ser la Pluma de Jade |
-| Avance del capítulo | Hoy sólo en la sala (se pierde al cerrarla) | Guardarlo en el perfil: 0.2, incremento 2 |
+| Avance del capítulo | Perfil (`rewards_ledger`): «El llamado de la abuela» al hablar con ella | En el juego (0.2). La sala nueva aún empieza la historia desde el principio |
 
 ## Controles
 
@@ -104,7 +104,7 @@ Los personajes no tienen colisión y su posición y alcance están en `shared/st
 | **Tocar y hablar** | F (junto a un personaje, F siempre es hablar) |
 | Formas | 1 Alux · 2 Balam |
 | Diálogo | Enter, F o clic avanza · Esc cierra |
-| Cinemática | Enter o Esc la omite |
+| Cinemática | Propia: Enter o Esc la omite · Compartida: Enter vota, se omite por mayoría |
 | Menú · ayuda | Esc o P · H |
 
 Sin mando ni pantalla táctil por ahora.

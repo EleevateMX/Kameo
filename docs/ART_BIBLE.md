@@ -112,7 +112,7 @@ El magenta se reserva para el Silencio en todos los capítulos: si algo es magen
 
 | Personaje | Aspecto | Estado |
 | --- | --- | --- |
-| **Chiich Yaxché** | Alux anciana, algo más grande que los jugadores; rebozo blanco con cenefa bordada, flor en el pelo, bastón de ceiba con un brote de jade encendido; halo dorado en el suelo. | **Provisional**: reutiliza el modelo del alux con piezas añadidas. Modelo propio en 0.2, incremento 2. |
+| **Chiich Yaxché** | Alux anciana, algo más grande que los jugadores; rebozo blanco con cenefa bordada, flor en el pelo, bastón de ceiba con un brote de jade encendido; halo dorado en el suelo. | **Modelo propio** (`art/blender/build_yaxche.py`): 8 599 triángulos, 39 huesos, con reposo, hablar, regañar y bendecir. Sin revisar en movimiento con GPU. |
 | **Nojoch Tuunich** | Coloso de caliza tallada, tres veces la altura de un alux, con glifos en el pecho que se encienden; musgo y raíces; vetas magenta mientras está olvidado. | Sin modelar (0.3) |
 | Espíritus de los capítulos II–IV | Por definir cuando se aprueben | Sin diseñar |
 

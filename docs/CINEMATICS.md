@@ -9,7 +9,7 @@ punto de hacer, y siempre devuelven el control en el mismo sitio.
 | Clase | Qué es | Quién la controla | Para qué | Estado |
 | --- | --- | --- | --- | --- |
 | **Local dentro del motor** | La cámara del juego recorre el escenario real, con subtítulos. | Cada jugador en su pantalla. No detiene a nadie más. | Introducciones al entrar, recordatorios, repetir una escena desde el menú. | **Hecho** |
-| **Compartida dentro del motor** | Igual, pero todos la ven a la vez. | El servidor la empieza y la termina. | Momentos que cambian la partida: llega el jefe, se abre un camino. | Diseñada (0.2, incremento 2) |
+| **Compartida dentro del motor** | Igual, pero todos la ven a la vez. | El servidor la empieza y la termina. | Momentos que cambian la partida: llega el jefe, se abre un camino. | **Hecho** |
 | **Vídeo prerenderizado** | Un vídeo hecho con Kling, con subtítulos del juego encima. | Local o compartida, según el momento. | Lo que el navegador no puede dibujar: vínculos con los espíritus, finales de capítulo. | Diseñado (0.4) |
 
 ## Reproductor dentro del motor (hecho)
@@ -40,15 +40,20 @@ pone texto y lanza un sonido.
 
 ## Reglas en cooperativo
 
+Implementadas y probadas con bots y en navegador. El servidor guarda la cinemática en curso, los
+segundos que le quedan y los votos; los clientes los reciben en el estado del mundo (así, quien se
+reconecta sabe que la sala está en pausa) y en dos eventos: `cine` al empezar y `cine_end` al terminar.
+
 | Regla | Local | Compartida |
 | --- | --- | --- |
 | Quién la empieza | El cliente | El servidor (evento con el tick en que empieza) |
 | ¿Detiene la partida? | No. Sólo deja quieto a quien la ve. | Sí, para todos: enemigos en pausa y jugadores sin recibir daño mientras dura. |
-| Omitir | Al instante, Enter o Esc. | Es un **voto**. Se omite cuando vota la mayoría de los conectados; un jugador solo omite al instante. En pantalla: «Omitir (2/4)». |
+| Omitir | Al instante, Enter o Esc. | Es un **voto** (Enter o Esc). Se omite cuando vota la mayoría de los conectados: 1 de 1, 2 de 2, 2 de 3, 3 de 4. En pantalla: «Enter · votar para omitir (1/3)». |
 | Quién decide que terminó | El cliente | El servidor: al acabar su duración o al cumplirse el voto. Un cliente no puede terminarla por su cuenta. |
 | Alguien entra a mitad | Ve la suya | No la ve: entra directo a la partida cuando termine. |
 | Alguien se desconecta | — | Deja de contar para el voto. |
-| Volver al juego | Cámara y controles donde estaban | Igual, y todos a la vez, con un par de segundos antes de que los enemigos reaccionen. |
+| Volver al juego | Cámara y controles donde estaban | Igual, y todos a la vez; los enemigos tardan unos 3 s en reaccionar. |
+| Cuántas veces | La introducción, una por navegador | Una por sala: al jugar otra ronda no se repite. |
 
 Nunca se usa una cinemática compartida en mitad de un combate normal: sólo en puntos seguros.
 
@@ -87,16 +92,30 @@ los modelos del juego: las hojas de `art/previews/` y capturas del propio escena
 registran como sujetos reutilizables (uno para el alux, uno para Balam) y cada plano parte de un
 primer cuadro hecho con el juego.
 
-**Cuenta de Kling:** 2 709 créditos disponibles al 12 de noviembre de 2026. La herramienta no informa
-del costo por vídeo antes de generarlo, así que **no conozco la cifra**. Con tu autorización se hará
-primero una sola toma de prueba de 5 s para medir el costo real y presupuestar el resto.
+**Costo medido (12 nov 2026).** Con tu autorización se hizo una sola toma de prueba: 5 s a 1080p con
+el modelo `kling-video-v3_0_turbo`, partiendo de un cuadro del propio juego. **Costó 50 créditos**;
+quedan 2 659.
+
+![Cuatro cuadros de la toma de prueba](img/kling-prueba-vinculo.jpg)
+
+| Qué se vio | Resultado |
+| --- | --- |
+| Fidelidad a los personajes | Balam y el alux se mantienen iguales al modelo del juego (rosetas, ajorcas, penacho, vestido). |
+| Fidelidad al lugar | La plaza, los pilares y la pirámide del juego se conservan; la cámara gira alrededor. |
+| Acción pedida | El jaguar camina hacia el alux y baja la cabeza. El alux apenas reacciona. |
+| Peso para web | El original son 9 MB (1080p). Convertido a 720p y 1.5 Mbps queda en 0.85 MB por 5 s: unos 4 MB para los 24 s. |
+
+**Presupuesto de «El vínculo de Balam»** con este modelo: 24 s son unos 240 créditos por pasada.
+Contando dos o tres tomas por plano para elegir, entre 500 y 750 créditos. Otros modelos (4.0, omni)
+pueden costar distinto: no se han medido.
 
 ## Estado de cada cinemática
 
 | Id | Título | Clase | Dónde ocurre | Estado |
 | --- | --- | --- | --- | --- |
 | `llamado` | El llamado | Local, motor | Al entrar por primera vez; se repite desde el menú | **Hecha** (4 planos, 19 s) |
-| `vinculo_balam` | El vínculo de Balam | Vídeo (Kling) + respaldo en motor | Tras hablar con Chiich Yaxché | Guion y storyboard; **sin aprobar ni producir** |
+| `sello` | El sello cede | Compartida, motor | La primera vez que el grupo abre el santuario | **Hecha** (2 planos, 7 s) |
+| `vinculo_balam` | El vínculo de Balam | Vídeo (Kling) + respaldo en motor | Tras hablar con Chiich Yaxché | **Storyboard aprobado**; una toma de prueba hecha; producción en 0.4 |
 | `guardian_despierta` | El Guardián Dormido despierta | Compartida, motor | Al entrar al patio del santuario | Planeada (0.3) |
 | `pluma_de_jade` | La Pluma de Jade | Vídeo (Kling) + respaldo en motor | Al vencer al jefe | Planeada (0.4) |
 
@@ -111,7 +130,16 @@ primero una sola toma de prueba de 5 s para medir el costo real y presupuestar e
 
 Sólo se muestra sola la primera vez en cada navegador; después se puede repetir desde el menú.
 
-## Storyboard: «El vínculo de Balam» (pendiente de tu aprobación)
+## «El sello cede» (hecha)
+
+| Plano | Duración | Cámara | Texto |
+| --- | --- | --- | --- |
+| 1 | 3.5 s | Hacia el portal del santuario, acercándose | «Cada alux en su altar, y el sello cede…» |
+| 2 | 3.5 s | Sobre el lugar de la emboscada, bajando | «…pero quienes lo cuidaban ya no recuerdan a quién. ¡Los Olvidados despiertan!» |
+
+Mientras dura, nadie se mueve, nadie ataca y nadie recibe daño.
+
+## Storyboard: «El vínculo de Balam» (aprobado el 12 nov 2026; producción en 0.4)
 
 **Qué cuenta:** por qué el alux puede volverse jaguar. Balam no es un poder: es alguien que decide
 caminar con él. **Duración:** unos 24 s en cuatro planos. **Formato:** 16:9, 1080p de origen.
@@ -139,11 +167,11 @@ En todos: *same character design as the reference images, no text, no logos, no 
 
 **Qué hace falta antes de producirla**
 
-1. Tu aprobación de este guion y de los cuatro planos.
+1. ~~Tu aprobación de este guion y de los cuatro planos.~~ Hecho.
 2. Modelos definitivos del alux y de Balam (la cabeza de Balam todavía se va a retocar): si se
    produce antes, habrá que repetirla.
 3. Las capturas de primer cuadro, de noche; hoy el juego sólo tiene iluminación de día.
-4. Autorización de créditos, tras la toma de prueba.
+4. Tu autorización de los créditos de producción (500–750 estimados). La toma de prueba ya está hecha.
 5. El reproductor de vídeo del navegador (Alpha 0.4).
 
 **Respaldo dentro del motor:** la misma escena en tres planos con los modelos del juego y el efecto
