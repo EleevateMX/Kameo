@@ -33,9 +33,11 @@ export interface RoomInfo {
 }
 
 /** Catálogo de recompensas que el servidor de juego puede otorgar. */
-export const REWARDS: Record<string, { title: string; quest?: string; unlock?: FormId }> = {
+export const REWARDS: Record<string, { title: string; quest?: string; unlock?: FormId; kind?: 'object'; note?: string }> = {
   llamado_de_yaxche: { title: 'El llamado de la abuela', quest: 'cap1_llamado' },
   sello_del_claro: { title: 'Sello del Claro', quest: 'cap1_santuario' },
+  /** Objeto ancestral: la entrega Nojoch Tuunich al recordar quién es. Señala el Cenote (capítulo II). */
+  pluma_de_jade: { title: 'Pluma de Jade', quest: 'cap1_guardian', kind: 'object', note: 'Tira hacia el agua del cenote' },
 };
 
 export const DEFAULT_UNLOCKS: FormId[] = ['alux', 'balam'];

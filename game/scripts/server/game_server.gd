@@ -35,6 +35,7 @@ const MAX_MSGS_PER_SEC := 90
 const INPUT_QUEUE_MAX := 12
 const INPUT_BUDGET_MAX := 8
 const REWARD_SEAL := "sello_del_claro"
+const REWARD_FEATHER := "pluma_de_jade"     # la entrega Nojoch Tuunich al recordar quién es
 const REWARD_CALL := "llamado_de_yaxche"   # el grupo escuchó a Chiich Yaxché (progreso del capítulo)
 const FAIL_HOLD := 6.0              # tras una derrota, los altares tardan esto en volver a responder
 const RESTART_HOLD := 3.0           # lo mismo al empezar otra ronda
@@ -71,6 +72,7 @@ class Player:
 	var respawn_t := 0.0
 	var invuln_t := 0.0
 	var hurt_at := -99.0
+	var hold_special := false    # mantiene pulsado el especial (el contacto del ritual lo exige)
 
 
 class Room:
@@ -249,6 +251,7 @@ func _drop_conn(c: Conn) -> void:
 	var p: Player = room.players.get(c.pid)
 	if p != null and p.conn_id == c.id:
 		p.conn_id = 0
+		p.hold_special = false
 		p.gone_at = _time
 		p.queue.clear()
 		print("[alux] %s se desconectó de %s (se guarda su lugar %ds)" % [p.name, room.code, int(RECONNECT_GRACE)])
@@ -322,6 +325,13 @@ func _handle(c: Conn, msg: Dictionary) -> void:
 					if q.conn_id != 0:
 						present.append(q.id)
 				_grant_reward(room, REWARD_CALL, present)
+			elif npc == "nojoch":
+				# El guardián liberado señala el camino del Cenote: la pista del capítulo II
+				if (room.story & Story.F_FREED) == 0 or (room.story & Story.F_CLUE) != 0:
+					return
+				room.story |= Story.F_CLUE
+				print("[alux] Sala %s: %s recibió la pista del Cenote" % [room.code, p.name])
+				_broadcast(room, {"t": "event", "e": "story", "k": "clue", "npc": npc, "by": p.name})
 		"cine_ready":
 			# El cliente terminó su transición de entrada y dice si tiene el vídeo. Sólo sirve para
 			# no hacer esperar a nadie: la escena empieza igual cuando se agota la espera.
@@ -536,6 +546,7 @@ func _tick_room(room: Room) -> void:
 				inp.f = ""
 			var actions: Array = []
 			Sim.step(p.state, inp, p.unlocked, room.gate_open, actions)
+			p.hold_special = (int(inp.a) & Sim.A_SPECIAL) != 0
 			p.last_seq = inp.s
 			p.budget -= 1
 			# La simulación sólo dice "intentó atacar"; el combate decide a quién alcanza
@@ -573,6 +584,14 @@ func _tick_room(room: Room) -> void:
 				_on_encounter_clear(room)
 			Combat.FAILED:
 				_on_encounter_failed(room)
+		# El guardián avisa de lo que sólo la sala puede hacer: cinemáticas, historia y recompensas
+		var boss := room.combat.boss
+		while not boss.notices.is_empty():
+			match str(boss.notices.pop_front()):
+				"awake":
+					_start_cine(room, "despertar")
+				"freed":
+					_on_boss_freed(room)
 
 	# Otra ronda: cuando todos los conectados la piden tras la victoria
 	if room.combat.encounter == 2 and connected > 0 and not room.again.is_empty():
@@ -645,6 +664,9 @@ func _end_cine(room: Room, skipped: bool) -> void:
 	room.cine_t = Story.CINE_RESUME
 	room.cine_votes.clear()
 	room.cine_ready.clear()
+	# «El despertar» ya lo mostró poniéndose en pie: el combate empieza donde acaba la escena
+	if room.cine == "despertar":
+		room.combat.boss.skip_rise()
 	_broadcast(room, {"t": "event", "e": "cine_end", "id": room.cine, "skipped": skipped})
 
 
@@ -667,6 +689,23 @@ func _on_encounter_clear(room: Room) -> void:
 	_grant_reward(room, REWARD_SEAL, ids)
 
 
+## El grupo devolvió la memoria a Nojoch Tuunich. Todo lo que sigue lo decide el servidor: el
+## avance de la historia, la Pluma de Jade (una por jugador, la API no la repite) y la escena.
+func _on_boss_freed(room: Room) -> void:
+	room.story |= Story.F_FREED
+	# La reciben todos los que libraron el combate, también quien se cayó de la sala hace un momento
+	var ids := []
+	var names := []
+	for p in room.players.values():
+		ids.append(p.id)
+		if p.conn_id != 0:
+			names.append(p.name)
+	print("[alux] Sala %s: Nojoch Tuunich liberado por %s" % [room.code, ", ".join(names)])
+	_broadcast(room, {"t": "event", "e": "story", "k": "freed", "by": names})
+	_grant_reward(room, REWARD_FEATHER, ids)
+	_start_cine(room, "liberacion")
+
+
 ## Todo el grupo cayó: el santuario se vuelve a sellar y hay que abrirlo otra vez.
 func _on_encounter_failed(room: Room) -> void:
 	print("[alux] Sala %s: emboscada fallida" % room.code)
@@ -682,6 +721,7 @@ func _restart(room: Room) -> void:
 	room.gate_open = false
 	room.lock_t = RESTART_HOLD
 	room.again.clear()
+	room.story &= ~(Story.F_FREED | Story.F_CLUE)   # el guardián vuelve a dormirse con la sala
 	room.combat.restart(room.players.values())
 	_broadcast(room, {"t": "event", "e": "restart"})
 

@@ -217,6 +217,8 @@ input {
 .tag { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
 .tag.form { background: rgba(255, 122, 26, 0.25); color: #ffc089; }
 .tag.seal { background: rgba(255, 210, 63, 0.2); color: var(--maiz); }
+.tag.relic { background: rgba(61, 232, 196, 0.2); color: #8ff5dc; }
+.reward-note { opacity: 0.7; }
 
 .play-options { display: grid; gap: 12px; }
 .join label { display: block; font-size: 13px; color: var(--texto-suave); margin: 8px 0 6px; }

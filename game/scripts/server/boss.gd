@@ -6,8 +6,8 @@ extends RefCounted
 ##   Fase 2 «Furia»     sale andando a la explanada. Un alux despierta columnas (F); si embiste
 ##                      contra una queda aturdido; con las anclas pisadas las cadenas lo sujetan y
 ##                      Balam golpea el corazón expuesto. Tres veces.
-##   Fase 3 «Recuerdo»  definida en el diseño y sin programar: al liberar el tercer corazón el
-##                      guardián queda de rodillas.
+##   Fase 3 «Recuerdo»  de rodillas. Se encienden los glifos del suelo purificando criaturas y
+##                      después todos los que siguen en pie lo tocan a la vez (alux, mantener F).
 ##
 ## Nadie se teletransporta al cambiar de fase: es el guardián quien camina. Si cae todo el grupo,
 ## se duerme y el combate se retoma desde la última fase alcanzada.
@@ -189,6 +189,8 @@ func tick(players: Array) -> void:
 			Boss.FURIA:
 				anchors_need = Boss.anchors_needed(connected)
 				_tick_anchors(players, connected)
+			Boss.RECUERDO:
+				lit_need = mini(lit_need, Boss.ritual_glyphs(connected))
 
 	_summon_cd = maxf(0.0, _summon_cd - DT)
 	_charge_cd = maxf(0.0, _charge_cd - DT)
@@ -221,7 +223,7 @@ func tick(players: Array) -> void:
 				_idle(0.5)
 		"kneel":
 			# Un instante de memoria al cambiar de fase; después camina a donde sigue el combate
-			if t <= 0.0 and phase == Boss.FURIA:
+			if t <= 0.0:
 				_begin_transit()
 		"transit":
 			_tick_transit(players)
@@ -247,6 +249,8 @@ func tick(players: Array) -> void:
 		"bound":
 			if anchors_count() < anchors_need or t <= 0.0:
 				_unbind(players, false)
+		"ritual":
+			_tick_ritual(players, connected)
 		_:
 			pass
 
@@ -270,6 +274,8 @@ func _awaken(players: Array) -> void:
 			_summon_cd = 2.0
 		Boss.FURIA:
 			_setup_furia(n)
+		Boss.RECUERDO:
+			_setup_recuerdo(n)
 	state = "rise"
 	t = Boss.RISE_TIME
 	combat.events.append(["boss", "awake", phase, needed])
@@ -284,11 +290,11 @@ func skip_rise() -> void:
 
 
 func _after_rise(players: Array) -> void:
-	if phase == Boss.RECUERDO:
-		state = "kneel"
-		t = 0.0
-	else:
-		_idle(0.6)
+	match phase:
+		Boss.RECUERDO:
+			_begin_ritual(players)
+		_:
+			_idle(0.6)
 
 
 func _fail(players: Array) -> void:
@@ -467,6 +473,15 @@ func on_purified(e: Variant, by: Variant) -> void:
 			return
 		glyphs = mini(Boss.GLYPHS, glyphs + 1)
 		combat.events.append(["boss", "glyph", glyphs, needed, slot])
+	elif phase == Boss.RECUERDO and state == "ritual" and lit < lit_need:
+		if Vector2(e.x - x, e.z - z).length() > Boss.GLYPH_RANGE + 1.5:
+			combat.events.append(["boss", "far", slot])
+			return
+		lit += 1
+		combat.events.append(["boss", "lit", lit, lit_need, slot])
+		if lit >= lit_need:
+			_pulse_t = float(Boss.PULSE.every) * 0.6
+			combat.events.append(["boss", "contact", touch_need])
 
 
 # ───────────────────────── Fase 2: el corazón de piedra ─────────────────────────
@@ -547,7 +562,10 @@ func _tick_transit(players: Array) -> void:
 
 func _arrive(players: Array) -> void:
 	combat.events.append(["boss", "arena", phase])
-	_idle(0.9)
+	if phase == Boss.RECUERDO:
+		_begin_ritual(players)
+	else:
+		_idle(0.9)
 
 
 func anchors_count() -> int:
@@ -773,21 +791,115 @@ func _release(by: Variant) -> void:
 	_unbind(_players, true)
 
 
-# ───────────────────────── Fase 3 (sin programar) ─────────────────────────
+# ───────────────────────── Fase 3: la memoria restaurada ─────────────────────────
+
+func _setup_recuerdo(n: int) -> void:
+	lit = 0
+	lit_need = Boss.ritual_glyphs(n)
+	ritual = 0.0
+	ritual_need = float(Boss.RITUAL.time_solo) if n <= 1 else float(Boss.RITUAL.time)
+	channel = 0
+	touch_need = 1
+	pillars.clear()
+	anchors = 0
+	_anchor_t = [0.0, 0.0, 0.0, 0.0]
+	glyphs = needed
+	_pulse_w = -1.0
+
 
 func _begin_recuerdo() -> void:
+	var n := maxi(1, _connected(_players))
 	for pl in pillars:
 		combat.events.append(["boss", "pillar_down", int(pl[0]), 0])
-	pillars.clear()
 	rubble.clear()
-	anchors = 0
 	phase = Boss.RECUERDO
 	checkpoint_phase = Boss.RECUERDO
 	silence = float(Boss.SILENCE_AT[Boss.RECUERDO])
+	_setup_recuerdo(n)
 	state = "kneel"
-	t = 0.0
+	t = 2.0
 	target_slot = -1
 	combat.events.append(["boss", "phase", phase, int(round(silence))])
+
+
+func _begin_ritual(_players_now: Array) -> void:
+	state = "ritual"
+	t = 0.0
+	yaw = Boss.HOME_YAW
+	_wave_t = Boss.RITUAL.first_wave
+	_pulse_t = Boss.PULSE.every
+	_pulse_w = -1.0
+	combat.events.append(["boss", "ritual", lit_need])
+
+
+func _tick_ritual(players: Array, connected: int) -> void:
+	var n := maxi(1, connected)
+	# La última resistencia del Silencio: criaturas que llegan de los bordes de la explanada
+	_wave_t -= DT
+	if _wave_t <= 0.0:
+		var room_left := Boss.ritual_max(n) - _summoned_alive()
+		var k := mini(Boss.ritual_wave(n), room_left)
+		if k > 0:
+			_spawn_summoned(k, Boss.RITUAL_GATES, players)
+		# con los glifos ya encendidos vienen más despacio: lo que toca es el contacto
+		_wave_t = float(Boss.RITUAL.wave_every) * (1.6 if lit >= lit_need else 1.0)
+
+	var open := lit >= lit_need
+	# …y, abierto el contacto, pulsos que apartan a quien esté pegado a él
+	if open:
+		if _pulse_w > 0.0:
+			_pulse_w -= DT
+			if _pulse_w <= 0.0:
+				_pulse_w = -1.0
+				var here := Vector2(x, z)
+				for p in players:
+					if combat._targetable(p) and _dist(p) <= float(Boss.PULSE.radius):
+						combat.damage_player(p, float(Boss.PULSE.dmg) * _dmg_scale, here, float(Boss.PULSE.knock))
+				combat.events.append(["boss", "pulse", float(Boss.PULSE.radius)])
+		else:
+			_pulse_t -= DT
+			if _pulse_t <= 0.0:
+				_pulse_t = Boss.PULSE.every
+				_pulse_w = Boss.PULSE.windup
+				combat.events.append(["boss", "tele", "pulse", snappedf(_pulse_w, 0.01), float(Boss.PULSE.radius)])
+
+	# Contacto: todos los conectados que sigan en pie (y no se hayan ido lejos), a la vez
+	var standing := 0
+	var touching := 0
+	var mask := 0
+	for p in players:
+		if not combat._targetable(p) or _dist(p) > float(Boss.RITUAL.far):
+			continue
+		standing += 1
+		if open and p.state.form == "alux" and p.hold_special and _dist(p) <= float(Boss.RITUAL.range) \
+				and combat._time - p.hurt_at > float(Boss.RITUAL.block):
+			touching += 1
+			mask |= 1 << p.slot
+	touch_need = maxi(1, standing)
+	ritual_need = float(Boss.RITUAL.time_solo) if n <= 1 else float(Boss.RITUAL.time)
+	if mask != channel:
+		channel = mask
+	if open and standing > 0 and touching >= touch_need:
+		ritual += DT
+		if ritual >= ritual_need:
+			_free()
+	else:
+		ritual = maxf(0.0, ritual - float(Boss.RITUAL.decay) * DT)
+
+
+func _free() -> void:
+	phase = Boss.FREED
+	state = "freed"
+	t = 0.0
+	silence = 0.0
+	channel = 0
+	ritual = ritual_need
+	target_slot = -1
+	rubble.clear()
+	_pulse_w = -1.0
+	_purify_summoned()
+	combat.events.append(["boss", "freed", 0])
+	notices.append("freed")
 
 
 ## [fase, x, z, giro, estado, segundos del estado, silencio, glifos, glifosNecesarios, slotObjetivo,

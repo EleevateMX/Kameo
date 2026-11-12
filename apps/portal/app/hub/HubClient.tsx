@@ -141,7 +141,13 @@ export function HubClient({ initialProfile, baseUrl }: { initialProfile: PlayerP
             ))}
             {Object.entries(REWARDS).map(([key, r]) => {
               const have = profile.rewards.includes(key);
-              return <li key={key} className={have ? '' : 'locked'}><span className="tag seal">{have ? 'Capítulo I' : 'Pendiente'}</span>{r.title}</li>;
+              const tag = !have ? 'Pendiente' : r.kind === 'object' ? 'Objeto ancestral' : 'Capítulo I';
+              return (
+                <li key={key} className={have ? '' : 'locked'}>
+                  <span className={`tag ${r.kind === 'object' ? 'relic' : 'seal'}`}>{tag}</span>{r.title}
+                  {have && r.note ? <small className="reward-note"> · {r.note}</small> : null}
+                </li>
+              );
             })}
           </ul>
         </section>

@@ -10,12 +10,19 @@ const CHAPTER := {"n": 1, "title": "El Claro de los Aluxes", "roman": "I"}
 
 ## Banderas del progreso narrativo de la sala (viajan en el estado del mundo).
 const F_TALKED := 1          # alguien del grupo ya habló con Chiich Yaxché
+const F_FREED := 2           # Nojoch Tuunich recordó quién es (lo decide el servidor)
+const F_CLUE := 4            # el guardián ya señaló el camino del Cenote
 
 ## Personajes con los que se puede hablar. `pos` en el plano (x, z); `range` en metros.
 const NPCS := {
 	"yaxche": {
 		"name": "Chiich Yaxché", "title": "La abuela del claro",
 		"pos": Vector2(-5.2, 1.2), "yaw": 1.2, "range": 3.0, "color": "#bfeee0",
+	},
+	# Sólo se puede hablar con él una vez liberado: se queda de guardián en la explanada
+	"nojoch": {
+		"name": "Nojoch Tuunich", "title": "El guardián que recordó",
+		"pos": Vector2(15.5, 0.0), "yaw": -1.5708, "range": 4.6, "color": "#9df0c8", "needs": F_FREED,
 	},
 }
 
@@ -49,6 +56,27 @@ const DIALOGUES := {
 			["yaxche", "¿Lo oyes? Un grillo. Uno solo, desafinado… pero ya es un comienzo."],
 			["yaxche", "El santuario respira de nuevo. Lo que guardaba, sin embargo, pesa más de lo que parece."],
 			["yaxche", "El agua del cenote sigue oscura. Ahí abajo hay alguien que también olvidó su nombre. Pronto tendrán que bajar."],
+		],
+		"guardian": [
+			["yaxche", "¿Oyeron eso? Piedra arrastrándose. Nojoch Tuunich despertó… y no se acuerda ni de mí."],
+			["yaxche", "No lo rompan: no se puede, y además es mi amigo. Devuélvanle la memoria. Glifo a glifo."],
+		],
+		"recordo": [
+			["yaxche", "Miren nada más. El viejo Nojoch, de rodillas y con musgo nuevo. Ya era hora."],
+			["yaxche", "Les dio la Pluma de Jade. No la pierdan: a esa pluma la llama el agua del cenote."],
+		],
+	},
+	# Nojoch Tuunich, ya liberado. "pista": la primera vez (señala el Cenote); "despues": el resto.
+	"nojoch": {
+		"pista": [
+			["nojoch", "…Recuerdo. Recuerdo el nombre de cada piedra de este claro."],
+			["nojoch", "Recuerdo también por qué dormía: para no oír lo que sube del cenote."],
+			["nojoch", "La pluma que les di no es mía. Es de Kukulkán, y tira hacia el agua. Síganla."],
+			["nojoch", "Abajo hay otro guardián. Él no olvidó: a él lo hicieron callar."],
+		],
+		"despues": [
+			["nojoch", "El cenote, pequeños. La pluma ya sabe el camino."],
+			["nojoch", "Yo cuido el claro. Ustedes, cuiden de recordar."],
 		],
 	},
 }
@@ -155,8 +183,15 @@ static func moment(flags: int, encounter: int) -> String:
 	return "altares" if (flags & F_TALKED) != 0 else "llamado"
 
 
-static func dialogue(npc: String, flags: int, encounter: int) -> Array:
+## `boss_phase`: fase del guardián (BossDef), para que la abuela comente lo que está pasando.
+static func dialogue(npc: String, flags: int, encounter: int, boss_phase := 0) -> Array:
 	var by_moment: Dictionary = DIALOGUES.get(npc, {})
+	if npc == "nojoch":
+		return by_moment.get("despues" if (flags & F_CLUE) != 0 else "pista", [])
+	if (flags & F_FREED) != 0:
+		return by_moment.get("recordo", [])
+	if encounter == 2 and boss_phase >= 1 and boss_phase <= 3:
+		return by_moment.get("guardian", [])
 	return by_moment.get(moment(flags, encounter), [])
 
 

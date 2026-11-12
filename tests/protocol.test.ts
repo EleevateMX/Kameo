@@ -7,8 +7,8 @@ import fs from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
-import { after, before, test } from 'node:test';
-import { ENEMY_STATES, GAME_TICKET_AUDIENCE, signJwt, type CombatEvent, type FormId, type RosterEntry, type ServerMessage, type SnapshotPlayer } from '@alux/shared-contracts';
+import { after, before, describe, test } from 'node:test';
+import { BOSS_STATES, ENEMY_STATES, GAME_TICKET_AUDIENCE, signJwt, type CombatEvent, type FormId, type RosterEntry, type ServerMessage, type SnapshotPlayer } from '@alux/shared-contracts';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const GODOT = process.env.GODOT_BIN || path.join(ROOT, '.tools/godot');
@@ -848,8 +848,9 @@ test('cinemática compartida: quien se va no bloquea, quien vuelve o llega se en
 });
 
 // ───────────────────────── Jefe: Nojoch Tuunich ─────────────────────────
-const B = { phase: 0, x: 1, z: 2, state: 4, silence: 6, glyphs: 7, needed: 8, aimX: 10, aimZ: 11, rubble: 13 } as const;
-const BOSS_STATE = ['sleep', 'rise', 'idle', 'walk', 'slam_w', 'sweep_w', 'summon_w', 'recover', 'kneel', 'freed'];
+const B = { phase: 0, x: 1, z: 2, state: 4, silence: 6, glyphs: 7, needed: 8, aimX: 10, aimZ: 11, rubble: 13,
+  anchors: 14, anchorsNeed: 15, pillars: 16, heart: 17, releases: 18, lit: 19, litNeed: 20, ritual: 21, channel: 22, touchNeed: 23 } as const;
+const BOSS_STATE = [...BOSS_STATES] as string[];
 const inCourt = (x: number, z: number) => x > 22.9 && x < 33.1 && Math.abs(z) < 5.1;
 const bossEv = (bot: Bot, kind: string) => bot.combat.filter((e) => e[0] === 'boss' && e[1] === kind);
 
@@ -924,67 +925,302 @@ async function bossPhase1(bot: Bot, index: number, done: () => boolean, maxSecon
   return done();
 }
 
-for (const n of [1, 2, 4]) {
-  test(`jefe, fase 1 con ${n} ${n === 1 ? 'jugador' : 'jugadores'}: despierta al entrar, sólo lo decide el servidor y los glifos se encienden purificando cerca de él`, async () => {
-    const room = `JEFE0${n}`;
-    const bots = Array.from({ length: n }, (_, i) => new Bot(randomUUID(), `Memoria${i + 1}`));
-    for (const b of bots) await b.connect(ticket({ id: b.id, room, name: b.name }));
-    await sleep(300);
-    const a = bots[0];
-    assert.equal(a.welcome!.b![B.phase], 0, 'al entrar a la sala, el guardián duerme');
-    await clearAmbush(bots);
-    await sleep(600);
-    assert.equal(a.snap!.b![B.phase], 0, 'superar la emboscada no lo despierta: hay que entrar al patio');
-    assert.equal(BOSS_STATE[a.snap!.b![B.state]], 'sleep');
-    assert.equal(a.foes().some((f) => inCourt(f.x, f.z)), false, 'el patio está vacío');
+const ANCHORS = [[10.8, -5], [10.8, 5], [19.4, 6.2], [8.4, 0]];
+const SOCKETS = [[12.6, -2.6], [12.6, 2.6], [18.2, 2.8], [15.5, -6], [14.6, 5.4], [18.4, -2.2]];
+const RITUAL_SPOTS = [[0, -3.1], [3.1, 0], [0, 3.1], [-3.1, 0]];
 
-    // Un cliente no puede despertarlo, encender glifos ni cambiar de fase con mensajes
-    for (const fake of [{ t: 'boss', phase: 3 }, { t: 'glyph', n: 4 }, { t: 'purify', id: 1 }, { t: 'silence', v: 0 }]) a.send(fake);
-    await sleep(400);
-    assert.deepEqual([a.snap!.b![B.phase], a.snap!.b![B.glyphs], a.snap!.b![B.silence]], [0, 0, 100], 'los mensajes inventados se ignoran');
-
-    // Entra uno: despierta para todos, con los glifos que tocan a este grupo
-    const need = [2, 3, 4, 4][n - 1];
-    void bossPhase1(a, 0, () => a.snap!.b![B.phase] !== 0, 30);
-    await until('el guardián despierta', () => bots.every((b) => b.snap!.b![B.phase] === 1), 30_000);
-    assert.equal(bossEv(a, 'awake').length, 1);
-    assert.deepEqual([a.snap!.b![B.needed], a.snap!.b![B.glyphs], a.snap!.b![B.silence]], [need, 0, 100]);
-    assert.equal(BOSS_STATE[a.snap!.b![B.state]], 'rise', 'primero se pone en pie');
-    const hpAtRise = a.hp();
-    await until('termina de levantarse', () => BOSS_STATE[a.snap!.b![B.state]] !== 'rise', 6_000);
-    assert.ok(a.hp() >= hpAtRise, 'mientras se levanta nadie recibe daño');
-
-    if (n === 1) {
-      // Derrota: si cae el único jugador, vuelve a dormirse y se reintenta desde esta fase
-      await a.fight(() => undefined, () => a.snap!.b![B.phase] === 0, 120);
-      assert.equal(a.snap!.b![B.phase], 0, 'sin nadie en pie, el guardián vuelve a dormirse');
-      assert.equal(bossEv(a, 'fail').length, 1);
-      assert.equal(a.foes().some((f) => inCourt(f.x, f.z)), false, 'sus criaturas se van con él');
-      assert.deepEqual(a.snap!.b![B.rubble], [], 'y los escombros');
-      assert.equal(a.snap!.w[3], 2, 'la emboscada sigue superada: no hay que volver a abrir');
-      await a.fight(() => undefined, () => !a.dead(), 15);
-      assert.ok(!inCourt(a.pos().x, a.pos().z), 'reaparece fuera del patio');
-    }
-
-    // El grupo completa la fase: tantos glifos como le tocan, ni uno más
-    const done = () => a.snap!.b![B.phase] === 2;
-    const results = await Promise.all(bots.map((b, i) => bossPhase1(b, i, done, 300)));
-    assert.ok(results.every(Boolean), `la fase 1 se completa (glifos ${a.snap!.b![B.glyphs]}/${a.snap!.b![B.needed]}, fase ${a.snap!.b![B.phase]})`);
-    await sleep(500);
-    const glyphEvents = bossEv(a, 'glyph');
-    assert.equal(glyphEvents[glyphEvents.length - 1][2], need, 'se encendieron los glifos necesarios');
-    assert.ok(bossEv(a, 'summon').length >= 1, 'las criaturas las llamó él');
-    assert.ok(bossEv(a, 'tele').length >= 1, 'cada ataque avisó antes');
-    const phaseEv = bossEv(a, 'phase');
-    assert.deepEqual([phaseEv.length, phaseEv[0][2], phaseEv[0][3]], [1, 2, 66], 'pasa a la fase 2 una sola vez, con un tercio menos de Silencio');
-    for (const b of bots) {
-      assert.deepEqual([b.snap!.b![B.phase], b.snap!.b![B.silence], BOSS_STATE[b.snap!.b![B.state]]], [2, 66, 'kneel'], 'todos ven lo mismo');
-      assert.equal(b.foes().some((f) => inCourt(f.x, f.z)), false, 'las criaturas que quedaban se deshacen');
-    }
-    assert.ok(a.combat.filter((e) => e[0] === 'hit' && e[1] === 'e' && e[2] === 0).length === 0, 'el guardián no recibe golpes: no tiene vida que quitar');
-    bots.forEach((b) => b.close());
-  });
+/** Para salir del patio hay que cruzar el portal: devuelve el siguiente punto hacia (x, z). */
+function route(me: { x: number; z: number }, x: number, z: number) {
+  if (me.x > 22.4 && x < 22) return Math.abs(me.z) > 0.9 && me.x > 23.4 ? [24.4, 0] : [20.4, 0];
+  return [x, z];
 }
+
+/**
+ * Fase 2 como la jugaría un grupo que la entiende: un alux despierta una columna, todos se colocan
+ * detrás de ella para que la embestida la rompa, se refugian de la lluvia, y con el guardián
+ * aturdido unos pisan las anclas mientras Balam golpea el corazón.
+ */
+async function bossPhase2(bot: Bot, index: number, n: number, done: () => boolean, maxSeconds: number) {
+  const end = Date.now() + maxSeconds * 1000;
+  let tick = 0;
+  while (Date.now() < end && !done()) {
+    tick++;
+    const m = bot.me(), b = bot.snap?.b;
+    if (!m || !b || bot.dead()) { bot.input(0, 0, { f: 'alux' }); await sleep(33); continue; }
+    const me = { x: m[4], z: m[6] };
+    const st = BOSS_STATE[b[B.state]];
+    const boss = { x: b[B.x], z: b[B.z] };
+    const go = (x: number, z: number, extra: { a?: number; r?: number; f?: string } = {}) => {
+      const [tx, tz] = route(me, x, z);
+      const dx = tx - me.x, dz = tz - me.z, d = Math.hypot(dx, dz) || 1;
+      bot.input(d > 0.3 ? dx / d : 0, d > 0.3 ? dz / d : 0, { f: 'alux', ...extra });
+    };
+    const up = (b[B.pillars] as unknown as number[][]).map((p) => p[0]).sort((p, q) => p - q);
+    const need = b[B.anchorsNeed];
+    const onAnchor = n > 1 && index >= 1 && index <= need;
+    if (st === 'kneel' || st === 'transit' || st === 'rise' || st === 'sleep') {
+      // mientras sale del patio (o se despierta tras una derrota), a esperarlo en la explanada
+      go(10.5 - (index % 2), index % 2 ? 3.6 : -3.6);
+    } else if (st === 'stunned' || st === 'bound') {
+      const order = ANCHORS.map((a, i) => ({ i, d: Math.hypot(a[0] - boss.x, a[1] - boss.z) })).sort((p, q) => p.d - q.d);
+      const claw = () => {
+        const dx = boss.x - me.x, dz = boss.z - me.z, d = Math.hypot(dx, dz) || 1;
+        if (d > 3) bot.input(dx / d, dz / d, { f: 'balam' });
+        else bot.input(0, 0, { f: 'balam', a: st === 'bound' ? 1 : 0, r: Math.atan2(dx, dz) });
+      };
+      if (n === 1) {
+        // solo: pisa el ancla (se queda activa un rato) y corre a golpear
+        if (st === 'stunned') go(ANCHORS[order[0].i][0], ANCHORS[order[0].i][1]); else claw();
+      } else if (onAnchor) {
+        go(ANCHORS[order[index - 1].i][0], ANCHORS[order[index - 1].i][1]);
+      } else {
+        claw();
+      }
+    } else if (!up.length) {
+      // sin columnas: todos hacia el zócalo más alejado del guardián; el primero la despierta
+      const far = SOCKETS.map((p) => ({ p, d: Math.hypot(p[0] - boss.x, p[1] - boss.z) })).sort((p, q) => q.d - p.d)[0].p;
+      const d = Math.hypot(far[0] - me.x, far[1] - me.z);
+      if (d > 1.5 + (index ? 1 : 0)) go(far[0] + (index ? 1.2 : 0), far[1]);
+      else bot.input(0, 0, { f: 'alux', a: index === 0 && tick % 12 < 2 ? 4 : 0 });
+    } else {
+      const s = SOCKETS[up[0]];
+      const L = Math.hypot(s[0] - boss.x, s[1] - boss.z) || 1;
+      const ux = (s[0] - boss.x) / L, uz = (s[1] - boss.z) / L;
+      const rain = st === 'rain_w' || st === 'rain';
+      const D = rain ? 1.7 : Math.max(2.0, 7.5 - L);
+      const lat = (index - (n - 1) / 2) * 0.7;
+      let tx = s[0] + ux * D - uz * lat, tz = s[1] + uz * D + ux * lat;
+      if (st === 'slam_w' && Math.hypot(me.x - b[B.aimX], me.z - b[B.aimZ]) < 4.4) {
+        const ax = me.x - b[B.aimX], az = me.z - b[B.aimZ], d = Math.hypot(ax, az) || 1;
+        tx = me.x + (ax / d) * 4; tz = me.z + (az / d) * 4;
+      }
+      go(tx, tz);
+    }
+    await sleep(33);
+  }
+  return done();
+}
+
+/**
+ * Fase 3: encender los glifos del suelo purificando criaturas junto a él; después, quitarse de
+ * encima a las que lleguen y tocarlo todos a la vez. `away`: este bot se va lejos y no participa.
+ */
+async function bossPhase3(bot: Bot, index: number, done: () => boolean, maxSeconds: number, away = false) {
+  const end = Date.now() + maxSeconds * 1000;
+  while (Date.now() < end && !done()) {
+    const m = bot.me(), b = bot.snap?.b;
+    if (!m || !b || bot.dead()) { bot.input(0, 0, { f: 'alux' }); await sleep(33); continue; }
+    const me = { x: m[4], z: m[6] };
+    const st = BOSS_STATE[b[B.state]];
+    const boss = { x: b[B.x], z: b[B.z] };
+    const go = (x: number, z: number, extra: { a?: number; r?: number } = {}) => {
+      const [tx, tz] = route(me, x, z);
+      const dx = tx - me.x, dz = tz - me.z, d = Math.hypot(dx, dz) || 1;
+      bot.input(d > 0.3 ? dx / d : 0, d > 0.3 ? dz / d : 0, { f: 'alux', ...extra });
+    };
+    const foes = bot.foes().filter((f) => f.kind === 1 && Math.hypot(f.x - boss.x, f.z - boss.z) < 16).sort((p, q) => p.id - q.id);
+    if (away) {
+      go(-17, 3);
+    } else if (st !== 'ritual') {
+      go(boss.x - 6.5, (index - 1.5) * 1.6);
+    } else if (b[B.lit] < b[B.litNeed]) {
+      const foe = foes.length ? foes[index % foes.length] : undefined;
+      if (!foe) {
+        go(boss.x + RITUAL_SPOTS[index][0] * 1.3, boss.z + RITUAL_SPOTS[index][1] * 1.3);
+      } else {
+        const dx = foe.x - me.x, dz = foe.z - me.z, d = Math.hypot(dx, dz), r = Math.atan2(dx, dz);
+        const nearBoss = Math.hypot(foe.x - boss.x, foe.z - boss.z) <= 6.6;
+        if (foe.hp > foe.maxHp * 0.4) {
+          if (d > 5) go(foe.x, foe.z, { a: 1, r }); else bot.input(0, 0, { f: 'alux', a: 1, r });
+        } else if (!nearBoss) {
+          go(boss.x + RITUAL_SPOTS[index][0], boss.z + RITUAL_SPOTS[index][1]);
+        } else if (d > 1.9) {
+          go(foe.x, foe.z);
+        } else {
+          bot.input(0, 0, { f: 'alux', a: 4, r });
+        }
+      }
+    } else if (foes.length) {
+      // contacto abierto: primero fuera las criaturas (a chispazos), que cortan el contacto
+      const foe = foes.sort((p, q) => Math.hypot(p.x - me.x, p.z - me.z) - Math.hypot(q.x - me.x, q.z - me.z))[0];
+      const dx = foe.x - me.x, dz = foe.z - me.z, d = Math.hypot(dx, dz), r = Math.atan2(dx, dz);
+      if (d > 7) go(foe.x, foe.z, { a: 1, r }); else bot.input(0, 0, { f: 'alux', a: 1, r });
+    } else {
+      const sx = boss.x + RITUAL_SPOTS[index][0], sz = boss.z + RITUAL_SPOTS[index][1];
+      if (Math.hypot(sx - me.x, sz - me.z) > 0.6) go(sx, sz); else bot.input(0, 0, { f: 'alux', a: 4 });
+    }
+    await sleep(33);
+  }
+  return done();
+}
+
+describe('jefe: Nojoch Tuunich, combate completo', { concurrency: 3 }, () => {
+  for (const n of [1, 2, 4]) {
+    test(`${n} ${n === 1 ? 'jugador' : 'jugadores'}: tres fases decididas por el servidor, sin teletransportes, con puntos de control y una Pluma de Jade por jugador`, async () => {
+      const room = `JEFE0${n}`;
+      const bots = Array.from({ length: n }, (_, i) => new Bot(randomUUID(), `Memoria${n}${i + 1}`));
+      for (const b of bots) await b.connect(ticket({ id: b.id, room, name: b.name }));
+      await sleep(300);
+      const a = bots[0];
+      assert.equal(a.welcome!.b![B.phase], 0, 'al entrar a la sala, el guardián duerme');
+      await clearAmbush(bots);
+      await sleep(600);
+      assert.equal(a.snap!.b![B.phase], 0, 'superar la emboscada no lo despierta: hay que entrar al patio');
+      assert.equal(BOSS_STATE[a.snap!.b![B.state]], 'sleep');
+      assert.equal(a.foes().some((f) => inCourt(f.x, f.z)), false, 'el patio está vacío');
+
+      // Un cliente no puede despertarlo, encender glifos ni cambiar de fase con mensajes
+      const fakes = [{ t: 'boss', phase: 3 }, { t: 'glyph', n: 4 }, { t: 'purify', id: 1 }, { t: 'silence', v: 0 },
+        { t: 'anchor', i: 0 }, { t: 'heart', v: 0 }, { t: 'free' }, { t: 'reward', reward: 'pluma_de_jade' }, { t: 'talk', n: 'nojoch' }];
+      for (const fake of fakes) a.send(fake);
+      await sleep(400);
+      assert.deepEqual([a.snap!.b![B.phase], a.snap!.b![B.glyphs], a.snap!.b![B.silence]], [0, 0, 100], 'los mensajes inventados se ignoran');
+
+      // ── Fase 1 ── Entra uno: despierta para todos, con los glifos que tocan a este grupo
+      const need = [2, 3, 4, 4][n - 1];
+      void bossPhase1(a, 0, () => a.snap!.b![B.phase] !== 0, 30);
+      await until('el guardián despierta', () => bots.every((b) => b.snap!.b![B.phase] === 1), 30_000);
+      assert.equal(bossEv(a, 'awake').length, 1);
+      assert.deepEqual([a.snap!.b![B.needed], a.snap!.b![B.glyphs], a.snap!.b![B.silence]], [need, 0, 100]);
+      assert.equal(BOSS_STATE[a.snap!.b![B.state]], 'rise', 'primero se pone en pie');
+      const hpAtRise = a.hp();
+      await until('termina de levantarse', () => BOSS_STATE[a.snap!.b![B.state]] !== 'rise', 6_000);
+      assert.ok(a.hp() >= hpAtRise, 'mientras se levanta nadie recibe daño');
+
+      if (n === 1) {
+        // Derrota: si cae el único jugador, vuelve a dormirse y se reintenta desde esta fase
+        await a.fight(() => undefined, () => a.snap!.b![B.phase] === 0, 120);
+        assert.equal(a.snap!.b![B.phase], 0, 'sin nadie en pie, el guardián vuelve a dormirse');
+        assert.equal(bossEv(a, 'fail').length, 1);
+        assert.equal(a.foes().some((f) => inCourt(f.x, f.z)), false, 'sus criaturas se van con él');
+        assert.deepEqual(a.snap!.b![B.rubble], [], 'y los escombros');
+        assert.equal(a.snap!.w[3], 2, 'la emboscada sigue superada: no hay que volver a abrir');
+        await a.fight(() => undefined, () => !a.dead(), 15);
+        assert.ok(!inCourt(a.pos().x, a.pos().z), 'reaparece fuera del patio');
+      }
+
+      // El grupo completa la fase: tantos glifos como le tocan, ni uno más
+      const in2 = () => a.snap!.b![B.phase] === 2;
+      const r1 = await Promise.all(bots.map((b, i) => bossPhase1(b, i, in2, 300)));
+      assert.ok(r1.every(Boolean), `la fase 1 se completa (glifos ${a.snap!.b![B.glyphs]}/${a.snap!.b![B.needed]}, fase ${a.snap!.b![B.phase]})`);
+      await sleep(500);
+      const glyphEvents = bossEv(a, 'glyph');
+      assert.equal(glyphEvents[glyphEvents.length - 1][2], need, 'se encendieron los glifos necesarios');
+      assert.ok(bossEv(a, 'summon').length >= 1, 'las criaturas las llamó él');
+      assert.ok(bossEv(a, 'tele').length >= 1, 'cada ataque avisó antes');
+      let phaseEv = bossEv(a, 'phase');
+      assert.deepEqual([phaseEv.length, phaseEv[0][2], phaseEv[0][3]], [1, 2, 66], 'pasa a la fase 2 una sola vez, con un tercio menos de Silencio');
+      for (const b of bots) {
+        assert.deepEqual([b.snap!.b![B.phase], b.snap!.b![B.silence], BOSS_STATE[b.snap!.b![B.state]]], [2, 66, 'kneel'], 'todos ven lo mismo');
+        assert.equal(b.foes().some((f) => inCourt(f.x, f.z)), false, 'las criaturas que quedaban se deshacen');
+      }
+      assert.equal(a.snap!.w[5], 2, 'punto de control de la fase: se reaparece en la explanada');
+
+      // ── Fase 2 ── El guardián sale andando del patio; a nadie se le mueve de sitio
+      const last = new Map<Bot, { x: number; z: number; dead: boolean }>();
+      let maxJump = 0;
+      const watch = setInterval(() => {
+        for (const b of bots) {
+          const m = b.me();
+          if (!m || b.closed) continue;
+          const now = { x: m[4], z: m[6], dead: (m[11] & 8) !== 0 };
+          const was = last.get(b);
+          if (was && !was.dead && !now.dead) maxJump = Math.max(maxJump, Math.hypot(now.x - was.x, now.z - was.z));
+          last.set(b, now);
+        }
+      }, 50);
+      const in3 = () => a.snap!.b![B.phase] === 3;
+      const p2 = Promise.all(bots.map((b, i) => bossPhase2(b, i, n, () => in3() || (n === 1 && a.snap!.b![B.releases] >= 1), 420)));
+      await until('sale a la explanada', () => bossEv(a, 'arena').length >= 1, 40_000);
+      clearInterval(watch);
+      assert.ok(a.snap!.b![B.x] < 21, `el guardián está en la explanada (x=${a.snap!.b![B.x]})`);
+      assert.ok(maxJump < 2.5, `ningún jugador se teletransporta durante la transición (salto máximo ${maxJump.toFixed(2)} m)`);
+      for (const b of bots) {
+        assert.ok(Math.abs(b.snap!.b![B.x] - a.snap!.b![B.x]) < 1.5 && Math.abs(b.snap!.b![B.z] - a.snap!.b![B.z]) < 1.5, 'todos lo ven en el mismo sitio');
+      }
+      assert.equal(a.snap!.b![B.anchorsNeed], [1, 1, 2, 2][n - 1], 'anclas según el grupo');
+      // Hablarle antes de liberarlo no adelanta la historia
+      a.send({ t: 'talk', n: 'nojoch' });
+      for (const fake of [{ t: 'anchor', i: 0, on: 1 }, { t: 'bound' }, { t: 'heart', v: 0 }]) a.send(fake);
+      await sleep(300);
+      assert.deepEqual([a.snap!.b![B.anchors], a.snap!.b![B.heart], a.snap!.b![B.releases], a.snap!.w[10] & 6], [0, 100, 0, 0], 'nada de eso lo decide el cliente');
+
+      if (n === 1) {
+        // Punto de control: tras liberar un corazón cae; el combate se retoma en la fase 2, no en la 1
+        await p2;
+        assert.equal(a.snap!.b![B.releases], 1, `libera un corazón (fase ${a.snap!.b![B.phase]}, corazón ${a.snap!.b![B.heart]})`);
+        await a.fight(() => undefined, () => a.snap!.b![B.phase] === 0, 180);
+        assert.deepEqual([a.snap!.b![B.phase], BOSS_STATE[a.snap!.b![B.state]], a.snap!.b![B.silence], a.snap!.b![B.releases]], [0, 'sleep', 66, 0],
+          'vuelve a dormirse con el Silencio del inicio de la fase 2');
+        assert.ok(a.snap!.b![B.x] < 21, 'y se queda en la explanada');
+        await a.fight(() => undefined, () => !a.dead(), 15);
+        assert.ok(a.pos().x < 9, `el jugador reaparece lejos de él (x=${a.pos().x.toFixed(1)})`);
+        await sleep(6500);   // tarda un momento en poder despertar otra vez
+        assert.equal(await bossPhase2(a, 0, 1, in3, 420), true, 'la fase 2 se completa en el reintento');
+        const awake = bossEv(a, 'awake');
+        assert.equal(awake[awake.length - 1][2], 2, 'el reintento despierta directamente en la fase 2');
+      } else {
+        assert.ok((await p2).every(Boolean), `la fase 2 se completa (corazones ${a.snap!.b![B.releases]}/3, corazón ${a.snap!.b![B.heart]} %)`);
+      }
+      await sleep(400);
+      const hearts = bossEv(a, 'heart').slice(-3);
+      assert.deepEqual(hearts.map((e) => e[4]), [55, 44, 33], 'cada corazón liberado baja el Silencio');
+      assert.equal(bossEv(a, 'bound')[0][3], 100, 'hasta que las cadenas lo sujetan, el corazón está intacto');
+      assert.ok(bossEv(a, 'crash').length >= 3 && bossEv(a, 'pillar').length >= 1, 'las columnas las despiertan los jugadores y se rompen con la embestida');
+      assert.ok(bossEv(a, 'heart_hit').every((e) => bots.some((b) => b.slot === e[2])), 'los golpes al corazón son de jugadores de la sala');
+      phaseEv = bossEv(a, 'phase');
+      assert.deepEqual(phaseEv[phaseEv.length - 1].slice(2), [3, 33], 'pasa a la fase 3');
+      assert.ok(a.combat.filter((e) => e[0] === 'hit' && e[1] === 'e' && e[2] === 0).length === 0, 'el guardián no recibe golpes: no tiene vida que quitar');
+
+      // ── Fase 3 ── Glifos del suelo y contacto de todos los que siguen en pie
+      const freed = () => a.snap!.b![B.phase] === 4;
+      const stays = bots.filter((_, i) => !(n === 4 && i === 3));   // con cuatro, uno se va a la plaza: no bloquea
+      const p3 = Promise.all(bots.map((b, i) => bossPhase3(b, i, () => freed() || b.closed, 300, n === 4 && i === 3)));
+      await until('se arrodilla para el ritual', () => BOSS_STATE[a.snap!.b![B.state]] === 'ritual', 40_000);
+      assert.equal(a.snap!.b![B.litNeed], [1, 2, 2, 3][n - 1], 'glifos del suelo según el grupo');
+      // Tocarlo antes de encender los glifos no sirve
+      assert.equal(a.snap!.b![B.ritual], 0);
+      await until('se abre el contacto', () => a.snap!.b![B.lit] >= a.snap!.b![B.litNeed] || freed(), 200_000);
+      if (n === 2) bots[1].close();   // uno se cae justo ahora: el otro puede terminar solo
+      await p3;
+      assert.ok(freed(), `el guardián queda liberado (glifos ${a.snap!.b![B.lit]}/${a.snap!.b![B.litNeed]}, contacto ${a.snap!.b![B.ritual]} %)`);
+      await sleep(1500);
+      for (const b of bots.filter((q) => !q.closed)) {
+        assert.deepEqual([b.snap!.b![B.phase], b.snap!.b![B.silence], BOSS_STATE[b.snap!.b![B.state]]], [4, 0, 'freed'], 'todos lo ven liberado');
+        assert.equal(b.events.filter((e) => e.e === 'story' && e.k === 'freed').length, 1, 'la liberación se anuncia una vez');
+        assert.equal(b.events.filter((e) => e.e === 'reward' && e.reward === 'pluma_de_jade').length, 1, 'cada jugador recibe una Pluma de Jade');
+        assert.equal(b.snap!.w[10] & 2, 2, 'queda anotado en la historia de la sala');
+        assert.equal(b.foes().some((f) => Math.hypot(f.x - b.snap!.b![B.x], f.z - b.snap!.b![B.z]) < 16 && f.kind === 1), false, 'las criaturas del Silencio se deshacen');
+      }
+      assert.equal(bossEv(a, 'freed').length, 1);
+      if (n === 4) assert.ok(stays.length === 3 && bossEv(a, 'contact').length >= 1, 'quien se fue lejos no bloqueó el ritual');
+      const feather = rewardCalls.filter((c) => c.room === room && c.reward === 'pluma_de_jade');
+      assert.equal(feather.length, 1, 'el servidor pide la recompensa una sola vez');
+      assert.deepEqual([...feather[0].players].sort(), bots.map((b) => b.id).sort(), 'para todos los que libraron el combate, también quien se cayó al final');
+
+      // La pista del Cenote: sólo hablando con él, a su lado, y una vez
+      const far = stays[stays.length - 1];
+      await far.walkTo(a.snap!.b![B.x] - 9, 6, 12);
+      far.send({ t: 'talk', n: 'nojoch' });
+      await sleep(300);
+      assert.equal(a.snap!.w[10] & 4, 0, 'desde lejos no cuenta');
+      await a.walkTo(a.snap!.b![B.x] - 3, 0.5, 12);
+      a.send({ t: 'talk', n: 'nojoch' });
+      await until('pista del Cenote', () => (a.snap!.w[10] & 4) === 4, 4_000);
+      a.send({ t: 'talk', n: 'nojoch' });
+      await sleep(300);
+      assert.equal(a.events.filter((e) => e.e === 'story' && e.k === 'clue').length, 1, 'la pista se da una vez');
+
+      if (n === 2) {
+        // Quien se cayó vuelve y encuentra al guardián liberado
+        const back = bots[1];
+        await back.connect(ticket({ id: back.id, room, name: back.name }));
+        assert.deepEqual([back.welcome!.b![B.phase], back.welcome!.w[10] & 6], [4, 6], 'al volver ve al guardián liberado y la historia al día');
+      }
+      bots.forEach((b) => b.close());
+    });
+  }
+});
 
 test('una conexión que deja de enviar se libera sola y el jugador puede volver', async () => {
   const room = 'MUDA01';

@@ -220,6 +220,27 @@ function suite(label: string, makeStore: () => Promise<Store>) {
       assert.equal((await (await a.call('GET', `/v1/rooms/${room.code}`)).json()).gateOpen, true);
     });
 
+    test('Pluma de Jade: una por jugador aunque la gane en varias salas, y queda en su perfil', async () => {
+      const a = await login(33);
+      const b = await login(34);
+      const first = await (await a.call('POST', '/v1/rooms', {})).json();
+      await a.call('POST', `/v1/rooms/${first.code}/ticket`);
+      await b.call('POST', `/v1/rooms/${first.code}/ticket`);
+      const grant = (code: string, players: string[]) => svc('/internal/game/rewards',
+        { server_id: 'gs-1', room: code, reward: 'pluma_de_jade', players, idempotency_key: `${code}:1:pluma_de_jade` });
+      assert.deepEqual((await (await grant(first.code, [a.id, b.id])).json()).granted.sort(), [a.id, b.id].sort());
+      // Otra sala, otra liberación: el servidor vuelve a pedirla y la API no la repite
+      const second = await (await a.call('POST', '/v1/rooms', {})).json();
+      await a.call('POST', `/v1/rooms/${second.code}/ticket`);
+      assert.deepEqual((await (await grant(second.code, [a.id])).json()).granted, []);
+      const me = await (await a.call('GET', '/v1/me')).json();
+      assert.deepEqual(me.rewards.filter((r: string) => r === 'pluma_de_jade'), ['pluma_de_jade']);
+      assert.equal(me.quests.cap1_guardian, 'completed');
+      // No abre el santuario de la sala ni desbloquea formas: es un objeto, no una transformación
+      assert.equal((await (await a.call('GET', `/v1/rooms/${second.code}`)).json()).gateOpen, false);
+      assert.deepEqual(me.unlocks.sort(), ['alux', 'balam']);
+    });
+
     test('el latido del servidor de juego marca quién está en línea', async () => {
       const a = await login(40);
       const room = await (await a.call('POST', '/v1/rooms', {})).json();
