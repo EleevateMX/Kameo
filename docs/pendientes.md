@@ -84,10 +84,8 @@ como pendiente debe darse por hecho.
   - Precios de Kling sin medir: planos con personajes, sonido generado, 720p y 4K.
   - La introducción («El llamado») es local y empieza nada más entrar: cuando tenga vídeo habrá
     que esperar su precarga unos segundos antes de empezarla. Sin hacer.
-  - El último plano de una compartida se corta si el cliente iba atrasado respecto al servidor.
-  - Modelos: los hilos finos de las prendas (alux, Yaxché, cola de Balam) no existen como color en
-    los `.glb`: quedan como ranuras (`add_loft_painted` en `art/blender/alux_common.py`). Las hojas
-    de referencia los muestran corregidos; arreglarlo obliga a regenerar los tres personajes.
+  - Modelos: corregidos los hilos finos de las prendas (alux, Yaxché, cola de Balam), que quedaban
+    como ranuras; las hojas de referencia coinciden con los modelos.
   - Modelos: el cabello del alux atraviesa la cinta del sombrero de palma; a Yaxché le asoman los
     hombros por el rebozo; por detrás, las patas traseras de Balam se ven huecas.
   - «El vínculo de Balam»: los planos 1, 2 y 4 muestran al alux con un aspecto fijo; hay que

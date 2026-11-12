@@ -334,6 +334,17 @@ class MeshBuilder:
                        for i in range(len(pp)))
             if area < 0:                      # la triangulación solo rellena polígonos antihorarios
                 pp.reverse()
+            # Ningún borde puede abarcar más de una columna de la malla: en 3D sería una
+            # cuerda que atraviesa la prenda. El caso extremo es la franja que da la vuelta
+            # entera (dos bordes de costura a costura): sin vértices intermedios, sus
+            # triángulos tienen dos esquinas en el mismo punto de la costura y no existen.
+            dense = []
+            for i, (ua, ta) in enumerate(pp):
+                ub, tb = pp[(i + 1) % len(pp)]
+                dense.append((ua, ta))
+                n = int(math.ceil(abs(tb - ta) * segs / tau - 1e-9))
+                dense.extend((ua + (ub - ua) * k / n, ta + (tb - ta) * k / n) for k in range(1, n))
+            pp = dense
             base = len(pts)
             pts.extend(Vector((min(max(u, u0), u1) * su, t * sth)) for u, t in pp)
             faces.append(list(range(base, base + len(pp))))
@@ -357,6 +368,7 @@ class MeshBuilder:
                     vid[index[i]] = (col(p, u, th) if col else None)
             return index[i]
 
+        lost = 0.0                  # superficie que se queda sin triángulos (debe ser nula)
         for tri, orig in zip(of, off):
             a, b, c = tri
             area = (ov[b].x - ov[a].x) * (ov[c].y - ov[a].y) - (ov[c].x - ov[a].x) * (ov[b].y - ov[a].y)
@@ -364,6 +376,7 @@ class MeshBuilder:
                 continue
             ids = [V(a), V(b), V(c)]
             if len(set(ids)) < 3:
+                lost += 0.5 * abs(area)
                 continue
             if area > 0:            # hacia fuera = sentido horario en el plano (u, θ)
                 ids.reverse()
@@ -371,6 +384,9 @@ class MeshBuilder:
                 self.face(ids, keys[max(orig)])
             else:
                 self.face(ids, mat, [vid[i] for i in ids] if col else None)
+        if lost > 1e-9:
+            print("  aviso: %.1f cm² del loft «%s» sin malla (triángulos aplastados en la costura)"
+                  % (lost * 1e4, mat))
         for cap, uu, flip_cap, cm in ((cap0, u0, True, capmat[0]), (cap1, u1, False, capmat[1])):
             if not cap:
                 continue

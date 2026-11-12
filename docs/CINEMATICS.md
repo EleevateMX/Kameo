@@ -126,10 +126,9 @@ pantalla, y usan el mismo reproductor y los mismos vídeos.
 
 ![Hoja de Chiich Yaxché](../art/referencias/yaxche_hoja.png)
 
-Las hojas muestran el diseño tal como lo describen los scripts de construcción. Dos detalles se
-corrigieron sólo en el render y **no coinciden con los modelos del juego**: los hilos finos de las
-prendas (en el juego quedan como ranuras) y el cabello del alux bajo el sombrero. Están anotados en
-[pendientes.md](pendientes.md).
+Las hojas coinciden con los modelos del juego (comprobado píxel a píxel tras corregir los hilos de
+las prendas), con una excepción que sólo se retoca en el render: el cabello del alux bajo el
+sombrero de palma, que en el juego atraviesa la cinta. Está anotado en [pendientes.md](pendientes.md).
 
 ### Lo medido
 

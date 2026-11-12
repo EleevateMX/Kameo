@@ -53,38 +53,13 @@ PERSONAJES = {
 }
 
 
-# ──────────────────────── Retoques solo para estas imágenes ────────────────────────
-# Dos defectos de los modelos se notan con la cámara baja y de cerca de estas hojas, y
-# un generador de vídeo los copiaría como si fueran parte del diseño. Se corrigen aquí,
-# en memoria: ni los scripts de construcción ni los .glb cambian. (Las caras se pintan
-# por los dos lados, como en `render_previews.py`; en el juego son de una sola cara.)
-
-def cenefas_enteras():
-    """Los hilos finos que dan la vuelta entera a una prenda (ruedo y jubón del alux,
-    canesú y ruedo de la abuela, anillos de la cola de Balam) se pintan con un polígono
-    de cuatro vértices, los cuatro sobre la costura. Si sus bordes no coinciden con una
-    fila de la malla, la triangulación los deja sin área y en el .glb queda una ranura
-    por la que se ve el interior de la prenda. Con vértices intermedios en los bordes
-    largos, el hilo sale como está descrito en el script de construcción."""
-    original = kc.MeshBuilder.add_loft_painted
-    if getattr(original, "cenefas_enteras", False):
-        return
-    tau = 2.0 * math.pi
-
-    def add_loft_painted(self, loft, mat, shapes, segs=12, **kw):
-        nuevas = []
-        for poly, key in shapes:
-            us, ts = sorted(set(u for u, _t in poly)), [t for _u, t in poly]
-            t0, t1 = min(ts), max(ts)
-            if len(poly) == 4 and len(us) == 2 and abs(t1 - t0 - tau) < 1e-6:
-                vuelta = [t0 + (t1 - t0) * j / segs for j in range(segs)] + [t1]
-                poly = [(us[0], t) for t in vuelta] + [(us[1], t) for t in reversed(vuelta)]
-            nuevas.append((poly, key))
-        return original(self, loft, mat, nuevas, segs=segs, **kw)
-
-    add_loft_painted.cenefas_enteras = True
-    kc.MeshBuilder.add_loft_painted = add_loft_painted
-
+# ──────────────────────── Retoque solo para estas imágenes ────────────────────────
+# Un defecto del modelo del alux se nota con la cámara baja y de cerca de estas hojas, y
+# un generador de vídeo lo copiaría como si fuera parte del diseño. Se corrige aquí, en
+# memoria: ni el script de construcción ni el .glb cambian. (Las caras se pintan por los
+# dos lados, como en `render_previews.py`; en el juego son de una sola cara.)
+# Los hilos que rodean las prendas ya no necesitan retoque: existen como color en la malla
+# desde la corrección de `add_loft_painted` en alux_common.py.
 
 def cabello_bajo_el_tocado(objs, centro, holgura=0.012):
     """El cabello del alux asoma por la cinta del sombrero de palma (el sombrero va
@@ -261,7 +236,6 @@ def hoja(vistas, path):
 def referencias(quien, outdir, res, muestras):
     from PIL import Image
     cfg = PERSONAJES[quien]
-    cenefas_enteras()
     mod = __import__("build_" + quien)
     arm, objs = mod.build()
     cam, eje = preparar_escena()

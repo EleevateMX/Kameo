@@ -42,14 +42,12 @@ por ejemplo, `... render_referencias.py yaxche` rehace solo las de la abuela y
 - **Fondo:** gris `#d2d2d2` uniforme, sin suelo; solo una sombra de contacto suave.
 - **Color:** color de vértice plano con la oclusión horneada del modelo, sin texturas.
   Los ojos y el jade son emisivos, por eso se ven más luminosos que su código hex.
-- **Dos retoques, solo en estas imágenes** (ni los scripts de construcción ni los
-  `.glb` cambian; están explicados en `render_referencias.py`):
-  1. Los hilos finos que rodean una prenda (los rojos del ruedo y del jubón del alux,
-     los magenta y turquesa del vestido de la abuela, los anillos de la cola de Balam)
-     se ven como hilos de color. En los `.glb` actuales esos hilos quedan como ranuras
-     por las que se ve el interior de la prenda; desde la cámara del juego apenas se
-     nota, pero a la altura del pecho el vestido de la abuela parece hecho de rodajas.
-  2. El cabello del alux ya no atraviesa la cinta del sombrero de palma.
+- **Un retoque, solo en estas imágenes** (ni el script de construcción ni el `.glb`
+  cambian; está explicado en `render_referencias.py`): el cabello del alux ya no
+  atraviesa la cinta del sombrero de palma. En el juego sí la atraviesa.
+- Los hilos finos que rodean las prendas ya no se retocan: existen como color en los
+  modelos desde la corrección de `add_loft_painted`, y estas hojas coinciden con ellos
+  píxel a píxel.
 
 ## Tamaño relativo
 
