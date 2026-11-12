@@ -42,10 +42,28 @@ var shots := [
 	["ref_alux", Vector3(2.6, 0.9, 2.6), 0.3 + PI - 0.35, 0.08, 2.6, false],
 	["retrato_alux", Vector3(2.6, 0.95, 2.6), 0.3 + PI - 0.35, 0.1, 2.3, false],
 	["retrato_balam", Vector3(-3.4, 0.75, -1.6), 0.9 + PI - 0.6, 0.12, 2.9, false],
+	# Cuadros clave de «El sello cede» (ver KEYFRAMES): primer y último cuadro de cada plano
+	["kf_sello_1a", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_sello_1b", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_sello_2a", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_sello_2b", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_sello_3a", Vector3.ZERO, 0.0, 0.0, 1.0, false],
+	["kf_sello_3b", Vector3.ZERO, 0.0, 0.0, 1.0, false],
 	["combate", Vector3(14.0, 1.2, -1.0), PI * 0.5, 0.35, 8.0, true],
 	["victoria", Vector3(14.0, 1.2, -1.0), PI * 0.5, 0.35, 8.0, true],
 	["derrota", Vector3(14.0, 1.2, -1.0), PI * 0.5, 0.35, 8.0, true],
 ]
+## Cuadros clave para producir vídeos (docs/CINEMATICS.md): la cámara exacta del principio (a) y
+## del final (b) de cada plano, sin interfaz ni jugadores (su aspecto lo elige cada quien, así que
+## no pueden salir en un vídeo). gate: 0 sellado, 1 abierto. foes: enemigos a la vista.
+const KEYFRAMES := {
+	"kf_sello_1a": {"pos": Vector3(15.6, 0.9, -8.0), "look": Vector3(22.5, 2.4, -0.4), "gate": 0.0, "foes": false},
+	"kf_sello_1b": {"pos": Vector3(16.4, 1.3, -4.2), "look": Vector3(26.0, 2.8, 0.0), "gate": 0.0, "foes": false},
+	"kf_sello_2a": {"pos": Vector3(15.5, 3.2, 4.0), "look": Vector3(26.0, 3.2, 0.0), "gate": 0.0, "foes": false},
+	"kf_sello_2b": {"pos": Vector3(17.5, 2.6, 2.2), "look": Vector3(27.0, 3.8, 0.0), "gate": 1.0, "foes": false},
+	"kf_sello_3a": {"pos": Vector3(14.5, 4.2, -5.5), "look": Vector3(19.0, 0.8, 0.5), "gate": 1.0, "foes": false},
+	"kf_sello_3b": {"pos": Vector3(15.6, 2.6, -3.6), "look": Vector3(17.8, 0.7, 0.6), "gate": 1.0, "foes": false},
+}
 var out := "user://"
 var only: Array = []
 var frame := 0
@@ -148,6 +166,12 @@ func _process(delta: float) -> bool:
 	if idx >= shots.size():
 		return true
 	var s: Array = shots[idx]
+	var key: Dictionary = KEYFRAMES.get(str(s[0]), {})
+	for av in avatars:
+		av.visible = key.is_empty()
+	for v in foes:
+		v.visible = key.is_empty() or bool(key.foes)
+	(world.get_meta("builder") as WorldBuilder).update(time, 0.0, float(key.get("gate", 0.0)))
 	var yaw: float = s[2]
 	var pitch: float = s[3]
 	var fwd := Vector3(sin(yaw) * cos(pitch), -sin(pitch), cos(yaw) * cos(pitch))
@@ -169,6 +193,9 @@ func _process(delta: float) -> bool:
 	hud.hide_dialogue()
 	hud.context_hint("")
 	hud.set_npc_mark("")
+	if not key.is_empty():
+		cam.look_at_from_position(key.pos, key.look, Vector3.UP)
+		npc.visible = false
 	if str(s[0]).begins_with("cine_") or str(s[0]).begins_with("sello_"):
 		# Un plano de una cinemática, a mitad de su recorrido
 		var which := "llamado" if str(s[0]).begins_with("cine_") else "sello"

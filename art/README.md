@@ -11,9 +11,11 @@ reproducible: los `.glb` salen idénticos, byte a byte, cada vez que se ejecutan
 | `blender/build_yaxche.py` | Genera `game/assets/characters/yaxche.glb` (Chiich Yaxché, la abuela del claro, con su bastón). Reutiliza las medidas de la cabeza de `build_alux.py`. |
 | `blender/alux_common.py` | Utilidades: mallas, dibujos recortados en la superficie, oclusión, esqueleto, cinemática inversa, horneado de animaciones, exportación, renders. |
 | `blender/render_previews.py` | Renders de vista previa en `previews/` y retratos (HUD y diálogos) en `game/assets/ui/`. |
+| `blender/render_referencias.py` | Hojas de personaje (turnaround) en `referencias/`, para las cinemáticas. |
 | `godot/check_characters.gd` | Comprobación sin ventana de lo que Godot importa. |
 | `godot/render_check.gd` | Capturas con el renderer real de Godot (bajo `xvfb`). |
 | `previews/` | Renders de referencia. `*_hoja.png` es la hoja de contacto; `godot_validacion.png` y `yaxche_godot_hoja.png` son capturas hechas con Godot. |
+| `referencias/` | Hojas de personaje sobre fondo neutro (frente, tres cuartos, lado, espalda) y su ficha (`referencias/README.md`): proporciones, paleta, rasgos fijos y descripción para prompt. |
 
 ## Cómo regenerar
 
@@ -31,6 +33,8 @@ python3 -m venv .tools/blender-venv
 .tools/blender-venv/bin/python art/blender/render_previews.py yaxche      # opcional
 .tools/blender-venv/bin/python art/blender/render_previews.py portraits   # los tres retratos
 .tools/blender-venv/bin/python art/blender/render_previews.py portraits yaxche   # solo el suyo
+.tools/blender-venv/bin/python art/blender/render_referencias.py          # hojas de personaje (todas)
+.tools/blender-venv/bin/python art/blender/render_referencias.py balam    # solo las de un personaje
 
 # comprobar en Godot
 .tools/godot --headless --path game --import
