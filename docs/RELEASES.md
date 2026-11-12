@@ -49,6 +49,7 @@ Sin migraciones.
 | Flujo completo y cuatro navegadores de siempre | Pasan |
 | Rendimiento en juego (render por software, 640×360) | Sin cambio: 6.9 FPS en mínima y 4.8 en baja (6.7 y 4.7 antes) |
 | Durante la escena | Con vídeo el juego no dibuja el mundo: 16–19 cuadros/s de su bucle frente a 5–5.5 con la escena del motor, en el mismo equipo |
+| Imagen desplegable (commit `8bc476a`, en local) | Se construye con los archivos nuevos y pasa sus comprobaciones (migraciones, invitaciones, HTTPS/WSS, partida, reconexión, persistencia). Sirve el puente y el manifiesto con revalidación, y los vídeos con caché de un año |
 | Descarga | El puente pesa 13 KB. Los vídeos se piden aparte y sólo en un formato; objetivo ~2 MB para los 10 s de «El sello cede» (medido: 0.85 MB por 5 s a 720p) |
 
 ![Vídeo de prueba (un patrón generado en local, no es Kling) reproduciéndose sobre el juego, con franjas, subtítulo y aviso de omitir](img/cine-video-prueba.jpg)
@@ -56,8 +57,8 @@ Sin migraciones.
 **Sin comprobar:** con tarjeta gráfica y con personas; Safari y Firefox (la prueba usa Chromium);
 sonido dentro de un vídeo (los de prueba son mudos); el voto con cuatro navegadores a la vez (sin GPU
 van a 1–2 cuadros por segundo y la escena acaba antes de que lleguen los votos: está cubierto con
-bots); la reconexión a mitad de escena en un navegador (cubierta con bots); las cabeceras de caché
-en Render.
+bots); la reconexión a mitad de escena en un navegador (cubierta con bots); nada de esto en Render
+(no está publicada).
 
 ## Alpha 0.2 — La abuela del claro (candidata, sin publicar)
 
