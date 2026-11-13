@@ -71,7 +71,8 @@ await page.keyboard.up('KeyJ');
 assert.ok(cleared(), 'la emboscada se supera');
 await waitFor('panel de victoria', async () => (await st(page)).ui.result === true, 60_000);
 let s = await st(page);
-const WATCH = { x: -1.5, z: 3.0 };
+// E2E_WATCH="x,z" pone a la jugadora en otro sitio (p. ej. "8,0" para ver de cerca el salto a la explanada)
+const WATCH = process.env.E2E_WATCH ? { x: Number(process.env.E2E_WATCH.split(',')[0]), z: Number(process.env.E2E_WATCH.split(',')[1]) } : { x: -1.5, z: 3.0 };
 let toWatch: Promise<boolean> = Promise.resolve(true);
 // E2E_PANEL=1: la jugadora deja abierto el panel de victoria; el guardián despierta igual y su
 // cinemática tiene que verse (y cerrar el panel) aunque ella no haya tocado nada
@@ -85,7 +86,8 @@ if (!keepPanel) {
   ok('Emboscada superada; el panel invita a entrar al santuario');
   // La jugadora se queda mirando desde la plaza, fuera del alcance del combate
   await page.mouse.click(640, 300);
-  toWatch = driveTo(page, WATCH.x, WATCH.z, { timeoutMs: 300_000, stop: 1.2 });
+  // Al llegar se queda mirando al santuario: de ahí saldrá el guardián
+  toWatch = driveTo(page, WATCH.x, WATCH.z, { timeoutMs: 300_000, stop: 1.2 }).then(async (ok) => { await look(page, WATCH, { x: 22, z: 0 }); return ok; });
 }
 
 // 3) Fase 1: un compañero entra al patio, el guardián despierta con su cinemática
@@ -130,6 +132,22 @@ if (keepPanel) {
   await browser.close();
   process.exit(0);
 }
+// El salto a la explanada dura unos segundos: se vigila desde antes de que acabe la fase 1, con
+// la cámara ya puesta, para verlo (y fotografiarlo) mientras ocurre
+const leapSeen = new Set<string>();
+let leapTop = 0;
+let leapShot = false;
+const leapWatch = setInterval(async () => {
+  const q = await st(page).catch(() => null);
+  if (!q?.boss || q.boss[0] !== 2) return;
+  const state = BOSS_STATE[q.boss[4]];
+  leapSeen.add(state);
+  leapTop = Math.max(leapTop, Number(q.boss_y ?? 0));
+  if ((state === 'leap_w' || state === 'leap') && !leapShot) {
+    leapShot = true;
+    void (async () => { for (const n of ['a', 'b', 'c', 'd']) await shot(page, `02${n}-salto-a-la-explanada.png`).catch(() => {}); })();
+  }
+}, 150);
 assert.ok((await p1).every(Boolean), 'los compañeros completan la fase 1');
 await toWatch;
 
@@ -137,18 +155,15 @@ await toWatch;
 const p2 = Promise.all(cast.map((a, i) => bossPhase2(a, i, 4, () => phase() >= 3, 600)));
 await waitFor('fase 2 en el navegador', async () => (await st(page)).boss[0] === 2, 60_000);
 await look(page, WATCH, { x: 15.5, z: 0 });
-// Sale del santuario de un salto dirigido (aviso, vuelo y caída): se mira mientras ocurre
-const leapSeen = new Set<string>();
-let leapTop = 0;
+// Sale del santuario de un salto dirigido (aviso, vuelo y caída)
 const leaving = ['kneel', 'transit', 'leap_w', 'leap'];
 await waitFor('el guardián llega a la explanada', async () => {
   const q = await st(page);
-  const state = BOSS_STATE[q.boss[4]];
-  leapSeen.add(state);
-  leapTop = Math.max(leapTop, Number(q.boss_y ?? 0));
-  return q.boss[1] < 21 && !leaving.includes(state);
+  return q.boss[1] < 21 && !leaving.includes(BOSS_STATE[q.boss[4]]);
 }, 90_000);
+clearInterval(leapWatch);
 assert.ok(!leapSeen.has('transit'), 'ya no sale andando del santuario');
+assert.ok(leapSeen.has('leap_w') || leapSeen.has('leap'), `el navegador vio el salto (estados vistos: ${[...leapSeen].join(', ')})`);
 s = await st(page);
 assert.equal(s.music, 'mus_jefe_furia', 'la música cambia con la fase');
 await waitFor('la música de la furia sonando', async () => (await st(page)).snd?.music === 'mus_jefe_furia', 30_000);

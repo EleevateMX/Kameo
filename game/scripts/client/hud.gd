@@ -1221,7 +1221,7 @@ func set_guide(title: String, steps: Array = [], active := -1, footer := "") -> 
 		(row[2] as Label).text = "ok" if done else str(i + 1)
 		(row[2] as Label).add_theme_font_size_override("font_size", 9 if done else 12)
 		(row[1] as PanelContainer).add_theme_stylebox_override("panel",
-			Kit.flat(Kit.GOLD if now else (Kit.JADE_DEEP if done else Color(1, 1, 1, 0.28)), 6.0))
+			Kit.flat(Kit.GOLD if now else (Color(0.18, 0.9, 0.69, 0.7) if done else Color(1, 1, 1, 0.28)), 6.0))
 	if moved:
 		flash_guide()
 
