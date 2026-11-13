@@ -16,25 +16,52 @@ const ALIAS := "la Ciudad Blanca"
 # ── Geometría (metros). La plaza es un cuadrado centrado en el origen. ──
 const HALF := 34.0                 # medio lado transitable
 const PLAYER_R := 0.45
-## Columnas, troncos, fuente, farolas: [x, z, radio]
-const PILLARS: Array = [
-	[0.0, 0.0, 2.6],               # el gran árbol del centro, con su arriate
+## Obstáculos redondos, por grupos: [x, z, radio]. El cliente dibuja cada grupo con su forma;
+## el movimiento usa la suma de todos (PILLARS).
+const SOLIDS: Array = [
+	[0.0, 0.0, 2.6],               # el gran árbol del centro, con su arriate y el altar a sus pies
 	[-15.0, 12.0, 2.5],            # fuente
 	[15.0, -13.0, 2.9],            # quiosco
-	# arcos del lado norte (una columna cada 6 m)
+	[-13.0, -11.0, 1.6],           # carreta de flores
+]
+## Arcos del lado norte (una columna cada 6 m)
+const ARCADE: Array = [
 	[-27.0, -27.5, 0.55], [-21.0, -27.5, 0.55], [-15.0, -27.5, 0.55], [-9.0, -27.5, 0.55], [-3.0, -27.5, 0.55],
 	[3.0, -27.5, 0.55], [9.0, -27.5, 0.55], [15.0, -27.5, 0.55], [21.0, -27.5, 0.55], [27.0, -27.5, 0.55],
-	# jambas del portal del Claro (lado este)
-	[30.5, -2.4, 0.7], [30.5, 2.4, 0.7],
-	# farolas
+]
+## Jambas del portal del Claro (lado este)
+const PORTAL_JAMBS: Array = [[30.5, -2.4, 0.7], [30.5, 2.4, 0.7]]
+## Farolas: las de la plaza y las que bordean el camino al portal
+const LAMPS: Array = [
 	[-9.0, -9.0, 0.25], [9.0, -9.0, 0.25], [-9.0, 9.0, 0.25], [9.0, 9.0, 0.25],
 	[-22.0, 0.0, 0.25], [22.0, 13.0, 0.25], [-7.0, 23.0, 0.25], [7.0, -20.0, 0.25],
+	[17.5, -3.2, 0.25], [17.5, 3.2, 0.25], [24.5, -3.2, 0.25], [24.5, 3.2, 0.25],
 ]
-## Muros y bancos: [x, z, medio ancho, medio fondo]
-const BOXES: Array = [
+## Árboles de las cuatro jardineras
+const GARDEN_TREES: Array = [[-20.0, -22.0, 0.45], [20.0, -22.0, 0.45], [-20.0, 22.0, 0.45], [20.0, 22.0, 0.45]]
+## El guía, en el centro del corro de llegada (los aluxes aparecen a su alrededor, no encima)
+const GUIDE := Vector2(0.0, 13.0)
+const NPC_PILLARS: Array = [[0.0, 13.0, 0.4]]
+const PILLARS: Array = SOLIDS + ARCADE + PORTAL_JAMBS + LAMPS + GARDEN_TREES + NPC_PILLARS
+
+## Obstáculos rectangulares, por grupos: [x, z, medio ancho, medio fondo]. BOXES es la suma.
+const WALLS: Array = [
 	[0.0, -31.5, 34.0, 2.5],       # edificio de los arcos (norte)
+]
+## Puesto de saberes (con su tendera detrás del mostrador) y tablón de misiones, en ese orden
+const STANDS: Array = [[15.2, 6.5, 1.5, 2.0], [12.0, -3.6, 1.5, 0.3]]
+const BENCHES: Array = [
 	[-7.0, 4.6, 1.3, 0.35], [7.0, 4.6, 1.3, 0.35], [-7.0, -4.6, 1.3, 0.35], [7.0, -4.6, 1.3, 0.35],   # bancos del árbol
 	[-15.0, 17.2, 1.3, 0.35], [-20.4, 12.0, 0.35, 1.3],                                             # bancos de la fuente
+]
+const BOXES: Array = WALLS + BENCHES + STANDS
+
+## Puntos de interés: sitios donde F abre algo. Son decorado del cliente (el servidor sólo conoce
+## sus obstáculos, arriba). `at`: desde dónde se usa · `r`: alcance · `yaw`: hacia dónde mirar.
+const POIS: Array = [
+	{"id": "guide", "name": "Nico, el guía", "verb": "Hablar con Nico, el guía", "at": Vector2(0.0, 13.0), "r": 2.7, "yaw": PI},
+	{"id": "shop", "name": "Puesto de saberes", "verb": "Ver el puesto de saberes", "at": Vector2(12.6, 6.5), "r": 2.4, "yaw": PI * 0.5},
+	{"id": "board", "name": "Tablón de misiones", "verb": "Leer el tablón de misiones", "at": Vector2(12.0, -2.1), "r": 2.3, "yaw": PI},
 ]
 ## Portal al Claro de los Aluxes (lado este) y su zona de uso
 const PORTAL := Vector2(30.5, 0.0)
@@ -136,3 +163,15 @@ static func step(s: Array, mx: float, mz: float, jump: bool) -> Array:
 
 static func at_portal(x: float, z: float) -> bool:
 	return Vector2(x, z).distance_to(PORTAL) <= PORTAL_R
+
+
+## Punto de interés al alcance desde (x, z): su identificador, o "" si no hay ninguno.
+static func poi_at(x: float, z: float) -> String:
+	var best := ""
+	var best_d := INF
+	for p in POIS:
+		var d := Vector2(x, z).distance_to(p.at)
+		if d <= float(p.r) and d < best_d:
+			best = str(p.id)
+			best_d = d
+	return best

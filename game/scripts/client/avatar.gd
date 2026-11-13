@@ -53,6 +53,10 @@ var _was_grounded := true
 var _speed := 0.0
 var _stride := 0.0
 var _was_swim := false
+var _lod := 0                # 0 cerca · 1 lejos · 2 muy lejos (ver set_lod)
+var _lod_shadows := true
+var _lod_acc := 0.0
+var _lod_n := 0
 
 
 func setup(p_name: String, color_hex: String, p_hat: int, p_look: Variant = null) -> void:
@@ -84,6 +88,34 @@ func setup(p_name: String, color_hex: String, p_hat: int, p_look: Variant = null
 	_label.outline_size = 10
 	_label.outline_modulate = Color(0.05, 0.08, 0.07, 0.9)
 	add_child(_label)
+	_apply()
+	if _lod != 0 or not _lod_shadows:
+		_apply_lod()
+
+
+## Nivel de detalle, para quien dibuja muchos aluxes (la plaza). Sin llamarlo, nada cambia.
+##   0 cerca: como siempre · 1 lejos: sin nombre y con la animación a la mitad de cuadros ·
+##   2 muy lejos: sin nombre y a un cuarto. `shadows`: si arroja sombra.
+## Con nivel 1 o 2 la animación sólo avanza desde animate(): un alux al que nadie anima se queda quieto.
+func set_lod(level: int, shadows := true) -> void:
+	level = clampi(level, 0, 2)
+	if level == _lod and shadows == _lod_shadows:
+		return
+	_lod = level
+	_lod_shadows = shadows
+	_apply_lod()
+
+
+func _apply_lod() -> void:
+	var cast := GeometryInstance3D.SHADOW_CASTING_SETTING_ON if _lod_shadows else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for f in _models:
+		for mi in (_models[f] as Node3D).find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).cast_shadow = cast
+	for f in _players:
+		(_players[f] as AnimationPlayer).callback_mode_process = (AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL if _lod > 0
+			else AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE)
+	_lod_acc = 0.0
+	_lod_n = 0
 	_apply()
 
 
@@ -261,7 +293,7 @@ func _apply() -> void:
 	_label.modulate = Color(1, 1, 1, 0.9) if online and not dead else Color(1, 1, 1, 0.5)
 	_label.position.y = 2.0 if form == "alux" else 1.7
 	# el propio nombre no hace falta (ya está en el panel de grupo), salvo caído o desconectado
-	_label.visible = not is_local or dead or not online
+	_label.visible = (not is_local or dead or not online) and _lod == 0
 
 
 ## Reproduce una acción de combate (la decide el servidor o la predicción local).
@@ -348,6 +380,14 @@ func animate(delta: float, grounded: bool, swim: bool) -> void:
 
 	if _players.has(form):
 		_animate_glb(_players[form], moving, grounded, swim)
+		if _lod > 0:
+			# lejos: el esqueleto se actualiza cada 2 o cada 4 cuadros, con el tiempo acumulado
+			_lod_acc += delta
+			_lod_n += 1
+			if _lod_n >= _lod * 2:
+				(_players[form] as AnimationPlayer).advance(_lod_acc)
+				_lod_acc = 0.0
+				_lod_n = 0
 		return
 
 	# ── Modelos de respaldo (primitivas) ──
