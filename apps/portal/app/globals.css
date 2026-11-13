@@ -279,3 +279,9 @@ kbd {
 .fs-pref { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: 13px; opacity: 0.85; cursor: pointer; }
 .fs-pref input { width: 16px; height: 16px; accent-color: #2ec4a6; }
 button.btn.big.enter { width: 100%; cursor: pointer; font: inherit; }
+
+/* Personalizador 3D: resumen de lo que lleva el alux y acceso al juego en modo «vestir» */
+.look-line { margin: 2px 0 10px; font-size: 14px; opacity: 0.85; }
+.btn.look-3d { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; margin: 0 0 12px; text-decoration: none;
+  background: rgba(46, 196, 166, 0.14); color: #dffcf4; border: 2px solid #2ec4a6; }
+.btn.look-3d small { font-size: 12px; font-weight: 500; opacity: 0.8; }

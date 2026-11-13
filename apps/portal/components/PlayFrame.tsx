@@ -2,10 +2,10 @@
 
 import { useEffect, useRef } from 'react';
 
-// El juego dentro del portal. Así la pantalla completa que pidió el botón JUGAR sigue puesta
-// mientras carga: cambiar de página la quitaría. El juego es la misma página de siempre
-// (/game/index.html), que también funciona abierta directamente.
-export function PlayFrame({ code, query }: { code: string; query: string }) {
+// El juego dentro del portal (una sala o el personalizador del alux). Así la pantalla completa
+// que pidió el botón JUGAR sigue puesta mientras carga: cambiar de página la quitaría. El juego
+// es la misma página de siempre (/game/index.html), que también funciona abierta directamente.
+export function PlayFrame({ src, title = 'ALUX: El Despertar de Kukulkán' }: { src: string; title?: string }) {
   const frame = useRef<HTMLIFrameElement>(null);
   useEffect(() => {
     const focus = () => frame.current?.focus();
@@ -21,8 +21,8 @@ export function PlayFrame({ code, query }: { code: string; query: string }) {
     <iframe
       ref={frame}
       className="play-frame"
-      title="ALUX: El Despertar de Kukulkán"
-      src={`/game/index.html?room=${code}${query}`}
+      title={title}
+      src={src}
       allow="fullscreen; autoplay; gamepad; keyboard-lock; pointer-lock"
       allowFullScreen
       onLoad={() => frame.current?.focus()}

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ALUX_COLORS, HATS, REWARDS, type PlayerProfile, type RoomInfo } from '@alux/shared-contracts/domain';
+import { ACCESSORIES, ALUX_COLORS, AMULETS, HATS, OUTFITS, REWARDS, type PlayerProfile, type RoomInfo } from '@alux/shared-contracts/domain';
 import { AluxPreview } from '@/components/AluxPreview';
 
 const FORM_NAMES: Record<string, string> = { alux: 'Alux', balam: 'Balam, el jaguar' };
@@ -25,11 +25,20 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
+/** Lo que lleva puesto el alux, en una línea (se elige en el personalizador 3D). */
+function lookLine(p: PlayerProfile): string {
+  const c = p.character;
+  const parts: string[] = [HATS[c.hat] ?? HATS[0], OUTFITS[c.look?.outfit ?? 0]];
+  if (c.look?.accessory) parts.push(ACCESSORIES[c.look.accessory]);
+  if (c.look?.amulet) parts.push(AMULETS[c.look.amulet]);
+  return parts.join(' · ');
+}
+
 export function HubClient({ initialProfile, baseUrl }: { initialProfile: PlayerProfile; baseUrl: string }) {
   const [profile, setProfile] = useState(initialProfile);
   const [name, setName] = useState(initialProfile.character.name);
   const [color, setColor] = useState(initialProfile.character.color);
-  const [hat, setHat] = useState(initialProfile.character.hat);
+  const hat = profile.character.hat;   // el tocado se elige en el personalizador 3D
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
   const [room, setRoom] = useState<RoomInfo | null>(null);
@@ -38,7 +47,7 @@ export function HubClient({ initialProfile, baseUrl }: { initialProfile: PlayerP
   const [error, setError] = useState('');
   const [copied, setCopied] = useState('');
 
-  const dirty = name !== profile.character.name || color !== profile.character.color || hat !== profile.character.hat;
+  const dirty = name !== profile.character.name || color !== profile.character.color;
 
   const saveCharacter = async () => {
     setSaving(true);
@@ -141,12 +150,12 @@ export function HubClient({ initialProfile, baseUrl }: { initialProfile: PlayerP
                     className={color === c ? 'swatch on' : 'swatch'} style={{ background: c }} onClick={() => setColor(c)} />
                 ))}
               </div>
-              <span className="label">Accesorio</span>
-              <div className="hats" role="radiogroup" aria-label="Accesorio">
-                {HATS.map((h, i) => (
-                  <button key={h} type="button" role="radio" aria-checked={hat === i} className={hat === i ? 'chip on' : 'chip'} onClick={() => setHat(i)}>{h}</button>
-                ))}
-              </div>
+              <span className="label">Aspecto</span>
+              <p className="look-line">{lookLine(profile)}</p>
+              <a className="btn ghost look-3d" href="/alux">
+                Personalizar en 3D
+                <small>Vestimenta, tocados, accesorios y amuletos</small>
+              </a>
               <div className="row">
                 <button className="btn" disabled={!dirty || saving || name.trim().length < 2} onClick={saveCharacter}>
                   {saving ? 'Guardando…' : 'Guardar alux'}

@@ -21,5 +21,5 @@ export default async function PlayPage({ params, searchParams }: {
     const value = given[key];
     if (typeof value === 'string' && /^[a-z0-9]{1,8}$/i.test(value)) query += `&${key}=${value}`;
   }
-  return <PlayFrame code={code} query={query} />;
+  return <PlayFrame src={`/game/index.html?room=${code}${query}`} />;
 }
