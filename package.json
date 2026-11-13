@@ -23,6 +23,8 @@
     "test:audio": "npm run test:audio -w @alux/tests --",
     "test:fullscreen": "npm run test:fullscreen -w @alux/tests",
     "test:customizer": "npm run test:customizer -w @alux/tests",
+    "test:plaza": "npm run test:plaza -w @alux/tests",
+    "test:zone": "npm run test:zone -w @alux/tests",
     "test:cine-coop": "npm run test:cine-coop -w @alux/tests",
     "migrate": "npm run migrate -w @alux/api --",
     "beta:invites": "npm run --silent beta:invites -w @alux/api --",

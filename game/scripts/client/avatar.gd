@@ -26,6 +26,8 @@ var color := Color("#2ec4a6")
 var hat := 0
 var look: Array = Look.DEFAULT.duplicate()   # vestimenta, accesorio, amuleto, color secundario, piel
 var form := "alux"
+## Formas que se cargan. En la plaza social nadie se transforma: basta el alux (la mitad de modelos).
+var forms: Array = ["alux", "balam"]
 var online := true
 var dead := false
 var uses_glb := false
@@ -65,7 +67,7 @@ func setup(p_name: String, color_hex: String, p_hat: int, p_look: Variant = null
 	_models.clear()
 	_players.clear()
 	uses_glb = true
-	for f in ["alux", "balam"]:
+	for f in forms:
 		var m := _load_glb(f)
 		if m == null:
 			uses_glb = false

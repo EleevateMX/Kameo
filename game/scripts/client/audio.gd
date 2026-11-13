@@ -24,6 +24,8 @@ const FAR := 38.0
 const UI_SOUNDS := ["objetivo", "sin_energia", "aliado_caido", "aliado_revive", "punto_control"]
 
 static var inst: Node = null
+## Fuera del Claro (la plaza): todo el suelo es de este material ("" = el del Claro, por zonas)
+static var ground_override := ""
 
 var listener := Vector3.ZERO
 var _cache := {}
@@ -175,6 +177,8 @@ func _variant(sound: String) -> String:
 
 ## Qué pisa quien está en `pos`: "agua", "piedra" (plaza, pirámide, santuario) o "hierba".
 static func ground_at(pos: Vector3) -> String:
+	if not ground_override.is_empty():
+		return ground_override
 	var here := Vector2(pos.x, pos.z)
 	if World.terrain_h(pos.x, pos.z) < World.WATER_LEVEL + 0.3:
 		return "agua"

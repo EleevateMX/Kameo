@@ -187,6 +187,11 @@ export function HubClient({ initialProfile, baseUrl }: { initialProfile: PlayerP
           <h2>Jugar</h2>
           {!room ? (
             <div className="play-options">
+              {/* La plaza social (prototipo): pasear, ver a otros aluxes y cruzar el portal al Claro */}
+              <a className="btn big plaza" href="/plaza">
+                Ir a la plaza
+                <small>Mérida, la Ciudad Blanca · prototipo</small>
+              </a>
               <button className="btn big" disabled={busy} onClick={() => run(() => api<RoomInfo>('/rooms', { method: 'POST', body: JSON.stringify({ visibility: 'private' }) }))}>
                 Crear sala privada
                 <small>Invita a tus amigos con un código</small>

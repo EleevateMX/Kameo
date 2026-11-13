@@ -108,7 +108,8 @@ const params = new URLSearchParams(location.search);
 const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 window.ALUX = { room, ticket: '', wsUrl: '', error: '', cine: params.get('cine') !== '0', quality: ['min', 'low', 'high'].includes(params.get('q')) ? params.get('q') : 'auto',
   // mode=alux: el juego se abre sólo para personalizar el alux (sin sala ni servidor de juego)
-  mode: params.get('mode') === 'alux' ? 'alux' : '' };
+  // mode=plaza: la plaza social, contra el servidor de zonas (tampoco hay sala)
+  mode: ['alux', 'plaza'].includes(params.get('mode')) ? params.get('mode') : '' };
 window.ALUX_DEBUG = params.get('debug') === '1';
 // Quien llega directo al juego (un enlace, una recarga) entra en pantalla completa con su primer
 // clic o tecla, si así lo prefiere. Desde el portal ya la pidió el botón JUGAR. Una sola vez: si
@@ -146,7 +147,7 @@ window.aluxRefreshTicket = async () => {
     ALUX.error = 'network';
   }
 };
-if (ALUX.mode !== 'alux') aluxRefreshTicket();
+if (!ALUX.mode) aluxRefreshTicket();
 
 const GODOT_CONFIG = $GODOT_CONFIG;
 const engine = new Engine(GODOT_CONFIG);
