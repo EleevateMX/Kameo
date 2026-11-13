@@ -10,8 +10,8 @@ Pruebas: [PLAYTEST.md](PLAYTEST.md) · Versiones: [RELEASES.md](RELEASES.md).
 
 | Área | Estado real |
 | --- | --- |
-| Versión publicada | **Closed Alpha 0.3** en <https://alux-beta.onrender.com> (rama `beta`, commit `93007a0`), desde el 12 nov 2026: el jefe Nojoch Tuunich completo. **No suena** (defecto de audio en web, corregido en la candidata). Rollback a la 0.2.1: commit `94bb9c8` ([RELEASES.md](RELEASES.md)). |
-| Versión candidata | **Alpha 0.3.1**: el audio arreglado y medido en la salida real, mezclador propio, música original, ambientes, bandas sonoras de las cinemáticas y 50 efectos nuevos. Commit `4f47832`. **Sin publicar**: espera tu visto bueno y, mejor, que alguien la escuche antes ([AUDIO.md](AUDIO.md)). |
+| Versión publicada | **Closed Alpha 0.3.1** en <https://alux-beta.onrender.com> (rama `beta`, commit `cdf1543`), desde el 13 nov 2026: la 0.3 con el audio arreglado y medido en producción, música original, ambientes, bandas sonoras de las cinemáticas y 50 efectos nuevos. Rollback a la 0.3: commit `93007a0` ([RELEASES.md](RELEASES.md)). La calidad artística del audio está **sin evaluar por personas**. |
+| Versión candidata | Ninguna ahora mismo. |
 | Versión en desarrollo | Alpha 0.4, en la rama de trabajo a partir de la candidata 0.3.1 (commit `4f47832`). Hecho: **pantalla completa** al pulsar JUGAR ([FULLSCREEN.md](FULLSCREEN.md)). Pendiente: personalizador 3D, arquitectura del mundo abierto y prototipo del lobby social. Las regiones nuevas esperan a que el audio esté validado de oído. |
 | Multijugador | Servidor autoritativo, 4 jugadores, reconexión, salas. Verificado con bots, navegadores y contra el servicio desplegado (un jugador). **Cuatro personas reales a la vez: sin probar.** |
 | Combate y formas | Alux y Balam, dos enemigos, emboscada, derrota y otra ronda. Datos modulares (`combat_def.gd`). Equilibrio sin probar con personas. |
@@ -144,5 +144,4 @@ Historia, jefe y cierre de Los Secretos del Cenote, con la misma estructura que 
 
 | Decisión | Opciones | Recomendación |
 | --- | --- | --- |
-| Publicar la Alpha 0.3.1 | Publicarla ya en `beta` · escucharla antes en local y publicarla después · esperar | Publicarla: la versión publicada no suena nada y esta lleva regresión completa y rollback a la 0.3 sin tocar datos. La escucha humana puede hacerse sobre la propia beta |
 | Audio con material de terceros | Seguir con síntesis propia · contratar una biblioteca con licencia para videojuegos (Motion Array sólo con su plan Business) · generar efectos con ElevenLabs (consume créditos) | Decidir después de escuchar la 0.3.1: si los timbres sintéticos no convencen, pedir presupuesto para una biblioteca con licencia explícita |

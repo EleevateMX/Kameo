@@ -86,7 +86,7 @@ async function run(page: Page, mode: Mode, first: boolean) {
   // Sola, pisa el altar: la sala se pausa, se ve la escena y vuelve la partida
   await page.evaluate(() => {
     const w = window as any;
-    w.__seen = { cine: false, frozen: false, video: false, clipsSeen: [] as string[], enc: [] as number[], t0: 0, t1: 0 };
+    w.__seen = { cine: false, frozen: false, video: false, snd: false, sndPeak: 0, clipsSeen: [] as string[], enc: [] as number[], t0: 0, t1: 0 };
     setInterval(() => {
       const st = w.__aluxState;
       if (!st) return;
@@ -94,6 +94,8 @@ async function run(page: Page, mode: Mode, first: boolean) {
       if (st.cine === 'sello') { c.cine = true; c.t0 = c.t0 || performance.now(); c.t1 = performance.now(); }
       if (st.frozen) c.frozen = true;
       if (st.cine_video) c.video = true;
+      // banda sonora de la escena (desde la 0.3.1): la pone el mezclador, una sola vez
+      if (st.snd && st.snd.cine === 'sello') { c.snd = true; c.sndPeak = Math.max(c.sndPeak, st.snd.rms || 0); }
       const cur = st.video && st.video.current;
       if (cur && st.video.visible && !c.clipsSeen.includes(cur)) c.clipsSeen.push(cur);
       if (c.enc[c.enc.length - 1] !== st.encounter) c.enc.push(st.encounter);
@@ -123,6 +125,15 @@ async function run(page: Page, mode: Mode, first: boolean) {
   const secs = (w.t1 - w.t0) / 1000;
   assert.ok(w.enc.includes(1), `la emboscada empieza al terminar (visto: ${w.enc.join('→')})`);
   assert.equal(s.gate, true, 'el santuario queda abierto');
+  // Sonido de la escena: una banda sonora única, se vea como vídeo o con el motor; al terminar u
+  // omitir no queda sonando. (Las versiones anteriores a la 0.3.1 no traen mezclador.)
+  const mixer = !!s.snd?.ok;
+  if (mixer) {
+    assert.equal(w.snd, true, 'la escena debe sonar con su banda sonora');
+    assert.ok(w.sndPeak > 0.0005, `la banda sonora tiene que salir por la salida (nivel ${w.sndPeak})`);
+    await waitFor('la banda sonora termina', async () => ((await state(page)) as any).snd.cine === '', 10_000);
+  }
+  const sound = mixer ? ` · banda sonora propia a ${(20 * Math.log10(w.sndPeak)).toFixed(0)} dBFS, sin restos al terminar` : '';
   if (hasBridge) assert.equal(await page.evaluate(() => (window as any).ALUX_VIDEO.visible()), false, 'ningún vídeo tapa el juego al terminar');
   if (mode === 'ver') {
     if (fetched.length) {
@@ -130,14 +141,14 @@ async function run(page: Page, mode: Mode, first: boolean) {
       assert.ok(w.clipsSeen.length >= 2, `se ven varios planos como vídeo (${w.clipsSeen.join(', ')})`);
       assert.equal(s.cine_stats.fallbacks, 0, 'sin recurrir al motor');
     }
-    ok(`Reproducción: «El sello cede» pausa la sala, se ve ${w.video ? `como vídeo (${w.clipsSeen.join(', ')})` : 'con el motor'} durante ${secs.toFixed(1)} s y la partida sigue con la emboscada`);
+    ok(`Reproducción: «El sello cede» pausa la sala, se ve ${w.video ? `como vídeo (${w.clipsSeen.join(', ')})` : 'con el motor'} durante ${secs.toFixed(1)} s y la partida sigue con la emboscada${sound}`);
   } else if (mode === 'omitir') {
     assert.ok(secs < 8, `con Enter termina antes de su duración (${secs.toFixed(1)} s)`);
-    ok(`Omisión: Enter a mitad de la escena la termina a los ${secs.toFixed(1)} s (${w.video ? 'vídeo' : 'motor'}) y la partida sigue`);
+    ok(`Omisión: Enter a mitad de la escena la termina a los ${secs.toFixed(1)} s (${w.video ? 'vídeo' : 'motor'}) y la partida sigue${sound}`);
   } else {
     assert.equal(w.video, false, 'sin vídeos, la escena se ve con el motor');
     if (hasBridge) assert.ok(s.cine_stats.engine >= 1, 'contada como vista con el motor');
-    ok(`Respaldo: con las descargas de vídeo cortadas, la escena se ve con el motor durante ${secs.toFixed(1)} s y la partida sigue${hasBridge ? ` (fallos registrados: ${s.video.log.map((l: any) => `${l.id}:${l.what}`).join(', ') || 'ninguno'})` : ''}`);
+    ok(`Respaldo: con las descargas de vídeo cortadas, la escena se ve con el motor durante ${secs.toFixed(1)} s y la partida sigue${hasBridge ? ` (fallos registrados: ${s.video.log.map((l: any) => `${l.id}:${l.what}`).join(', ') || 'ninguno'})` : ''}${sound}`);
   }
   if (mode === 'ver') ok(`Este navegador (render por software, no representativo): ${s.perf.fps} FPS · ping ${Math.round(s.perf.ping)} ms`);
   const bad = errors.filter((e) => !/favicon|WebGL|GPU stall|swiftshader|deprecated|net::ERR_FAILED|Failed to load resource/i.test(e));

@@ -10,9 +10,9 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 
 | Closed Alpha 0.2.1 | Publicada el 12 nov 2026; **sustituida por la 0.3**. Commit `94bb9c8`: es el punto de rollback | La 0.2 más las cinemáticas híbridas, «El sello cede» producida con Kling y los modelos de los personajes corregidos |
 
-| **Closed Alpha 0.3** | **Publicada** el 12 nov 2026 en <https://alux-beta.onrender.com> | Jefe Nojoch Tuunich completo (tres fases, modelo definitivo, cinemáticas de despertar y liberación con Kling), Pluma de Jade y pista del Cenote |
+| Closed Alpha 0.3 | Publicada el 12 nov 2026; **sustituida por la 0.3.1**. Commit `93007a0`: es el punto de rollback | Jefe Nojoch Tuunich completo (tres fases, modelo definitivo, cinemáticas de despertar y liberación con Kling), Pluma de Jade y pista del Cenote |
 
-| Closed Alpha 0.3.1 | **Candidata, sin publicar**: espera tu visto bueno | La 0.3 con el audio arreglado (no sonaba nada), mezclador propio, música original, ambientes por zona, bandas sonoras de las cinemáticas, 50 efectos nuevos y prueba de sonido en el menú |
+| **Closed Alpha 0.3.1** | **Publicada** el 13 nov 2026 en <https://alux-beta.onrender.com> (commit `cdf1543`) | La 0.3 con el audio arreglado (no sonaba nada), mezclador propio, música original, ambientes por zona, bandas sonoras de las cinemáticas, 50 efectos nuevos y prueba de sonido en el menú |
 
 ## Publicación en la rama `beta`
 
@@ -22,12 +22,13 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
 
-## ALUX Closed Alpha 0.3.1 — El claro vuelve a oírse (candidata)
+## ALUX Closed Alpha 0.3.1 — El claro vuelve a oírse
 
 | | |
 | --- | --- |
-| **Estado** | **Candidata, sin publicar.** Nada llega a `beta` sin tu visto bueno |
-| **Código de la versión** | `963630b`; el commit que se publicaría es **`4f47832`**, que sólo le añade este registro, la documentación y el paso de audio de `beta:check` (el juego no cambia). Los commits posteriores de la rama de trabajo ya son de la Alpha 0.4 y **no** forman parte de la candidata |
+| **Estado** | **Publicada** el 13 nov 2026. Candidata `4f47832`, aprobada ese día |
+| **Commit publicado en `beta`** | **`cdf1543`**: el siguiente a la candidata; sólo añade el registro y el nombre de la versión en el juego. Es el que informa `/healthz` |
+| **Código de la versión** | `963630b`; la candidata `4f47832` le añade el registro, la documentación y el paso de audio de `beta:check` (el juego no cambia). No incluye nada de la Alpha 0.4 |
 | **Rollback** | Publicar en `beta` el commit `93007a0` (0.3). Sin migraciones ni cambios de infraestructura: los datos sirven en los dos sentidos |
 | **Qué cambia respecto a la 0.3** | Cliente del juego (audio), archivos de sonido, pruebas y documentación; en la API, sólo campos nuevos en la telemetría de sesión. **Sin cambios** en el servidor de juego, el protocolo, `render.yaml`, la imagen ni la base de datos |
 
@@ -76,13 +77,38 @@ Descarga inicial: 10,58 MB con Brotli (11,25 MB en la 0.3: la música y los ambi
 dentro del juego). Audio bajo demanda: 2,8 MB al entrar y hasta 12,3 MB si se oye todo. Detalle y
 memoria en [AUDIO.md](AUDIO.md).
 
+### Antes de publicar (13 nov 2026, sobre el commit exacto `cdf1543` en una copia limpia)
+
+| Comprobación | Resultado |
+| --- | --- |
+| Imagen Docker definitiva (`scripts/test-beta-image.sh`) | Construida y verificada: migraciones, invitación, HTTPS y WSS a través de dos proxies, descarga del juego (9,1 MB con Brotli), **mezclador y 28 pistas de audio servidas**, partida, reconexión, métricas, persistencia tras reiniciar los contenedores y límite de intentos. 270 MB de memoria de 512 |
+| Buses de Godot | `default_bus_layout.tres` con Master, Music, Ambience, SFX, UI, Cinematics y Voice; ninguna llamada a `AudioServer.add_bus()` en el código |
+| Archivos de audio | 119 efectos y 28 pistas del mezclador con sus 3 manifiestos; `manifiesto.py --check` sin archivos sin declarar |
+| Regresión | API 11 de 11 · simulación sin violaciones · servidor 17 de 17 · audio en navegador 11 de 11 · flujo de playtest 15 pasos · jefe completo 7 pasos (a la primera) · vídeo 7 comprobaciones · cuatro navegadores 10 de 10. Las pruebas de vídeo y de cuatro navegadores fallaron mientras otro proceso mío cargaba la máquina (tiempos de preparación y reconexiones) y pasaron al repetirlas con la máquina en calma |
+| Sin duplicar audio en las cinemáticas | Con banda sonora, el efecto por plano no se dispara; la prueba de audio comprueba que la escena arranca como mucho una pista de efectos y una de música |
+| `beta:preflight` | Superada. `beta` avanzó de `93007a0` a `cdf1543` sin reescribir historia; nada de la Alpha 0.4 |
+
+### Comprobado en el servicio real (13 nov 2026, `cdf1543` en `beta`)
+
+| Comprobación contra <https://alux-beta.onrender.com> | Resultado |
+| --- | --- |
+| `npm run beta:check` con invitación y `--commit cdf1543` | 11 de 11: HTTPS, versión desplegada `cdf15431ea0e`, nada abierto sin sesión, descarga (12,0 MB transferidos), **audio: mezclador y 28 pistas**, `wss://`, sesión, guardado (el perfil conserva el Sello del Claro y la Pluma de Jade de la 0.3), partida a 15 estados/s y 34 ms, reconexión y métricas |
+| **Audio en navegador real, midiendo la salida** (`tests/e2e/audio-probe.ts`) | 11 de 11. Al entrar: ambiente y música a −28,5 dBFS de media. Chispa de jade: pico de −6,4 dBFS, sin recortar. «Probar sonido» confirma señal. Volumen general a cero: silencio absoluto y aviso. Música a cero: queda el ambiente. Pestaña oculta: silencio; al volver, suena. Bucles exactos. Audio bloqueado (simulado): silencio y aviso hasta el primer clic. Introducción con su banda sonora (−23,4 dBFS) y omisión |
+| Cinemáticas (`tests/e2e/beta-cine.ts`: ver, omitir, sin vídeo) | Los 10 vídeos se descargan; «El sello cede» se ve como vídeo con su banda sonora (−14 dBFS) y sin restos al terminar; Enter la omite a los 2,5 s y la banda sonora para; con las descargas de vídeo cortadas se ve con el motor **con la misma banda sonora, una sola vez** |
+| Sesión completa por protocolo (`npm run beta:boss -w @alux/tests`) | Emboscada, las tres fases (una derrota en la fase 3, retomada desde su punto de control), liberación, Pluma de Jade (ya la tenía: no se duplica), pista del Cenote. 47 ms de latencia media (máx. 96), 14,9 estados/s, sin cortes |
+
 ### Sin comprobar
 
+- **Registros, memoria y reinicios del servicio:** sólo se ven en el panel de Render. Desde aquí
+  consta que respondió sin cortes durante todas las pruebas (unos 25 minutos) y que la misma imagen
+  usa 270 MB de 512 recién arrancada.
+- **Calidad artística del audio: no está aprobada.** Los efectos y la música sintéticos quedan
+  aceptados provisionalmente para pruebas; falta la evaluación de personas.
+- «El despertar» y «La liberación» como vídeo con su banda sonora se comprobaron en local, no
+  contra producción (allí la sesión completa fue por protocolo).
 - **Nadie ha escuchado esta versión.** Las pruebas miden que hay señal, su nivel y que no recorta;
   no dicen si suena bien. Las grabaciones de la salida del navegador quedan para oírlas.
 - Chrome, Edge, Firefox y Safari reales, con tarjeta gráfica y con cuatro personas.
-- La imagen de despliegue de esta versión **no se ha construido** (la de la 0.3 sí); `beta:preflight`
-  y la comprobación contra el servicio se harán al publicar.
 
 ## ALUX Closed Alpha 0.3 — El Guardián Dormido
 
