@@ -29,7 +29,8 @@ dinero real: las semillas sólo se ganan jugando.
 | Superar el Claro | 150 | 75 | Una vez al día |
 | Primera liberación de Nojoch Tuunich | 300 | 150 | No: una sola vez |
 
-**Decididos aquí, provisionales y pendientes de su visto bueno** (el dueño no dio cifra):
+**Decididos aquí (el dueño dejó estas cifras a criterio del desarrollo el 13 nov 2026; se revisarán
+con datos de partidas reales):**
 
 - Tope diario (día UTC) de las repetibles: 40 purificaciones y 40 criaturas vencidas con recompensa.
   Por encima se sigue jugando igual, sin XP ni semillas.
