@@ -38,6 +38,29 @@ dinero real: las semillas sólo se ganan jugando.
 - Amuletos épico y legendario: +6 % y +8 %.
 - Qué mejora cada amuleto: vida máxima o daño (ver catálogo en `packages/shared-contracts/src/rpg.ts`).
 
+## Equilibrio en los niveles 1, 5 y 10
+
+Lo calcula `npm run test:rpg -w @alux/tests` con las fórmulas de la API y el combate del Claro
+(chispa 12 y garras 16 de daño base, ×1,5 contra corrompidas; criatura de 40 de vida que pega 15):
+
+| Perfil | Vida | Chispa | Garras | Chispas para vencerla | Golpes que aguanta |
+| --- | --- | --- | --- | --- | --- |
+| Nivel 1, sin nada | 100 | 18 | 24 | 3 | 7 |
+| Nivel 5, sin nada | 104 | 18 | 24 | 3 | 7 |
+| Nivel 5, amuleto común de vida + Chispa I | 106 | 19,8 | 24 | 2 | 8 |
+| Nivel 10, sin nada | 109 | 18 | 24 | 3 | 8 |
+| Nivel 10, raro de daño + Chispa I + Garras I | 109 | 20,6 | 27,5 | 2 | 8 |
+| Nivel 10, legendario de vida + mejoras | 118 | 19,8 | 26,4 | 2 | 8 |
+| Nivel 10, legendario de daño + mejoras | 109 | 21,4 | 28,5 | 2 | 8 |
+
+Lo máximo que permite esta versión frente a un recién llegado es +18 % de vida o +19 % de daño:
+una chispa menos por criatura y un golpe más de aguante. El nivel solo no da daño. Por eso todavía
+no hace falta escalar enemigos ni normalizar estadísticas en cooperativo.
+
+Economía: la primera partida completa (12 criaturas, el Claro y Nojoch) da 285 semillas y deja en
+el nivel 4: alcanza para la primera mejora y un amuleto común, no para todo. Repetir tiene tope:
+como mucho 595 semillas al día (menos de seis tiradas).
+
 ## Dónde vive cada cosa
 
 | Pieza | Sitio |
@@ -50,6 +73,9 @@ dinero real: las semillas sólo se ganan jugando.
 
 **Perfil.** `GET /api/v1/me` añade `rpg`:
 `{ level, xp, xpInLevel, xpToNext, seeds, skills: {chispa, garras}, equipped: itemId|null, items: [{id, item, rarity}], pity, stats: {hp, dmg} }`.
+
+**Catálogo.** `GET /api/v1/rpg/catalog`: mejoras, amuletos con su precio y efecto, coste y
+probabilidades del gachapón, y la tabla de recompensas. El juego pinta el puesto con esto.
 
 **Tienda (sesión del jugador; todo idempotente por `requestId`, un UUID que genera el cliente):**
 
@@ -91,6 +117,15 @@ aplican; nunca aceptan estadísticas del cliente. Sin ese campo valen 1, 100 y m
 
 Los perfiles existentes empiezan en nivel 1 sin perder nada: sellos, Pluma de Jade, formas y
 progreso de capítulos siguen igual. La migración sólo añade tablas.
+
+## Qué está hecho y probado
+
+| Pieza | Estado |
+| --- | --- |
+| API: perfil, catálogo, compras, gachapón, equipar, recompensas internas | 8 pruebas, en memoria y contra PostgreSQL real (duplicados, topes, compras simultáneas, garantía) |
+| Mazmorra: vida y daño del ticket, acotados; recompensas por purificar, vencer, el Claro y Nojoch | Prueba de protocolo (ticket absurdo acotado, un aviso por criatura, el cliente no puede concederse nada) |
+| HUD de la mazmorra: nivel, experiencia, semillas, aviso de lo ganado y subida de nivel | En la prueba de flujo en navegador |
+| Puesto de Saberes en la plaza: comprar, tirar, equipar | En la prueba de flujo en navegador |
 
 ## Lo que esta versión no hace todavía
 

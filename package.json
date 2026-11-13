@@ -13,7 +13,7 @@
     "dev:api": "npm run dev -w @alux/api",
     "dev:portal": "npm run dev -w @alux/portal",
     "dev:game-server": "scripts/run-game-server.sh",
-    "test": "npm run test -w @alux/api && npm run test:look -w @alux/tests && scripts/test-sim.sh && npm run test:protocol -w @alux/tests",
+    "test": "npm run test -w @alux/api && npm run test:look -w @alux/tests && npm run test:rpg -w @alux/tests && scripts/test-sim.sh && npm run test:protocol -w @alux/tests",
     "test:sim": "scripts/test-sim.sh",
     "test:deploy": "scripts/test-deploy.sh",
     "test:e2e": "npm run test:e2e -w @alux/tests",

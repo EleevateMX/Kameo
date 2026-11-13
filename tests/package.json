@@ -14,6 +14,7 @@
     "test:customizer": "tsx e2e/customizer.ts",
     "test:plaza": "tsx e2e/plaza.ts",
     "test:look": "tsx --test look-catalog.test.ts",
+    "test:rpg": "tsx --test rpg-balance.test.ts",
     "test:zone": "tsx --test zone.test.ts",
     "zone:load": "tsx zone-load.ts",
     "test:cine-coop": "tsx e2e/cine-coop.ts",
