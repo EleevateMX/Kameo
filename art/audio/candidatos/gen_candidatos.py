@@ -8,6 +8,10 @@ sonidos actuales de `game/` y los generadores de `art/audio/` y solo escribe aqu
 
 Todo es síntesis con numpy (semillas fijas): ni grabaciones ni muestras de terceros.
 
+Desde el 13 nov 2026 los frentes `balam`, `chiich` y `jefe` no se regeneran: sus elegidos ya
+están en el juego (ver LEEME.md, «Resultado de la escucha»). `aves`, `graves`, `--medir`,
+`--espectros` y `--tablas` siguen funcionando.
+
 Uso (un solo proceso; cada frente tarda entre unos segundos y medio minuto):
     python art/audio/candidatos/gen_candidatos.py                  # todos los frentes
     python art/audio/candidatos/gen_candidatos.py --solo balam     # balam, chiich, aves, graves, jefe
@@ -28,6 +32,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import comun as C  # noqa: E402
 
 FRENTES = ("balam", "chiich", "aves", "graves", "jefe")
+# Frentes cuyos elegidos ya están en el juego (13 nov 2026). No se regeneran: se leería como
+# «actual» el sonido nuevo y se pisarían las referencias `__actual.mp3`, que son el sonido
+# anterior, el que se comparó (ver LEEME.md, «Resultado de la escucha»).
+ADOPTADOS = ("balam", "chiich", "jefe")
 MEDIDAS = C.AQUI / "medidas.json"
 
 
@@ -219,6 +227,10 @@ def main() -> int:
         t0 = time.time()
         if a.medir:
             grupos = {k: v for k, v in previas.items() if v.get("frente") == fr}
+        elif fr in ADOPTADOS:
+            print(f"{fr}: no se regenera; sus elegidos ya están en el juego y sus `__actual.mp3` son el "
+                  f"sonido anterior (ver LEEME.md, «Resultado de la escucha»). Con --medir sí se mide.")
+            continue
         else:
             grupos = globals()[f"frente_{fr}"]()
             for g in grupos.values():

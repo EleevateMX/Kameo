@@ -11,13 +11,22 @@ mediciones (niveles, espectro, costuras, seguimiento de tono) y, en la capa 0.3.
 espectrogramas; no de oído. Habrá que sustituirlo o retocarlo cuando alguien lo oiga en el
 juego.
 
+**Primera escucha (13 nov 2026).** El dueño del proyecto escuchó los candidatos de
+[`candidatos/`](candidatos/LEEME.md) y eligió de oído siete efectos de este generador, que
+desde la rama de la Alpha 0.4 son los que salen de `gen_audio.py`: `balam_rugido`,
+`balam_grunido`, `balam_especial`, `jefe_embestida`, `jefe_choque`, `jefe_cae` y
+`jefe_despierta` (ver «Elegidos de oído»). También escuchó `jefe_paso`, `jefe_losa` y
+`jefe_barrido` y prefirió dejarlos como estaban. **Los otros 109 archivos siguen sin escuchar.**
+
 Formato de todos los archivos: WAV mono, 16 bits PCM, en `game/assets/audio/`. Todo va a
 22050 Hz salvo 11 efectos de la capa 0.3.1 que necesitan brillo, a 44100 Hz (columna «kHz»
 de sus tablas). La procedencia de cada archivo está en `manifiesto_efectos.json`.
 
 ## Cómo regenerar
 
-Solo hace falta Python con numpy (sirve el entorno de Blender del proyecto; no usa `bpy`):
+Solo hace falta Python con numpy (sirve el entorno de Blender del proyecto; no usa `bpy`).
+`gen_audio.py` importa `_dsp_estereo.py` y `_voz_granular.py`, de esta misma carpeta, para los
+siete efectos elegidos de oído:
 
 ```bash
 .tools/blender-venv/bin/python art/audio/gen_audio.py                 # genera todo y lo comprueba
@@ -106,14 +115,14 @@ Efectos del combate (bus SFX):
 
 | Archivo | Duración | Para qué sirve | Pico | RMS | RMS 50 ms |
 | --- | --- | --- | --- | --- | --- |
-| `jefe_despierta.wav` | 3.5 s | El coloso despierta: 1.7 s de grietas que se agolpan y un rugido grave de roca que se desplaza, con un asiento final. | −3.0 | −22.5 | −15.2 |
-| `jefe_paso.wav` | 0.5 s | Pisada pesada de piedra; se repite a cada paso, por eso va más baja que los golpes. | −8.0 | −24.0 | −15.5 |
+| `jefe_despierta.wav` | 3.9 s | **Elegido de oído.** El coloso despierta: 1.7 s de grietas que se agolpan, un rugido de roca que se desplaza (el gemido, una octava por encima del anterior para que se oiga en altavoces pequeños, con el rumor grave debajo) y el bloque que encaja, con sala de 1.3 s. | −3.0 | −18.6 | −11.1 |
+| `jefe_paso.wav` | 0.5 s | Pisada pesada de piedra; se repite a cada paso, por eso va más baja que los golpes. Escuchada: se queda como estaba. | −8.0 | −24.0 | −15.5 |
 | `jefe_aviso.wav` | 0.8 s | Anticipación de un golpe: la piedra se tensa y cruje cada vez más rápido y más agudo. Acaba fuerte. | −7.0 | −22.9 | −18.0 |
-| `jefe_losa.wav` | 1.2 s | Golpe de losa: impacto enorme contra el suelo y cola de escombros. Es el efecto con más pegada del juego. | −3.0 | −17.7 | −8.9 |
-| `jefe_barrido.wav` | 0.9 s | Barrido: silbido grave de una masa que pasa, con roce de piedra. | −6.0 | −19.9 | −15.4 |
+| `jefe_losa.wav` | 1.2 s | Golpe de losa: impacto enorme contra el suelo y cola de escombros. Escuchado: se queda como estaba. (Era el efecto con más pegada; ahora lo superan `jefe_choque` y `jefe_cae`.) | −3.0 | −17.7 | −8.9 |
+| `jefe_barrido.wav` | 0.9 s | Barrido: silbido grave de una masa que pasa, con roce de piedra. Escuchado: se queda como estaba. | −6.0 | −19.9 | −15.4 |
 | `jefe_llamada.wav` | 1.5 s | Llamada del Silencio: doble golpe en el suelo y zumbido oscuro que crece. | −4.0 | −20.7 | −15.3 |
-| `jefe_embestida.wav` | 1.4 s | Embestida: arrastre de piedra y zancadas que se aceleran. Acaba en su punto más fuerte para enlazar con `jefe_choque`. | −5.0 | −22.6 | −17.1 |
-| `jefe_choque.wav` | 1.3 s | Choque contra una columna, que se parte y cae a trozos. | −3.0 | −19.0 | −10.2 |
+| `jefe_embestida.wav` | 1.4 s | **Elegida de oído.** Embestida: zancadas con chasquido que se aceleran (de 4 a 11 por segundo) sobre un arrastre de piedra que sube, con rumor grave y algo de sala. Acaba en su punto más fuerte para enlazar con `jefe_choque`. | −5.0 | −23.3 | −17.3 |
+| `jefe_choque.wav` | 1.8 s | **Elegido de oído.** Choque contra una columna: golpe con cuerpo de 135–280 Hz, la columna que se parte en tres chasquidos seguidos, cuatro trozos que caen, cascotes, subgrave debajo y sala de 1.1 s. | −3.0 | −17.2 | −7.8 |
 | `jefe_aturdido.wav` | 1.5 s | Aturdido: la piedra cruje y se asienta, con un gemido grave que se hunde. | −7.0 | −21.7 | −17.6 |
 | `pilar_sube.wav` | 1.0 s | Una columna emerge del suelo y encaja con un tope a los 0.78 s. | −5.0 | −24.7 | −17.8 |
 | `lluvia_piedra.wav` | 4.0 s | Lluvia de piedra: 44 caídas de tamaños distintos a destiempo (las grandes se oyen venir). No es un bucle; las últimas caen a los 3.5 s. | −5.0 | −23.4 | −15.8 |
@@ -221,12 +230,12 @@ que pide el código del juego. Pico, RMS y «RMS 50 ms» están medidos sobre lo
 
 | Archivo | Duración | kHz | Qué es | Pico | RMS | RMS 50 ms |
 | --- | --- | --- | --- | --- | --- | --- |
-| `balam_rugido.wav` | 1.00 s | 22.05 | Rugido: fuente ronca (pulsos graves de 82 → 116 → 60 Hz, con subarmónico) por formantes de garganta grande; la boca se abre y se cierra y acaba en gruñido gutural. | −5.0 | −17.2 | −12.9 |
-| `balam_grunido.wav` | 0.45 s | 22.05 | Gruñido corto, al transformarse: boca casi cerrada, áspero, cae de 94 a 64 Hz. | −5.0 | −17.4 | −12.8 |
+| `balam_rugido.wav` | 1.00 s | 22.05 | **Elegido de oído («bufido»).** Casi todo aire: un soplo que aletea de forma irregular (28–40 veces por segundo) por la boca abierta, sobre un fondo de pulsos graves de garganta, y cinco golpes de garganta al cerrar. | −5.0 | −18.5 | −14.1 |
+| `balam_grunido.wav` | 0.45 s | 22.05 | **Elegido de oído («rugoso»).** Gruñido de garganta, al transformarse: cae de 62 a 26 Hz hasta quedarse en pulsos sueltos, con subarmónicos irregulares y aire. | −5.0 | −21.3 | −16.0 |
 | `garras_2.wav` | 0.25 s | 22.05 | Variante de `garras`: tres tajos con otro orden de alturas y otro compás. | −6.0 | −22.5 | −18.4 |
 | `garras_3.wav` | 0.25 s | 22.05 | Variante de `garras`: tajos algo más largos y más separados. | −6.0 | −21.9 | −18.3 |
 | `balam_golpe.wav` | 0.35 s | 22.05 | La garra impacta: golpe con cuerpo y una rasgadura que baja a tirones. | −5.0 | −21.2 | −14.0 |
-| `balam_especial.wav` | 0.90 s | 22.05 | Ataque especial: rugido corto y, a los 0.38 s, la onda de choque (bombazo grave y anillo de aire que se abre). | −5.0 | −15.9 | −10.7 |
+| `balam_especial.wav` | 0.90 s | 22.05 | **Elegido de oído («rugoso»).** Ataque especial: rugido corto y ronco (arranca en pulsos de garganta, sube a 96 Hz y se hunde) y, a los 0.38 s, la onda de choque de siempre (bombazo grave y anillo de aire que se abre). | −5.0 | −19.6 | −13.7 |
 
 **Enemigos**
 
@@ -247,7 +256,7 @@ que pide el código del juego. Pico, RMS y «RMS 50 ms» están medidos sobre lo
 | --- | --- | --- | --- | --- | --- | --- |
 | `jefe_respira.wav` | 3.00 s | 22.05 | Respiración dormida: un pulmón de piedra. Inspira 1.35 s (el soplo sube), pausa y espira 1.5 s (baja), con granos de piedra que rozan. No es un bucle. | −10.0 | −23.8 | −17.4 |
 | `jefe_fase.wav` | 1.80 s | 22.05 | Cambio de fase: trompa grave (Re2 y Re3) y un crujido que recorre la piedra de abajo arriba hasta partirla a los 1.3 s. | −3.0 | −16.3 | −12.1 |
-| `jefe_cae.wav` | 1.40 s | 22.05 | Cae de rodillas: dos impactos enormes (0 y 0.24 s), quejido de roca que se hunde y escombros. | −3.0 | −15.9 | −8.9 |
+| `jefe_cae.wav` | 1.90 s | 22.05 | **Elegido de oído.** Cae de rodillas: dos impactos (0 y 0.24 s) con cuerpo de 100–230 Hz y chasquido, quejido de roca que se hunde (una octava por encima del anterior, 168 → 92 Hz), escombros, subgrave debajo y sala de 1.2 s. | −3.0 | −14.8 | −7.2 |
 | `pilar_rompe.wav` | 1.00 s | 22.05 | Una columna se hace pedazos: chasquido seco que la parte, siete trozos grandes que caen cada vez más espaciados y polvo. | −3.0 | −16.3 | −10.5 |
 | `ritual_pulso.wav` | 1.20 s | 22.05 | Pulso de Silencio: hinchazón invertida (un eco oscuro al revés, 0.88 s) que acaba en un golpe sordo. | −3.0 | −20.2 | −10.8 |
 
@@ -275,9 +284,12 @@ que pide el código del juego. Pico, RMS y «RMS 50 ms» están medidos sobre lo
   de barra de vidrio + un tono sostenido que bate + destellos.
 - Timbres nuevos, todos sintetizados: campana con parciales altos (`campana_clara`), kalimba
   con chasquido de uña (`lengueta`), madera hueca (`madera`: tres modos de tabla y la cavidad)
-  y voz de felino (`voz_ronca` + `formantes`: un tren de pulsos grave e inestable, con
-  subarmónico y soplo, filtrado por dos juegos de formantes de garganta grande entre los que
-  se mezcla según se abre la boca). El rugido no parte de ninguna grabación de un animal.
+  y voz de felino (`voz_felina`, la elegida de oído: los pulsos de la garganta salen uno a
+  uno, cada uno con su periodo y su fuerza y con subarmónicos que entran y salen; cada pulso
+  excita un grano amortiguado por formante de un tracto largo que se mueve con la boca; el
+  aire es ruido a ráfagas por los mismos formantes; ver «Elegidos de oído»). Sustituye al
+  tren de pulsos regulares con formantes fijos de la Alpha 0.3.1, que sonaba a zumbido. El
+  rugido no parte de ninguna grabación de un animal.
 - **Frecuencia de muestreo.** A 44100 Hz solo van los 11 efectos con contenido real por
   encima de 11 kHz (destellos, aire, parciales altos de campana): `recoger`, `aliado_revive`,
   `luz_alux`, `escudo_alux`, `apoyo_alux`, `enemigo_purificado`, `ui_mover`, `ui_confirmar`,
@@ -324,7 +336,8 @@ Tres excepciones deliberadas a la regla de familia:
 - `ui_prueba` es el más fuerte de la interfaz a propósito (pico −3, RMS 50 ms de −9.7): es
   para comprobar que se oye.
 
-**Comprobado con mediciones y espectrogramas, no de oído.** Además de `--check`, se generaron
+**Comprobado con mediciones y espectrogramas, no de oído** (salvo los cuatro elegidos de esta
+capa: los tres de Balam y `jefe_cae`). Además de `--check`, se generaron
 espectrogramas de los 50 (frecuencia logarítmica, escala absoluta, con la envolvente debajo)
 y se revisaron por familias junto a los efectos antiguos más parecidos: que cada uno tenga
 ataque, cuerpo y cola, que las variantes difieran y que nada quede vacío ni saturado. De esa
@@ -333,6 +346,55 @@ crujido suelto le fijaba el pico; `enemigo_aparece` no crecía; las notas de int
 cortaban sin apagarse; el primer chasquido de `criatura_llamada` se lo comía la entrada).
 Eso no sustituye a escucharlos: un espectrograma dice que hay un rugido con formantes entre
 250 y 2300 Hz, no si convence.
+
+## Elegidos de oído (13 nov 2026)
+
+Siete efectos son ya los que el dueño del proyecto eligió escuchando los candidatos de
+[`candidatos/`](candidatos/LEEME.md) (allí están el problema que se atacaba, las medidas y
+los candidatos descartados):
+
+| Sonido | Elegido | Qué cambia frente a la Alpha 0.3.1 |
+| --- | --- | --- |
+| `balam_rugido` | C «bufido» | De un tren de pulsos regulares (sonaba a zumbido) a un soplo que aletea con cierre de garganta. Corte de agudos de 4.5 a 6 kHz |
+| `balam_grunido` | B «rugoso» | Gruñido de garganta que cae hasta pulsos sueltos. Corte de agudos de 4 a 6 kHz |
+| `balam_especial` | B «rugoso» | Solo cambia el rugido corto del principio; la onda de choque es la misma receta |
+| `jefe_embestida` | B «grande» | Zancadas sueltas con chasquido en vez de un pulso continuo. Misma duración. Corte de agudos de 6 a 6.5 kHz |
+| `jefe_choque` | B «grande» | Cuerpo en 100–300 Hz en vez de barrido al subgrave, más cascotes y sala. De 1.3 a 1.8 s |
+| `jefe_cae` | B «grande» | Lo mismo, con el quejido una octava más alto. De 1.4 a 1.9 s |
+| `jefe_despierta` | B «grande» | Rugido de roca una octava más alto, con el rumor grave debajo, y sala. De 3.5 a 3.9 s |
+
+Escuchados y sin cambios, porque se prefirió el que había: `jefe_paso`, `jefe_losa` y
+`jefe_barrido`. (La elección de la voz de Chiich Yaxché y de los ambientes está en
+[AMBIENTE_Y_CINE.md](AMBIENTE_Y_CINE.md).)
+
+**Cómo se generan.** Para que salgan muestra a muestra como los candidatos que se escucharon,
+estas siete funciones sintetizan a 44.1 kHz con las utilidades de `_dsp_estereo.py` y la voz
+por granos de `_voz_granular.py` (módulo nuevo, común con `gen_cine.py`), usan la semilla del
+candidato (tabla `ELEGIDOS` y `semilla_de`) y bajan el resultado a 22050 Hz; el acabado es el
+de siempre, con los 3 ms de silencio delante con que se oyeron. Comprobado: cada WAV coincide
+con el candidato escuchado salvo la ganancia (correlación 1.000000; residuo entre −66 y
+−83 dB, el redondeo a 16 bits). No conviene retocar esas funciones ni `_voz_granular.py` sin
+volver a escuchar.
+
+**Nivel: no suenan igual de fuertes que cuando se eligieron.** Los candidatos se escucharon
+igualados en sonoridad con el sonido anterior. Aquí cada uno va al pico de su familia (Balam
+−5, jefe −3, embestida −5), como exige `--check`, y como su relación entre pico y sonoridad
+es otra, la sonoridad cambia:
+
+| Sonido | Pico (dBFS) | Sonoridad momentánea máx. anterior → nueva (LUFS-M) | Diferencia | Para oírlo como se eligió |
+| --- | --- | --- | --- | --- |
+| `balam_rugido` | −5 | −15.5 → −15.7 | −0.2 dB | nada |
+| `balam_grunido` | −5 | −18.1 → −21.6 | −3.5 dB | subirlo 3.5 dB en el juego |
+| `balam_especial` | −5 | −14.2 → −17.2 | −3.0 dB | subirlo 3 dB |
+| `jefe_embestida` | −5 | −21.1 → −21.1 | 0 | nada |
+| `jefe_choque` | −3 | −14.9 → −12.2 | +2.7 dB | bajarlo 2.7 dB |
+| `jefe_cae` | −3 | −13.3 → −10.5 | +2.8 dB | bajarlo 2.8 dB |
+| `jefe_despierta` | −3 | −19.0 → −14.2 | +4.8 dB | bajarlo 4.8 dB |
+
+Ese ajuste se hace en la mezcla del juego (`Audio.play(..., volumen)`), no aquí. Si se
+prefiriera dejarlo resuelto en los archivos, basta cambiar el pico de cada fila en
+`EFECTOS_JEFE` y `EFECTOS_031` (por ejemplo, `jefe_despierta` a −7.8), a costa de salirse del
+pico de la familia.
 
 ## Niveles
 
@@ -379,19 +441,22 @@ Se ha dado prioridad a las duraciones. Hay dos salidas:
    brasero de 2.4 s. Total 2.199 MB en bruto. La música se repite antes y el fuego se
    nota más cíclico. Los efectos no cambian.
 
-**La capa del jefe ocupa 5.86 MB en bruto y supera el objetivo de unos 3 MB.** Los 28
-efectos con las duraciones pedidas ya suman 60.9 s (2.69 MB), así que ninguna música
+**La capa del jefe ocupa 5.90 MB en bruto y supera el objetivo de unos 3 MB** (eran 5.86 MB
+antes de que `jefe_choque` y `jefe_despierta`, elegidos de oído, se alargaran). Los 28
+efectos ya suman 61.8 s (2.73 MB), así que ninguna música
 razonable cabía en lo que quedaba; las tres se han dejado en 24 s, el mínimo pedido. Lo
-que viaja en el juego no son los WAV sino las muestras QOA que Godot genera al importar:
+que viaja en el juego no son los WAV sino las muestras QOA que Godot genera al importar
+(las cifras que siguen se midieron antes de alargar tres efectos del jefe en 1.4 s en total;
+no se han vuelto a medir porque hace falta reimportar con Godot):
 **la capa del jefe añade 1.20 MB al paquete** (medido en `game/.godot/imported/`: 0.21 MB
 por música y 0.55 MB entre los 28 efectos), y las 69 juntas, 1.79 MB. Si hiciera falta
 bajar más, `--compacto` deja `mus_jefe` y `mus_jefe_furia` en 8 compases (16 s, sin la
 sección central) y `mus_recuerdo` en 4 (12 s): 4.63 MB en bruto para esta capa, unos
 0.95 MB en el paquete.
 
-**La capa 0.3.1 ocupa 1.577 MB en bruto, dentro de su presupuesto de 2.5 MB** (39 efectos a
-22050 Hz, 22.5 s y 0.993 MB; 11 a 44100 Hz, 6.6 s y 0.584 MB). Este presupuesto es firme:
-si se supera, `--check` lo cuenta como error. Los 119 archivos suman 10.287 MB en bruto.
+**La capa 0.3.1 ocupa 1.599 MB en bruto, dentro de su presupuesto de 2.5 MB** (39 efectos a
+22050 Hz, 23.0 s y 1.015 MB; 11 a 44100 Hz, 6.6 s y 0.584 MB). Este presupuesto es firme:
+si se supera, `--check` lo cuenta como error. Los 119 archivos suman 10.348 MB en bruto.
 
 ## Manifiesto de procedencia
 
@@ -400,7 +465,7 @@ generado por `gen_audio.py` (los 69 anteriores y los 50 de la 0.3.1): `id`, `arc
 («efecto», «música provisional» o «ambiente provisional»), `bus` (SFX, UI, Cinematics, Music
 o Ambience), `duracion_s`, `hz`, `bytes`, `origen` (la función que lo genera), `licencia` y
 `semilla` (la pareja que recibe `numpy.random.default_rng`: la semilla base y el CRC-32 del
-nombre). Duración, frecuencia y tamaño se leen de los archivos; se reescribe con
+nombre; en los siete elegidos de oído, la del candidato que se escuchó: ver `semilla_de`). Duración, frecuencia y tamaño se leen de los archivos; se reescribe con
 `--check --manifiesto`. Los archivos de `game/web/static/audio` (música, ambientes y
 cinemáticas del mezclador de la página) no salen de este generador y no están aquí.
 

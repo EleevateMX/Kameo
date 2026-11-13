@@ -3,11 +3,23 @@
 Diez bucles de ambiente y ocho pistas de cinemática (efectos y música de las cuatro escenas),
 en MP3 estéreo a 44.1 kHz, en `game/web/static/audio/`. **Todo es síntesis propia**: sale de
 `gen_ambiente.py`, `gen_cine.py` y su módulo común `_dsp_estereo.py` (senos, ruido filtrado por
-FFT, envolventes y convolución, con numpy). No hay grabaciones, muestras ni voces de nadie, y
+FFT, envolventes y convolución, con numpy); la voz de Chiich Yaxché usa además
+`_voz_granular.py` (voz por granos formánticos, común con `gen_audio.py`). No hay grabaciones, muestras ni voces de nadie, y
 ningún sonido imita el de una obra concreta. Las semillas son fijas.
 
-**Nadie lo ha escuchado.** Se ha comprobado con mediciones y revisando espectrogramas, no de
-oído. Lo que eso deja sin comprobar está en «Lo que no se ha podido comprobar».
+**Primera escucha (13 nov 2026).** El dueño del proyecto escuchó los candidatos de
+[`candidatos/`](candidatos/LEEME.md) para tres cosas de este documento y decidió de oído:
+
+| Qué | Decisión | Estado |
+| --- | --- | --- |
+| Voz de Chiich Yaxché en «El llamado» (`cine_llamado_fx`, plano 4) | **Candidato A «murmullo»**, escuchado dentro de la escena | **Adoptado**: es lo que genera `gen_cine.py`. Como frase suelta le gustó más B «tronco»; mandó el contexto, que es donde suena |
+| `amb_aves` | **El actual**, escuchado sobre la selva | Sin cambios. Suelto le gustó más el candidato B «timbre» |
+| `amb_cenote`, `amb_ruinas` | **Los actuales** | Sin cambios |
+
+**Todo lo demás sigue sin escuchar**: los otros siete ambientes, las otras tres cinemáticas,
+el resto de «El llamado» y toda la música de las cinemáticas se han comprobado con mediciones
+y revisando espectrogramas, no de oído. Lo que eso deja sin comprobar está en «Lo que no se ha
+podido comprobar».
 
 Sustituye a las versiones provisionales (mono, 22 kHz) de `gen_audio.py`: `amb_selva`,
 `amb_brasero` y los `cine_*` por plano. `gen_audio.py` no se ha tocado.
@@ -27,6 +39,7 @@ con `libmp3lame`.
 ```
 
 - Tardan unos 50 s (ambientes) y 20 s (cinemáticas), en un solo proceso.
+- `gen_cine.py` importa además `_voz_granular.py`, de esta misma carpeta.
 - Los WAV intermedios (24 bits) van a la carpeta temporal del sistema (`alux_audio/`) o a la que
   diga la variable `ALUX_AUDIO_TMP`. No se versionan.
 - `--check` devuelve un código distinto de cero si algo se sale de rango.
@@ -112,10 +125,10 @@ pasa de −1 dBFS. LAME `-q:a 5`.
 | `cine_despertar_mus.mp3` | Music | 17.50 | 214 653 | −22.1 | −11.8 | |
 | `cine_liberacion_fx.mp3` | Cinematics | 13.50 | 190 439 | −18.0 | −4.3 | −3.0 |
 | `cine_liberacion_mus.mp3` | Music | 13.50 | 169 153 | −21.9 | −8.9 | |
-| `cine_llamado_fx.mp3` | Cinematics | 20.50 | 289 470 | −17.9 | −3.5 | −2.3 |
+| `cine_llamado_fx.mp3` | Cinematics | 20.50 | 289 051 | −17.9 | −3.9 | −2.8 |
 | `cine_llamado_mus.mp3` | Music | 20.50 | 286 979 | −21.9 | −10.1 | |
 
-Total: 1 751 952 bytes (1.75 MB; límite 2.2 MB).
+Total: 1 751 533 bytes (1.75 MB; límite 2.2 MB).
 
 `cine.json` lleva además, por cinemática, sus dos pistas, la duración y el segundo en que
 empieza cada plano (`shots`). Las duraciones de los planos están en `PLANOS` (`gen_cine.py`) y
@@ -161,11 +174,38 @@ Sol–Fa–Do en mayor al entregar la pluma.
 | 1. La selva no canta | 0.0–5.0 | Viento sobre las copas, una sola ráfaga lenta, y hojas. Sin aves, salvo una llamada en eco, lejana (1.5–2.5), que nadie contesta | Tono de cuento: kalimba que abre (Re4 0.30, La4 0.75, Re5 1.20, Do5 2.10, La4 2.55, Fa4 3.40, Sol4 3.85, La4 4.30), colchón de Re, ocarina que baja (La4 2.0, Sol4 3.25, Fa4 4.15) |
 | 2. El cenote oscuro | 5.0–9.5 | Aire de caverna, agua quieta y un tono oscuro de 55 Hz. Tres gotas con dos ecos de pared y sala larga: 5.75, 7.15 y 8.55 | Más oscuro: Re grave con Fa; kalimba baja (Re4 5.4, Fa4 6.2, Re4 7.0, Do4 7.9); flauta grave en Re4 (6.5–9.0) que cae dos semitonos |
 | 3. El santuario sellado | 9.5–14.5 | El zumbido del sello (Re2, trémolo lento) y un grave debajo. Tres pulsos del sello, cada vez más fuertes: 10.6, 12.2 y 13.6 (latido, cristal en Re5 con su tritono y chispas). Un roce de piedra en 11.4 | Tambor grave lento (9.6, 10.9, 12.2, 13.3, 14.0), colchón Re–La–Do que crece, sonaja trémula (12.5–14.4), caracol muy bajo (11.0–14.3) |
-| 4. Chiich Yaxché | 14.5–19.0 | Hojas y aire cálido. El tronco cruje (14.55, 16.6). **La voz de árbol**, hecha de madera que cruje y aire por un tronco hueco, sin palabras: primera frase 14.80–16.50 (tres «sílabas» con la segunda acentuada, pausa, y dos más con la última hacia arriba: una llamada); segunda frase 16.90–18.56 (siete sílabas más bajas, que caen: un refunfuño). **18.35 y 18.58**: toc-toc de madera hueca. 18.72: tres campanillas que suben (Re6 Fa6 La6) y chispas: despierta | Calidez: Fa–La–Do sobre Re. Flauta que sube: La4 (15.0), Do5 (15.75), Re5 (16.5), Fa5 (17.5–19.4). Arpegio de kalimba (Re4 Fa4 La4 Do5 Re5, 16.0–17.2). Tambor de mano (17.0, 17.4, 17.8, 18.2, 18.6). Cierra abierto, en Re5 + La4 (18.9) |
+| 4. Chiich Yaxché | 14.5–19.0 | Hojas y aire cálido. El tronco cruje (14.55, 16.6), grave y apagado. **La voz de Chiich Yaxché** (elegida de oído, 13 nov 2026): una voz anciana sugerida, sin palabras, que tararea con la boca entreabierta (base de 172 Hz, temblor irregular de unos 5 Hz, vocales abiertas que cambian de sílaba en sílaba), algo a la izquierda, con el aire del tronco hueco. Primera frase 14.80–16.50 (tres sílabas con la segunda acentuada, pausa, y dos más con la última hacia arriba: una llamada); segunda frase 16.90–18.56 (siete sílabas más bajas y rápidas, que caen y acaban con la voz rota: un refunfuño). **18.35 y 18.58**: toc-toc de madera hueca. 18.72: tres campanillas que suben (Re6 Fa6 La6) y chispas: despierta | Calidez: Fa–La–Do sobre Re. Flauta que sube: La4 (15.0), Do5 (15.75), Re5 (16.5), Fa5 (17.5–19.4). Arpegio de kalimba (Re4 Fa4 La4 Do5 Re5, 16.0–17.2). Tambor de mano (17.0, 17.4, 17.8, 18.2, 18.6). Cierra abierto, en Re5 + La4 (18.9) |
+
+### La voz de Chiich Yaxché (elegida de oído)
+
+- **Qué había.** En la Alpha 0.3.1 la «voz de árbol» eran pulsos de crujido (30–56 por
+  segundo) que excitaban dos resonancias de madera, con la curva de volumen de una frase: sin
+  altura de voz ni vocales, podía sonar a puerta que chirría.
+- **Qué hay.** `voz_chiich()` en `gen_cine.py`: pulsos glotales uno a uno (con jitter,
+  shimmer y subarmónicos al final de la frase que cae), un grano amortiguado por formante y
+  por pulso, formantes de vocales abiertas (a, o, e; frecuencias típicas de una voz de mujer,
+  no una voz grabada) con murmullo nasal entre sílabas ligadas, aire por el mismo tracto, la
+  resonancia de un tronco hueco y dos crujidos de tronco. Misma entonación y mismos tiempos
+  que la voz anterior.
+- **Nivel.** La voz entra con la misma sonoridad que tenía la anterior dentro de la pista
+  (constante `VOZ_LUFS`): es como se escuchó y se eligió. Su sílaba acentuada es ahora el
+  momento más fuerte de la pista (sonoridad momentánea máxima de −12.1 LUFS, antes −13.7).
+- **El resto de la pista no cambia.** La voz tiene su propio generador aleatorio (el del
+  candidato). La voz anterior gastaba números del generador de la pista; `_gastar_voz_anterior`
+  los sigue gastando para que las hojas, el toc-toc, las chispas y la sala salgan como antes.
+  Comprobado: antes del acabado, la pista nueva menos la anterior sin voz es cero fuera del
+  plano 4, y dentro coincide con el candidato A (diferencia máxima de 1e−16).
+- **Hitos.** Los cuatro de «El llamado» pasan: el zumbido del sello queda +6.4 dB sobre el
+  plano 4 en 60–250 Hz (mínimo +6; con la voz anterior, +8.1: **el margen es estrecho**,
+  porque una voz con fundamental tiene algo de energía en esa banda), la voz queda +9.0 dB
+  sobre el plano 3 en 200–1500 Hz (mínimo +6), y el toc-toc cae en 18.58 s.
+- **Lo que se descartó:** B «tronco» (voz más grave dentro del árbol; gustó más como frase
+  suelta) y C «susurro». Están en `candidatos/`.
 
 ## Mediciones finales
 
-Salida de `--check` (12 nov 2026). «I·D» es la correlación entre canales; «corr» y «salto», la
+Salida de `--check` (12 nov 2026; las dos líneas de «El llamado» y el total, del 13 nov 2026,
+con la voz elegida). «I·D» es la correlación entre canales; «corr» y «salto», la
 costura del bucle (ver abajo).
 
 ```
@@ -193,10 +233,10 @@ cine_despertar_mus      17.50  214653  -22.1  -11.8  0.91  0.00002    75  23   1
 cine_liberacion_fx      13.50  190439  -18.0   -4.3  0.79  0.00002    35  15  47   3   0  ok
 cine_liberacion_mus     13.50  169153  -21.9   -8.9  0.69  0.00001     9  81  10   0   0  ok
   → liberacion: suma de efectos y música, pico -3.0 dBFS; música 3.9 LU por debajo; 5 hitos de tiempo: ok
-cine_llamado_fx         20.50  289470  -17.9   -3.5  0.50  0.00000    33  59   7   1   0  ok
+cine_llamado_fx         20.50  289051  -17.9   -3.9  0.53  0.00003    32  60   7   1   0  ok
 cine_llamado_mus        20.50  286979  -21.9  -10.1  0.77  0.00000    18  78   4   0   0  ok
-  → llamado: suma de efectos y música, pico -2.3 dBFS; música 4.0 LU por debajo; 4 hitos de tiempo: ok
-Total cinemáticas: 1751952 bytes = 1.752 MB (límite 2.2 MB)
+  → llamado: suma de efectos y música, pico -2.8 dBFS; música 4.0 LU por debajo; 4 hitos de tiempo: ok
+Total cinemáticas: 1751533 bytes = 1.752 MB (límite 2.2 MB)
 RESULTADO: ok
 ```
 
@@ -242,17 +282,20 @@ fase varían despacio para que no sea mecánico).
 
 ## Lo que no se ha podido comprobar
 
-- **Nadie lo ha escuchado.** Las mediciones dicen que los niveles, los tiempos, el espectro y
-  las costuras están donde deben; no dicen si suena bien. Lo más incierto, por orden:
-  1. La **voz de árbol** de «El llamado»: es una idea (pulsos de crujido con dos resonancias y
-     la curva de una frase). Puede sonar a puerta que chirría más que a personaje.
-  2. Los **cantos de ave**: son silbidos sintéticos. Con distancia y sala deberían pasar por
-     aves; de cerca pueden sonar a sintetizador.
+- **Casi nada se ha escuchado.** Salvo lo que se decidió de oído el 13 nov 2026 (arriba), las
+  mediciones dicen que los niveles, los tiempos, el espectro y las costuras están donde deben;
+  no dicen si suena bien. Lo más incierto, por orden:
+  1. La **voz de Chiich Yaxché** de «El llamado»: resuelto de oído (candidato A «murmullo»).
+     Queda por oír con la música de la escena en el juego y con el vídeo.
+  2. Los **cantos de ave**: son silbidos sintéticos. Escuchados sobre la selva, el dueño del
+     proyecto prefirió el bucle actual a los tres candidatos; sueltos, de cerca, le gustó más
+     el candidato B «timbre» (queda en `candidatos/` por si la capa se usa alguna vez sola).
   3. La **lluvia** y el **arroyo**: texturas de ruido y granos; lo normal es que suenen más
      «limpios» que una grabación.
   4. Si la música de las cinemáticas emociona o solo acompaña. Es sobria: pocas notas.
 - **Graves.** `amb_cenote`, `amb_ruinas`, los truenos y casi toda la música de «El despertar»
-  viven por debajo de 200 Hz. En altavoces de portátil o de móvil se oirán mucho menos que en
+  viven por debajo de 200 Hz. (Cenote y ruinas se escucharon junto a dos candidatos con más
+  medios y se prefirieron los actuales; no consta con qué altavoces.) En altavoces de portátil o de móvil se oirán mucho menos que en
   auriculares. Varias capas graves a la vez (selva + viento + ruinas) pueden emborronarse.
 - **El limitador.** Los golpes de los efectos pasan por un limitador para caber en −18 LUFS con
   pico de −2 dBFS: actúa en menos del 5 % del tiempo de cada pista, con una reducción máxima

@@ -60,9 +60,9 @@
       "bus": "Cinematics",
       "loop": null,
       "seconds": 20.5,
-      "bytes": 289470,
+      "bytes": 289051,
       "lufs": -17.9,
-      "peak_db": -3.5
+      "peak_db": -3.9
     },
     "cine_llamado_mus": {
       "file": "cine_llamado_mus.mp3",

@@ -5,7 +5,7 @@ Generado por `python3 art/audio/manifiesto.py` a partir de los manifiestos de lo
 
 ## Resumen
 
-- **140 archivos** de audio viajan con el juego (17.5 MB en disco), todos **síntesis propia**:
+- **140 archivos** de audio viajan con el juego (17.6 MB en disco), todos **síntesis propia**:
   salen de los scripts de `art/audio/` (numpy: osciladores, ruido filtrado, envolventes,
   reverberación), con semillas fijas. No hay grabaciones, muestras ni bibliotecas de terceros.
 - **Licencia:** original del proyecto ALUX. No hay atribuciones que cumplir ni licencias que renovar.
@@ -14,8 +14,12 @@ Generado por `python3 art/audio/manifiesto.py` a partir de los manifiestos de lo
   material suyo, antes hay que tener esa licencia por escrito y anotar aquí cada archivo con ella.
   Lo mismo para cualquier otra biblioteca: sin licencia que permita distribuirlo dentro de un
   videojuego, no entra.
-- **Nadie ha escuchado todavía estos archivos.** Se han comprobado con mediciones (niveles,
-  espectro, costuras de bucle, tiempos), no de oído: ver [AUDIO.md](AUDIO.md).
+- **Primera escucha (13 nov 2026).** El dueño del proyecto eligió de oído ocho sonidos entre los
+  candidatos de `art/audio/candidatos/`: `balam_rugido`, `balam_grunido`, `balam_especial`,
+  `jefe_embestida`, `jefe_choque`, `jefe_cae`, `jefe_despierta` y la voz de Chiich Yaxché de
+  `cine_llamado_fx`; y escuchó y dejó como estaban `jefe_paso`, `jefe_losa`, `jefe_barrido`,
+  `amb_aves`, `amb_cenote` y `amb_ruinas`. **El resto sigue sin escuchar**: se ha comprobado con
+  mediciones (niveles, espectro, costuras de bucle, tiempos), no de oído: ver [AUDIO.md](AUDIO.md).
 - Cualquier audio nuevo tiene que declararse en su manifiesto: `manifiesto.py --check` falla si
   hay un archivo sin declarar o con una licencia que no sea la del proyecto.
 
@@ -63,14 +67,14 @@ Generado por `python3 art/audio/manifiesto.py` a partir de los manifiestos de lo
 | `cine_despertar_mus.mp3` | Music | 17.50 s | 210 KB | art/audio/gen_cine.py, función mus_despertar |
 | `cine_liberacion_fx.mp3` | Cinematics | 13.50 s | 186 KB | art/audio/gen_cine.py, función fx_liberacion |
 | `cine_liberacion_mus.mp3` | Music | 13.50 s | 165 KB | art/audio/gen_cine.py, función mus_liberacion |
-| `cine_llamado_fx.mp3` | Cinematics | 20.50 s | 283 KB | art/audio/gen_cine.py, función fx_llamado |
+| `cine_llamado_fx.mp3` | Cinematics | 20.50 s | 282 KB | art/audio/gen_cine.py, función fx_llamado |
 | `cine_llamado_mus.mp3` | Music | 20.50 s | 280 KB | art/audio/gen_cine.py, función mus_llamado |
 | `cine_sello_fx.mp3` | Cinematics | 11.50 s | 179 KB | art/audio/gen_cine.py, función fx_sello |
 | `cine_sello_mus.mp3` | Music | 11.50 s | 154 KB | art/audio/gen_cine.py, función mus_sello |
 
 ## Efectos e interfaz (dentro de la descarga del juego)
 
-112 archivos, 5.22 MB.
+112 archivos, 5.29 MB.
 
 | Archivo | Bus | Duración | Tamaño | Origen |
 | --- | --- | --- | --- | --- |
@@ -130,9 +134,9 @@ Generado por `python3 art/audio/manifiesto.py` a partir de los manifiestos de lo
 | `jefe_aturdido.wav` | SFX | 1.50 s | 65 KB | art/audio/gen_audio.py, función jefe_aturdido |
 | `jefe_aviso.wav` | SFX | 0.80 s | 34 KB | art/audio/gen_audio.py, función jefe_aviso |
 | `jefe_barrido.wav` | SFX | 0.90 s | 39 KB | art/audio/gen_audio.py, función jefe_barrido |
-| `jefe_cae.wav` | SFX | 1.40 s | 60 KB | art/audio/gen_audio.py, función jefe_cae |
-| `jefe_choque.wav` | SFX | 1.30 s | 56 KB | art/audio/gen_audio.py, función jefe_choque |
-| `jefe_despierta.wav` | SFX | 3.50 s | 151 KB | art/audio/gen_audio.py, función jefe_despierta |
+| `jefe_cae.wav` | SFX | 1.90 s | 82 KB | art/audio/gen_audio.py, función jefe_cae |
+| `jefe_choque.wav` | SFX | 1.80 s | 78 KB | art/audio/gen_audio.py, función jefe_choque |
+| `jefe_despierta.wav` | SFX | 3.90 s | 168 KB | art/audio/gen_audio.py, función jefe_despierta |
 | `jefe_embestida.wav` | SFX | 1.40 s | 60 KB | art/audio/gen_audio.py, función jefe_embestida |
 | `jefe_fase.wav` | SFX | 1.80 s | 78 KB | art/audio/gen_audio.py, función jefe_fase |
 | `jefe_llamada.wav` | SFX | 1.50 s | 65 KB | art/audio/gen_audio.py, función jefe_llamada |

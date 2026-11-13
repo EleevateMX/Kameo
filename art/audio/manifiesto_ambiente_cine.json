@@ -201,7 +201,7 @@
     "tipo": "cinemática",
     "bus": "Cinematics",
     "duracion_s": 20.5,
-    "bytes": 289470,
+    "bytes": 289051,
     "origen": "síntesis propia: art/audio/gen_cine.py, función fx_llamado",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [

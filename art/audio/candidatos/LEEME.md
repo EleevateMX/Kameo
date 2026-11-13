@@ -1,5 +1,57 @@
 # Candidatos de ajuste de timbre y mezcla (carpeta de revisión)
 
+## Resultado de la escucha (13 nov 2026)
+
+El dueño del proyecto escuchó los candidatos y eligió. Es la **primera evaluación humana** del
+audio del juego. Lo elegido ya está en los generadores y en los archivos del juego (rama de
+trabajo de la Alpha 0.4; no se ha publicado nada).
+
+| Frente | Sonido | Elección de oído | Qué se hizo |
+| --- | --- | --- | --- |
+| 1. Balam | `balam_rugido` | **C «bufido»** | Adoptado: `gen_audio.py` → `game/assets/audio/balam_rugido.wav` |
+| 1. Balam | `balam_grunido` | **B «rugoso»** | Adoptado: `balam_grunido.wav` |
+| 1. Balam | `balam_especial` | **B «rugoso»** | Adoptado: `balam_especial.wav` |
+| 2. Chiich Yaxché | voz en «El llamado» | **A «murmullo»**, dentro de la escena | Adoptado: `gen_cine.py` (`voz_chiich`) → `game/web/static/audio/cine_llamado_fx.mp3`. Como frase suelta gustó más **B «tronco»**; mandó el contexto, que es donde suena |
+| 3. Aves | `amb_aves` | **El actual**, sobre la selva | Sin cambios. Suelto gustó más **B «timbre»**; queda aquí por si la capa se usa alguna vez sola |
+| 4. Graves | `amb_cenote`, `amb_ruinas` | **Los actuales** | Sin cambios |
+| 5. Jefe | `jefe_paso`, `jefe_losa`, `jefe_barrido` | **Los actuales** | Sin cambios |
+| 5. Jefe | `jefe_embestida`, `jefe_choque`, `jefe_cae`, `jefe_despierta` | **B «grande»** | Adoptados: sus cuatro WAV. Tres duran más: choque 1.8 s (antes 1.3), cae 1.9 s (1.4), despierta 3.9 s (3.5) |
+
+Frente a lo que se recomendaba por medición: coinciden la voz de Chiich (A), el gruñido y
+el especial de Balam (B) y tres golpes del jefe (choque, caída y despertar: B). No coinciden
+el rugido (se recomendaba B y se eligió C, que aquí se describía como «un bufido, no un
+rugido»), la embestida (se recomendaba A y se eligió B), ni lo que se quedó como estaba: las
+aves y los graves (se recomendaba A), la pisada y el barrido (A) y la losa (B). El oído
+manda: las recomendaciones solo decían qué cumplía mejor los números.
+
+**Lo adoptado es, muestra a muestra, lo que se escuchó**, salvo el nivel:
+
+- Los siete efectos se generan en `gen_audio.py` con la misma síntesis y la misma semilla
+  que su candidato. Cada WAV nuevo coincide con el candidato escuchado salvo la ganancia
+  (correlación 1.000000; residuo entre −66 y −83 dB, el redondeo a 16 bits).
+- La pista `cine_llamado_fx` es, antes del acabado, idéntica a la que se escuchó: el resto de
+  la pista no cambia ni una muestra y la voz coincide con el candidato A (diferencia de 1e−16).
+- **El nivel de los efectos sí cambia.** Aquí se escucharon igualados en sonoridad con el
+  sonido anterior; en el juego cada uno va al pico de su familia (Balam −5 dBFS, jefe −3,
+  embestida −5). Sonoridad momentánea máxima anterior → nueva: `balam_rugido` −15.5 → −15.7
+  LUFS-M (−0.2 dB); `balam_grunido` −18.1 → −21.6 (−3.5); `balam_especial` −14.2 → −17.2
+  (−3.0); `jefe_embestida` −21.1 → −21.1 (0); `jefe_choque` −14.9 → −12.2 (+2.7); `jefe_cae`
+  −13.3 → −10.5 (+2.8); `jefe_despierta` −19.0 → −14.2 (+4.8). Para oírlos como se eligieron
+  hay que compensar esas diferencias en la mezcla del juego (ver
+  [`../README.md`](../README.md), «Elegidos de oído»).
+
+**Qué es ahora esta carpeta.** El registro de lo que se comparó. Los `__actual.mp3` de Balam,
+de Chiich y de los cuatro golpes del jefe son el sonido **anterior** (el de la Alpha 0.3.1),
+no el del juego de ahora. Por eso `gen_candidatos.py` ya no regenera los frentes `balam`,
+`chiich` y `jefe` (leería como «actual» el sonido nuevo y pisaría esas referencias; y la pista
+sin voz de «El llamado» salía de un `gen_cine.py` que ya no existe así); `aves`, `graves`,
+`--medir`, `--espectros` y `--tablas` siguen funcionando. Lo que queda sin elegir —la tabla de
+mezcla y los candidatos descartados— está abajo tal como se escribió **antes** de la escucha:
+donde dice «el actual» léase «el de la Alpha 0.3.1», y donde dice que nada está en el juego o
+que nada está validado de oído, léase con la tabla de arriba.
+
+---
+
 Carpeta para **elegir de oído**. Para cinco frentes del audio de la Alpha 0.3.1 trae el sonido
 actual como referencia (`<frente>__actual.mp3`) y dos o tres candidatos con enfoques distintos
 (`<frente>__A_<idea>.mp3`, `__B_…`, `__C_…`), más una propuesta de mezcla.

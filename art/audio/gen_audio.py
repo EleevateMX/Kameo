@@ -7,6 +7,11 @@ efectos de la Alpha 0.3.1 que necesitan brillo, a 44100 Hz) solo con numpy y el 
 senos, ruido filtrado, envolventes y modelos sencillos, con semillas fijas, así que el
 resultado es original, libre de licencias y reproducible byte a byte.
 
+Siete efectos (la voz de Balam y los golpes grandes de Nojoch Tuunich) son los que el dueño
+del proyecto eligió de oído el 13 de noviembre de 2026 entre los candidatos de
+`art/audio/candidatos/`: ver `ELEGIDOS`. Se sintetizan a 44.1 kHz con `_dsp_estereo.py` y
+`_voz_granular.py` y se entregan a 22050 Hz. El resto sigue sin escuchar.
+
 Uso:
     python art/audio/gen_audio.py                 # genera todo y lo comprueba
     python art/audio/gen_audio.py --check         # solo comprueba lo que hay en disco
@@ -29,6 +34,10 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _dsp_estereo as E  # noqa: E402  (44.1 kHz: lo usan solo los sonidos elegidos de oído)
+import _voz_granular as V  # noqa: E402
 
 SR = 22050  # frecuencia de muestreo (la de todo lo anterior a la Alpha 0.3.1; ver `con_sr`)
 SR_ALTO = 44100  # para los efectos de la 0.3.1 que necesitan brillo (interfaz, luz, escudo…)
@@ -1179,31 +1188,131 @@ def trompa(f, seg, g, ataque=0.06, rel=0.18):
 
 
 # --------------------------------------------------------------------------------------
+# Sonidos elegidos de oído (13 nov 2026)
+# --------------------------------------------------------------------------------------
+# El dueño del proyecto escuchó los candidatos de `art/audio/candidatos/` y eligió siete
+# efectos: la voz de Balam (`balam_rugido`, `balam_grunido`, `balam_especial`) y los golpes
+# grandes de Nojoch Tuunich (`jefe_embestida`, `jefe_choque`, `jefe_cae`, `jefe_despierta`).
+# Para que salgan muestra a muestra como los que escuchó se sintetizan igual que allí: a
+# 44.1 kHz, con las utilidades de `_dsp_estereo.py` (E) y la voz por granos de
+# `_voz_granular.py` (V), con la semilla del candidato; después se bajan a 22.05 kHz y pasan
+# por el mismo acabado que los demás efectos (con 3 ms de silencio delante, como se oyeron).
+
+# sonido -> candidato elegido (de su nombre sale la semilla: ver `semilla_de`)
+ELEGIDOS = {
+    "balam_rugido": "balam_rugido__C_bufido",
+    "balam_grunido": "balam_grunido__B_rugoso",
+    "balam_especial": "balam_especial__B_rugoso",
+    "jefe_embestida": "jefe_embestida__B_grande",
+    "jefe_choque": "jefe_choque__B_grande",
+    "jefe_cae": "jefe_cae__B_grande",
+    "jefe_despierta": "jefe_despierta__B_grande",
+}
+
+
+def semilla_de(nombre: str) -> list:
+    """Pareja que recibe `numpy.random.default_rng` para cada sonido (la que anota el manifiesto).
+
+    Los elegidos de oído conservan la semilla del candidato que se escuchó; los demás, la de siempre.
+    """
+    if nombre in ELEGIDOS:
+        return E.semilla_de("candidatos-2026-11:" + ELEGIDOS[nombre])
+    return [SEMILLA, zlib.crc32(nombre.encode("utf-8"))]
+
+
+def gen_elegido(nombre: str) -> np.random.Generator:
+    """Generador aleatorio de un sonido elegido de oído: el mismo con que se hizo su candidato."""
+    return np.random.default_rng(semilla_de(nombre))
+
+
+def a_22k(x: np.ndarray) -> np.ndarray:
+    """Mono a 44.1 kHz → 22.05 kHz (remuestreo exacto por FFT; la muestra i sale de la 2i).
+
+    Se rellena con ceros a los lados para que el corte en 11 kHz no dé la vuelta del final al
+    principio cuando el sonido acaba en seco (la embestida).
+    """
+    m = 2048
+    n = len(x) + len(x) % 2
+    nn = 4 * E.buen_tam((n + 2 * m + 3) // 4)
+    xp = np.zeros(nn)
+    xp[m:m + len(x)] = x
+    k = nn // 2
+    return (np.fft.irfft(np.fft.rfft(xp)[:k // 2 + 1], k) * 0.5)[m // 2:m // 2 + n // 2]
+
+
+def roca_chasq(g, lo=1000.0, hi=4500.0, tau=0.006, f_modos=(1300.0, 2100.0, 3300.0), gan_modos=0.6):
+    """Chasquido de roca (44.1 kHz): ráfaga de ruido de 1–4.5 kHz y tres modos cortos de piedra."""
+    y = np.zeros(E.n_(0.10))
+    E.poner(y, E.rafaga(0.07, g, lo, hi, tau=tau, ataque=0.0004), 0.0, 1.0)
+    lista = tuple((f * g.uniform(0.93, 1.07), a, t) for f, a, t in zip(f_modos, (1.0, 0.7, 0.4), (0.012, 0.008, 0.005)))
+    E.poner(y, E.modos(lista, 0.08), 0.0, gan_modos)
+    return y
+
+
+def roca_cuerpo(g, f=(118.0, 176.0, 243.0), tau=0.09, cae=0.06, gan_ruido=1.0):
+    """Cuerpo de un golpe de roca en 100–300 Hz (44.1 kHz): tres modos amortiguados que ceden un
+    poco de tono y un golpe de ruido en la misma banda, que dura lo mismo (así no suena a tambor
+    afinado). No baja al subgrave: es lo que se oye también en un altavoz pequeño."""
+    n = E.n_(7.0 * tau)
+    t = E.t_(n)
+    y = np.zeros(n)
+    for i, fi in enumerate(f):
+        w = E.fase_de(fi * (1.0 + cae * np.exp(-t / 0.03)))
+        y += (1.0, 0.8, 0.6)[i] * np.sin(w + 0.9 * i) * np.exp(-t / (0.6 * tau * (1.0 - 0.2 * i)))
+    y += gan_ruido * E.ruido(n, g, 90.0, 340.0, color=1.0) * np.exp(-t / tau)
+    return y * E.rampa(n, 0.002) * E.salida(n, 0.01)
+
+
+def roca_medio(g, seg=0.2, tau=0.03, lo=250.0, hi=1200.0):
+    """El «toc» medio de un golpe de roca (ruido de 250–1200 Hz; 44.1 kHz)."""
+    return E.rafaga(seg, g, lo, hi, tau=tau, color=1.0)
+
+
+def roca_sub(f0, f1, seg, tau):
+    """Subgrave que cede, bajo el cuerpo de los golpes grandes (44.1 kHz)."""
+    return E.glis(f0, f1, seg) * E.env_perc(E.n_(seg), tau, 0.004)
+
+
+def roca_polvo(y, g, t0, seg, tau, gan=0.12):
+    """Polvo que queda tras un golpe (44.1 kHz)."""
+    E.poner(y, E.ruido(E.n_(seg), g, 900.0, 4000.0, color=1.0) * E.env_perc(E.n_(seg), tau, 0.06), t0, gan)
+
+
+def roca_sala(y, g, t60, mezcla):
+    """Sala de los golpes grandes (44.1 kHz): alarga la señal con la cola."""
+    return E.reverb(y, g, t60=t60, mezcla=mezcla, agudos=4500.0, graves=120.0)
+
+
+# --------------------------------------------------------------------------------------
 # Jefe Nojoch Tuunich: efectos del combate
 # --------------------------------------------------------------------------------------
 
 def jefe_despierta():
-    """El coloso despierta: la piedra se resquebraja y ruge una masa de roca que se mueve."""
-    g = gen("jefe_despierta")
+    """El coloso despierta, elegido de oído («grande»): grietas que se agolpan, la roca que
+    ruge al moverse (el gemido va una octava por encima del anterior, 112–184 Hz, para que se
+    oiga en altavoces pequeños, con el rumor grave debajo) y el bloque que encaja, con sala."""
+    g = gen_elegido("jefe_despierta")
     seg = 3.5
-    n = n_(seg)
-    t = t_(n)
-    y = np.zeros(n)
+    n = E.n_(seg)
+    t = E.t_(n)
+    y = np.zeros(n + E.n_(0.6))
     # 1) Grietas: crujidos que se agolpan y cinco chasquidos gordos, casi todos a más
-    poner(y, crujidos(1.75, g, 60, crece=0.9), 0.0, 0.85)
+    E.poner(y, E.crujidos(1.75, g, 60, crece=0.9), 0.0, 0.85)
     for t0, gan in ((0.0, 0.65), (0.34, 0.5), (0.66, 0.8), (1.08, 1.0), (1.44, 1.3)):
-        poner(y, chasquido(g, gan, grave=g.uniform(130.0, 170.0)), t0)
-    # 2) Rugido: roce de bloques y un gemido grave que sube y vuelve a bajar
-    env_r = np.clip((t - 0.9) / 1.3, 0.0, 1.0) ** 1.6 * np.clip((seg - 0.1 - t) / 1.1, 0.0, 1.0) ** 1.2
-    y += 0.50 * ruido(n, g, 70, 1100, color=1.1) * tirones(n, g, 5, 26) * env_r
-    y += 0.24 * ruido(n, g, 38, 140, color=2.0) * env_r
-    m = n_(2.4)
+        E.poner(y, E.chasquido(g, gan, grave=g.uniform(130.0, 170.0)), t0)
+    # 2) Rugido: roce de bloques y un gemido de roca que sube y vuelve a bajar
+    env = np.clip((t - 0.9) / 1.3, 0.0, 1.0) ** 1.6 * np.clip((seg - 0.1 - t) / 1.1, 0.0, 1.0) ** 1.2
+    y[:n] += 0.50 * E.ruido(n, g, 120.0, 1400.0, color=1.0) * E.tirones(n, g, 5.0, 26.0) * env
+    m = E.n_(2.4)
     u = np.arange(m) / m
-    poner(y, gemido(m, g, 56.0 + 36.0 * np.sin(np.pi * u) ** 1.5) * np.sin(np.pi * u) ** 1.2, 0.95, 0.42)
-    # 3) El bloque encaja: golpe sordo y cascotes
-    poner(y, impacto_piedra(g, 0.7, 96, 40, tau=0.16, brillo=0.5), 2.55, 0.42)
-    escombros(y, g, 2.62, 3.4, 16, gan=0.16, graves=0.2)
-    return reverb(y, g, t60=1.1, mezcla=0.22)
+    E.poner(y, E.gemido(m, g, 112.0 + 72.0 * np.sin(np.pi * u) ** 1.5, tope=1400.0) * np.sin(np.pi * u) ** 1.2, 0.95, 0.42)
+    # 3) El bloque encaja: golpe con cuerpo medio, chasquido y cascotes
+    E.poner(y, roca_cuerpo(g, (115.0, 170.0, 240.0), tau=0.14), 2.55, 0.5)
+    E.poner(y, roca_chasq(g, 1000.0, 3500.0, tau=0.006), 2.55, 0.25)
+    E.escombros(y, g, 2.62, 3.4, 16, gan=0.16, graves=0.2)
+    y[:n] += 0.22 * E.ruido(n, g, 40.0, 140.0, color=2.0) * env
+    E.poner(y, roca_sub(60.0, 34.0, 0.6, 0.18), 2.55, 0.25)
+    return a_22k(E.saturar(roca_sala(y, g, 1.3, 0.25), 1.8))
 
 
 def jefe_paso():
@@ -1270,31 +1379,48 @@ def jefe_llamada():
 
 
 def jefe_embestida():
-    """Embestida: arrastre de piedra y zancadas que se aceleran (acaba fuerte: enlaza con el choque)."""
-    g = gen("jefe_embestida")
-    n = n_(1.4)
+    """Embestida, elegida de oído («grande»): zancadas con chasquido que se aceleran (de 4 a
+    11 por segundo) sobre un arrastre de piedra que sube, con rumor grave y algo de sala.
+    Acaba en su punto más fuerte: enlaza con el choque."""
+    g = gen_elegido("jefe_embestida")
+    seg = 1.4
+    n = E.n_(seg)
     u = np.arange(n) / n
-    zancada = np.clip(np.sin(fase_de(4.0 + 8.0 * u ** 1.2)), 0.0, 1.0) ** 3  # de 4 a 12 por segundo
-    grave = ruido(n, g, 40, 260, color=2.0) * (0.35 + 0.65 * zancada)
-    arrastre = ruido_barrido(n, g, 220.0 * (900.0 / 220.0) ** u, ancho=0.9, color=1.5, f_min=90.0, f_max=4000.0)
-    arrastre *= tirones(n, g, 10, 45, 1.6)
-    w = fase_de(48.0 * 2.0 ** (u ** 1.5))
-    empuje = (np.sin(w) + 0.5 * np.sin(2 * w) + 0.25 * np.sin(3 * w)) * (0.5 + 0.5 * zancada)
-    return (0.9 * grave + 0.8 * arrastre + 0.5 * empuje) * (0.18 + 0.82 * u ** 1.3)
+    y = np.zeros(n + E.n_(0.3))
+    fase = np.cumsum(4.0 + 7.5 * u ** 1.2) / E.SR + 0.6
+    for i in np.nonzero(np.diff(np.floor(fase)) > 0)[0]:
+        ts = i / E.SR
+        k = g.uniform(0.92, 1.08)
+        gan = 0.22 + 0.78 * (ts / seg) ** 1.2
+        E.poner(y, roca_cuerpo(g, (120.0 * k, 180.0 * k, 250.0 * k), tau=0.06), ts, gan)
+        E.poner(y, roca_medio(g, 0.08, 0.02, 300.0, 1200.0), ts, 0.5 * gan)
+        E.poner(y, roca_chasq(g, 1200.0, 4000.0, tau=0.004), ts, 0.38 * gan)
+    arrastre = E.ruido_barrido(n, g, 250.0 * (1100.0 / 250.0) ** u, ancho=0.8, color=1.3, f_min=120.0, f_max=4000.0)
+    y[:n] += 0.7 * arrastre * E.tirones(n, g, 10.0, 45.0, 1.6) * (0.2 + 0.8 * u ** 1.3)
+    y[:n] += 0.5 * E.ruido(n, g, 55.0, 160.0, color=2.0) * (0.2 + 0.8 * u ** 1.3)
+    y = roca_sala(y, g, 0.7, 0.15)
+    return a_22k(y[:n])
 
 
 def jefe_choque():
-    """Choque de la embestida contra una columna, que se parte y cae a trozos."""
-    g = gen("jefe_choque")
-    y = np.zeros(n_(1.3))
-    poner(y, impacto_piedra(g, 0.8, 135, 44, tau=0.17, brillo=1.3), 0.0, 1.0)
-    poner(y, rafaga(0.16, g, 900, 6000, tau=0.02, ataque=0.0005), 0.0, 0.9)  # la columna se parte
-    poner(y, modos(((520, 0.5, 0.07), (835, 0.4, 0.05), (1310, 0.3, 0.035), (2140, 0.15, 0.02)), 0.3), 0.004, 0.8)
-    for t0, f0, gan in ((0.30, 120.0, 0.55), (0.52, 98.0, 0.45), (0.78, 140.0, 0.30), (0.96, 110.0, 0.18)):
-        poner(y, impacto_piedra(g, 0.3, f0, 0.5 * f0, tau=0.06, brillo=0.4), t0 + g.uniform(-0.02, 0.02), gan)
-    escombros(y, g, 0.06, 1.22, 38, lo=500, hi=3200, gan=0.9, graves=0.2)
-    poner(y, ruido(n_(1.1), g, 900, 4000, color=1.0) * env_perc(n_(1.1), 0.30, 0.06), 0.05, 0.12)  # polvo
-    return saturar(reverb(y, g, t60=0.7, mezcla=0.12))
+    """Choque de la embestida contra una columna, elegido de oído («grande»): golpe con
+    cuerpo de 135–280 Hz, la columna que se parte en tres chasquidos seguidos, cuatro trozos
+    que caen, 46 cascotes, subgrave debajo y sala de 1.1 s."""
+    g = gen_elegido("jefe_choque")
+    y = np.zeros(E.n_(1.9))
+    E.poner(y, roca_cuerpo(g, (135.0, 200.0, 280.0), tau=0.20), 0.0, 0.95)
+    E.poner(y, roca_medio(g, 0.3, 0.05, 250.0, 1500.0), 0.0, 0.8)
+    for t0, gan in ((0.0, 1.0), (0.018, 0.7), (0.045, 0.55)):  # la columna se parte
+        E.poner(y, roca_chasq(g, 900.0, 6000.0, tau=0.014, f_modos=(1500.0, 2500.0, 3900.0)), t0, gan)
+    E.poner(y, E.modos(((520.0, 0.5, 0.07), (835.0, 0.4, 0.05), (1310.0, 0.3, 0.035), (2140.0, 0.15, 0.02)), 0.3), 0.004, 0.8)
+    for t0, f0, gan in ((0.30, 120.0, 0.55), (0.52, 98.0, 0.45), (0.78, 140.0, 0.30), (0.96, 110.0, 0.18)):  # trozos
+        tt = t0 + g.uniform(-0.02, 0.02)
+        E.poner(y, roca_cuerpo(g, (1.2 * f0, 1.8 * f0, 2.5 * f0), tau=0.05), tt, gan)
+        E.poner(y, roca_chasq(g, 1000.0, 3500.0, tau=0.005), tt, 0.35 * gan)
+    E.escombros(y, g, 0.06, 1.7, 46, lo=500.0, hi=3200.0, gan=0.85, graves=0.2)
+    roca_polvo(y, g, 0.05, 1.1, 0.45)
+    E.poner(y, roca_sub(66.0, 36.0, 0.8, 0.26), 0.0, 0.4)
+    return a_22k(E.saturar(roca_sala(y, g, 1.1, 0.20), 2.6))
 
 
 def jefe_aturdido():
@@ -1915,61 +2041,51 @@ def madera(f, g, seg=0.12, hueco=1.0, seco=1.0):
     return y
 
 
-def formantes(x, lista):
-    """Resonancias en paralelo (fase cero): cada formante es (centro en Hz, ancho en Hz, ganancia)."""
-    n = len(x)
-    m = 1024
-    xx = np.concatenate([np.zeros(m), x, np.zeros(m)])
-    f = np.fft.rfftfreq(len(xx), 1.0 / SR)
-    h = np.zeros_like(f)
-    for fc, ancho, gan in lista:
-        h += gan / (1.0 + ((f - fc) / (0.5 * ancho)) ** 2)
-    return np.fft.irfft(np.fft.rfft(xx) * h, len(xx))[m:m + n]
+# Tracto de un felino grande (unos 27 cm): más grave que una voz humana. Cada formante es
+# (centro en Hz, ancho en Hz, ganancia). Con la boca cerrada, abierta y enseñando los dientes
+# (menos primer formante y más 1.5–3 kHz, que es lo que se oye en un altavoz pequeño).
+_TRACTO_CERRADO = ((150.0, 90.0, 0.55), (250.0, 70.0, 1.00), (720.0, 100.0, 0.45), (1380.0, 150.0, 0.20),
+                   (2100.0, 220.0, 0.12), (2850.0, 300.0, 0.06))
+_TRACTO_ABIERTO = ((165.0, 100.0, 0.55), (540.0, 120.0, 1.00), (1080.0, 170.0, 0.62), (1780.0, 230.0, 0.42),
+                   (2500.0, 300.0, 0.28), (3250.0, 380.0, 0.11))
+_TRACTO_FAUCES = ((160.0, 100.0, 0.50), (430.0, 130.0, 0.95), (1150.0, 180.0, 0.60), (1900.0, 230.0, 0.58),
+                  (2650.0, 300.0, 0.44), (3300.0, 380.0, 0.16))
 
 
-def voz_ronca(n, g, f0, aspereza=0.6, temblor=0.04, sub=0.5, soplo=0.3, pulso_hz=27.0):
-    """Fuente de un gruñido (RMS 1): modelo sencillo de cuerdas vocales grandes.
+def voz_felina(g, n, f0, abre, forma_abierta=_TRACTO_ABIERTO, escala=1.0, jitter=0.03, shimmer=0.2, sub=0.2,
+               retardo=0.04, triple=0.0, aire=0.3, ataque=0.0007, deriva=0.04, vaiven=0.04):
+    """Voz de felino (RMS 1, a 44.1 kHz): pulsos irregulares → granos formánticos + aire.
 
-    Tren de pulsos grave (diente de sierra limitado en banda) con la altura inestable, un
-    subarmónico a media frecuencia, la aspereza de un gruñido (la amplitud se cierra unas
-    27 veces por segundo, de forma irregular) y soplo entre pulso y pulso. Es síntesis
-    pura: no parte de ninguna grabación de un animal.
+    Los pulsos de la garganta salen uno a uno, cada uno con su periodo y su fuerza (`jitter`,
+    `shimmer`) y con subarmónicos (`sub`, `retardo`, `triple`); cada pulso excita un grano por
+    formante, y el tracto se mueve de pulso en pulso según `abre` (0..1, la boca) y un vaivén
+    aleatorio de lengua y mandíbula. El aire es ruido que sale a ráfagas con cada pulso y pasa
+    por los mismos formantes. `f0` y `abre` son arrays de n muestras. Es síntesis pura: no
+    parte de ninguna grabación de un animal.
     """
-    f = np.broadcast_to(np.asarray(f0, dtype=float), (n,)) * (1.0 + temblor * lento(n, g, 4.0, 30.0))
-    w = fase_de(f)
-    fmax = float(np.max(f))
-    y = np.zeros(n)
-    k = 1
-    while k * fmax < 0.40 * SR and k <= 48:
-        y += np.sin(k * w) / k
-        k += 1
-    s = np.zeros(n)
-    k = 1
-    while 0.5 * k * fmax < 0.40 * SR and k <= 64:
-        s += np.sin(0.5 * k * w + 0.7) / k
-        k += 1
-    y += sub * s * np.clip(0.6 + 0.5 * lento(n, g, 2.0, 12.0), 0.0, None)
-    cierre = 0.5 + 0.5 * np.sin(fase_de(pulso_hz * (1.0 + 0.15 * lento(n, g, 1.0, 6.0))))
-    y *= 1.0 - aspereza * cierre ** 2
-    y += soplo * rms(y) * ruido(n, g, 250, 5000, color=1.0) * (0.55 + 0.45 * np.sin(w))
-    return y / (rms(y) + 1e-12)
+    f0 = f0 * (1.0 + deriva * E.lento(n, g, 1.5, 9.0))
+    tp, amp = V.pulsos(n, g, f0, jitter, shimmer, sub, retardo, triple)
+    tc = np.linspace(0.0, n / E.SR, 240)
+    mueve = escala * (1.0 + vaiven * np.interp(tc, E.t_(n), E.lento(n, g, 2.0, 11.0)))
+    tr = V.mezclar_formantes(tc, np.interp(tc, E.t_(n), abre), _TRACTO_CERRADO, forma_abierta, mueve)
+    voz = V.granos(n, tp, amp, tr, ataque=ataque)
+    voz /= E.rms(voz) + 1e-12
+    soplo = E.ruido(n, g, 250, 8000, color=0.7) * (0.3 + V.env_pulsos(n, tp, amp, 0.25 / np.mean(f0)))
+    soplo = V.filtro_variable(soplo, lambda t, f: tr.ganancia(t, f, ancho=1.8) * (f / (f + 500.0)))
+    soplo /= E.rms(soplo) + 1e-12
+    y = voz + aire * soplo * (0.35 + 0.65 * abre)
+    return y / (E.rms(y) + 1e-12)
 
 
-# Formantes de una garganta grande (más graves que los de una voz humana): boca abierta y cerrada
-_FORM_ABIERTA = ((330.0, 150.0, 1.0), (780.0, 220.0, 0.85), (1350.0, 320.0, 0.45),
-                 (2300.0, 450.0, 0.18), (3200.0, 600.0, 0.07))
-_FORM_CERRADA = ((250.0, 120.0, 1.0), (560.0, 180.0, 0.60), (1100.0, 280.0, 0.22), (2000.0, 400.0, 0.07))
-
-
-def rugido(n, g, f0, abre, aspereza=0.6, soplo=0.3, pulso_hz=27.0):
-    """Rugido de felino (RMS 1): la fuente ronca pasa por dos juegos de formantes.
-
-    `abre` (0..1, número o array) abre la boca: mezcla los formantes cerrados y los abiertos.
-    """
-    fuente = voz_ronca(n, g, f0, aspereza=aspereza, soplo=soplo, pulso_hz=pulso_hz)
-    a = np.broadcast_to(np.asarray(abre, dtype=float), (n,))
-    y = a * formantes(fuente, _FORM_ABIERTA) + (1.0 - a) * formantes(fuente, _FORM_CERRADA)
-    return y / (rms(y) + 1e-12)
+def cierre_gutural(g, n_golpes, t0, sep0, sep1, escala=1.0):
+    """Golpes de garganta que se van espaciando: pulsos sueltos por el tracto casi cerrado (44.1 kHz)."""
+    seps = sep0 * (sep1 / sep0) ** (np.arange(n_golpes) / max(n_golpes - 1, 1))
+    tp = t0 + np.concatenate([[0.0], np.cumsum(seps[:-1])]) + g.uniform(-0.004, 0.004, n_golpes)
+    amp = (1.0 - 0.6 * np.arange(n_golpes) / n_golpes) * g.uniform(0.8, 1.0, n_golpes)
+    n = E.n_(tp[-1] + 0.12)
+    tc = np.linspace(0.0, n / E.SR, 8)
+    tr = V.mezclar_formantes(tc, np.full(8, 0.25), _TRACTO_CERRADO, _TRACTO_ABIERTO, escala)
+    return V.granos(n, tp, amp, tr, ataque=0.0012)
 
 
 # --------------------------------------------------------------------------------------
@@ -2222,37 +2338,43 @@ def apoyo_alux():
 # --------------------------------------------------------------------------------------
 
 def balam_rugido():
-    """Rugido de Balam: gruñido con formantes que se abre y se hunde, grave y con cuerpo."""
-    g = gen("balam_rugido")
-    y = np.zeros(n_(1.0))
-    n = n_(0.98)
+    """Rugido de Balam, elegido de oído («bufido»): casi todo aire. Un soplo que aletea de
+    forma irregular (28–40 veces por segundo: eso lo hace bufido y no siseo) por la boca
+    abierta, sobre un fondo de pulsos graves, y cinco golpes de garganta al cerrar."""
+    g = gen_elegido("balam_rugido")
+    seg = 0.98
+    n = E.n_(seg)
+    t = E.t_(n)
     u = np.arange(n) / n
-    f0 = 82.0 + 34.0 * np.sin(np.pi * np.clip(u / 0.75, 0.0, 1.0)) ** 1.2 - 22.0 * u ** 2  # 82 → 116 → 60 Hz
-    abre = np.sin(np.pi * u ** 0.7) ** 0.8
-    env = rampa(n, 0.05) * (0.32 + 0.68 * abre ** 1.3) * salida(n, 0.25)
-    # la aspereza se hace más lenta al final: el rugido acaba en un gruñido gutural
-    poner(y, rugido(n, g, f0, abre, aspereza=0.65, pulso_hz=29.0 - 11.0 * u ** 2) * env, 0.0, 1.0)
-    pecho = ruido(n, g, 45, 170, color=2.0) * (0.6 + 0.4 * np.sin(fase_de(26.0 + 6.0 * u)))
-    poner(y, pecho * env, 0.0, 0.35)
-    aliento = ruido_barrido(n, g, 700.0 * (1800.0 / 700.0) ** abre, ancho=0.8, color=1.5)
-    poner(y, aliento * env * abre, 0.0, 0.18)
-    poner(y, rafaga(0.06, g, 300, 2200, tau=0.012, color=1.0), 0.0, 0.25)  # arranque
-    return saturar(y, 1.5)
+    abre = np.clip(np.sin(np.pi * u ** 0.6), 0.0, 1.0) ** 0.6
+    tc = np.linspace(0.0, seg, 240)
+    tr = V.mezclar_formantes(tc, np.interp(tc, t, abre), _TRACTO_CERRADO, _TRACTO_FAUCES,
+                             1.0 + 0.07 * np.interp(tc, t, E.lento(n, g, 2.0, 11.0)))
+    aleteo = 0.5 + 0.5 * np.sin(DOS_PI * np.cumsum(34.0 * (1.0 + 0.18 * E.lento(n, g, 2.0, 9.0))) / E.SR)
+    soplo = E.ruido(n, g, 200, 8500, color=0.8) * (0.35 + 0.65 * aleteo ** 2)
+    soplo = V.filtro_variable(soplo, lambda tt, f: tr.ganancia(tt, f, ancho=1.5) * (f / (f + 350.0)))
+    soplo /= E.rms(soplo)
+    f0 = 44.0 + 22.0 * np.sin(np.pi * u) - 10.0 * u
+    fondo = voz_felina(g, n, f0, 0.6 * abre, jitter=0.12, shimmer=0.4, sub=0.5, retardo=0.12, aire=0.1)
+    env = E.rampa(n, 0.06) * (0.25 + 0.75 * abre ** 1.4) * E.salida(n, 0.30)
+    y = (soplo + 0.75 * fondo) * env * (1.0 - 0.75 * np.clip((u - 0.70) / 0.12, 0.0, 1.0))
+    E.poner(y, cierre_gutural(g, 5, 0.70, 0.038, 0.062), 0.0, 0.42)
+    return a_22k(E.saturar(y, 1.5))
 
 
 def balam_grunido():
-    """Gruñido corto de Balam (al transformarse): boca casi cerrada, áspero, cae de tono."""
-    g = gen("balam_grunido")
-    y = np.zeros(n_(0.45))
-    n = n_(0.44)
-    t = t_(n)
+    """Gruñido corto de Balam (al transformarse), elegido de oído («rugoso»): gruñido de
+    garganta que cae de 62 a 26 Hz hasta quedarse en pulsos sueltos, con subarmónicos y aire."""
+    g = gen_elegido("balam_grunido")
+    n = E.n_(0.44)
+    t = E.t_(n)
     u = np.arange(n) / n
-    abre = 0.55 * np.sin(np.pi * u ** 0.6)
-    env = rampa(n, 0.03) * np.exp(-np.clip(t - 0.14, 0.0, None) / 0.20) * salida(n, 0.10)
-    poner(y, rugido(n, g, 94.0 * (64.0 / 94.0) ** u, abre, aspereza=0.8, soplo=0.2) * env, 0.0, 1.0)
-    poner(y, ruido(n, g, 45, 170, color=2.0) * env, 0.0, 0.35)
-    poner(y, rafaga(0.05, g, 250, 1800, tau=0.010, color=1.0), 0.0, 0.25)
-    return saturar(y, 1.5)
+    abre = 0.60 * np.sin(np.pi * u ** 0.55)
+    f0 = 62.0 * (26.0 / 62.0) ** (u ** 0.8)
+    y = voz_felina(g, n, f0, abre, forma_abierta=_TRACTO_FAUCES, escala=0.94, jitter=0.10, shimmer=0.4, sub=0.55,
+                   retardo=0.10, triple=0.4, aire=0.45, deriva=0.06)
+    env = E.rampa(n, 0.02) * np.exp(-np.clip(t - 0.16, 0.0, None) / 0.22) * E.salida(n, 0.08)
+    return a_22k(E.saturar(y * env, 2.6))
 
 
 # Tajos de las variantes de `garras`: (inicio, banda de arriba, banda de abajo, ganancia)
@@ -2290,26 +2412,30 @@ def balam_golpe():
 
 
 def balam_especial():
-    """Ataque especial de Balam: rugido corto y, a los 0.38 s, la onda de choque (bombazo y anillo de aire que se abre)."""
-    g = gen("balam_especial")
-    y = np.zeros(n_(0.9))
-    n = n_(0.46)
+    """Ataque especial de Balam, elegido de oído («rugoso»): rugido corto y ronco (arranca en
+    pulsos de garganta, sube a 96 Hz y se hunde) y, a los 0.38 s, la onda de choque de siempre
+    (bombazo grave y anillo de aire que se abre)."""
+    g = gen_elegido("balam_especial")
+    n = E.n_(0.46)
     u = np.arange(n) / n
     abre = np.sin(np.pi * u ** 0.5) ** 0.7
-    env = rampa(n, 0.03) * (0.6 + 0.4 * abre) * salida(n, 0.12)
-    poner(y, rugido(n, g, 96.0 + 30.0 * np.sin(np.pi * u) - 10.0 * u, abre, aspereza=0.6) * env, 0.0, 0.8)
-    poner(y, ruido(n, g, 45, 170, color=2.0) * env, 0.0, 0.3)
-    poner(y, rafaga(0.05, g, 300, 2200, tau=0.010, color=1.0), 0.0, 0.2)
+    f0 = 36.0 + 60.0 * np.clip(u / 0.25, 0.0, 1.0) ** 1.4 - 30.0 * np.clip((u - 0.6) / 0.4, 0.0, 1.0)
+    r = voz_felina(g, n, f0, abre, forma_abierta=_TRACTO_FAUCES, escala=0.94, jitter=0.09, shimmer=0.4,
+                   sub=np.clip(0.45 + 0.4 * E.lento(n, g, 3.0, 14.0), 0.0, 0.9), retardo=0.10, triple=0.35,
+                   aire=0.55, deriva=0.07)
+    y = np.zeros(E.n_(0.9))
+    E.poner(y, r * E.rampa(n, 0.025) * (0.6 + 0.4 * abre) * E.salida(n, 0.12), 0.0, 0.8)
     tq = 0.38  # onda de choque
-    poner(y, glis(125, 34, 0.50) * env_perc(n_(0.50), 0.15, 0.002), tq, 1.2)
-    poner(y, rafaga(0.10, g, 600, 5500, tau=0.014, ataque=0.0005), tq, 0.9)
-    poner(y, rafaga(0.35, g, 150, 1300, tau=0.07, color=1.0), tq, 1.0)
-    m = n_(0.48)
+    E.poner(y, E.glis(125, 34, 0.50) * E.env_perc(E.n_(0.50), 0.15, 0.002), tq, 1.2)
+    E.poner(y, E.rafaga(0.10, g, 600, 5500, tau=0.014, ataque=0.0005), tq, 0.9)
+    E.poner(y, E.rafaga(0.35, g, 150, 1300, tau=0.07, color=1.0), tq, 1.0)
+    m = E.n_(0.48)
     v = np.arange(m) / m
-    anillo = ruido_barrido(m, g, 2600.0 * (260.0 / 2600.0) ** (v ** 0.6), ancho=0.8, color=1.0, f_min=100.0)
-    poner(y, anillo * env_perc(m, 0.17, 0.010), tq + 0.01, 0.7)
-    poner(y, rafaga(0.50, g, 35, 160, tau=0.20, ataque=0.02, color=2.0), tq, 0.6)
-    return saturar(reverb(y, g, t60=0.5, mezcla=0.10), 2.0)
+    anillo = E.ruido_barrido(m, g, 2600.0 * (260.0 / 2600.0) ** (v ** 0.6), ancho=0.8, color=1.0, f_min=100.0)
+    E.poner(y, anillo * E.env_perc(m, 0.17, 0.010), tq + 0.01, 0.7)
+    E.poner(y, E.rafaga(0.50, g, 35, 160, tau=0.20, ataque=0.02, color=2.0), tq, 0.6)
+    y = E.reverb(y, g, t60=0.5, mezcla=0.10, agudos=3500.0, graves=60.0)[:E.n_(0.9)]
+    return a_22k(E.saturar(y, 2.0))
 
 
 # --------------------------------------------------------------------------------------
@@ -2517,20 +2643,23 @@ def jefe_fase():
 
 
 def jefe_cae():
-    """El coloso cae de rodillas: dos impactos enormes (una rodilla y la otra), quejido de roca que se hunde y escombros."""
-    g = gen("jefe_cae")
-    y = np.zeros(n_(1.4))
-    poner(y, impacto_piedra(g, 0.9, 112, 32, tau=0.22, brillo=0.9), 0.0, 1.0)
-    poner(y, glis(58, 28, 0.8) * env_perc(n_(0.8), 0.28, 0.004), 0.0, 0.6)
-    poner(y, impacto_piedra(g, 0.8, 96, 30, tau=0.20, brillo=0.7), 0.24, 0.85)
-    poner(y, glis(52, 27, 0.7) * env_perc(n_(0.7), 0.25, 0.004), 0.24, 0.5)
-    poner(y, rafaga(0.5, g, 150, 700, tau=0.11, color=1.5), 0.0, 0.6)
-    m = n_(0.9)
+    """El coloso cae de rodillas, elegido de oído («grande»): dos golpes (una rodilla y la
+    otra) con cuerpo de 100–230 Hz y chasquido, quejido de roca que se hunde (una octava por
+    encima del anterior, 168 → 92 Hz, para que se oiga), 42 cascotes, subgrave y sala de 1.2 s."""
+    g = gen_elegido("jefe_cae")
+    y = np.zeros(E.n_(2.0))
+    for t0, k, gan in ((0.0, 1.0, 1.0), (0.24, 0.9, 0.85)):
+        E.poner(y, roca_cuerpo(g, (112.0 * k, 165.0 * k, 230.0 * k), tau=0.24), t0, 0.95 * gan)
+        E.poner(y, roca_medio(g, 0.4, 0.08, 200.0, 900.0), t0, 0.95 * gan)
+        E.poner(y, roca_chasq(g, 900.0, 4500.0, tau=0.010), t0, 1.0 * gan)
+    m = E.n_(0.9)
     v = np.arange(m) / m
-    poner(y, gemido(m, g, 84.0 * (46.0 / 84.0) ** (v ** 0.7)) * rampa(m, 0.05) * (1.0 - v) ** 0.8, 0.30, 0.30)
-    escombros(y, g, 0.08, 1.32, 34, lo=450, hi=2600, gan=0.8, graves=0.3)
-    poner(y, ruido(n_(1.2), g, 900, 4000, color=1.0) * env_perc(n_(1.2), 0.35, 0.06), 0.05, 0.12)  # polvo
-    return saturar(reverb(y, g, t60=0.8, mezcla=0.14))
+    E.poner(y, E.gemido(m, g, 168.0 * (92.0 / 168.0) ** (v ** 0.7)) * E.rampa(m, 0.05) * (1.0 - v) ** 0.8, 0.30, 0.34)
+    E.escombros(y, g, 0.08, 1.8, 42, lo=450.0, hi=2600.0, gan=0.75, graves=0.3)
+    roca_polvo(y, g, 0.05, 1.2, 0.5)
+    E.poner(y, roca_sub(58.0, 30.0, 0.8, 0.28), 0.0, 0.45)
+    E.poner(y, roca_sub(52.0, 29.0, 0.7, 0.25), 0.24, 0.38)
+    return a_22k(E.saturar(roca_sala(y, g, 1.2, 0.22), 3.0))
 
 
 def pilar_rompe():
@@ -2778,14 +2907,14 @@ BUCLES_JEFE = (
 )
 
 EFECTOS_JEFE = (
-    ("jefe_despierta", jefe_despierta, 3.50, -3.0, 6500.0, 0.35, "El coloso despierta: grietas y rugido de roca"),
+    ("jefe_despierta", jefe_despierta, 3.90, -3.0, 6500.0, 0.35, "El coloso despierta: grietas, rugido de roca y asiento, con sala (elegido de oído)"),
     ("jefe_paso", jefe_paso, 0.50, -8.0, 4500.0, 0.12, "Pisada pesada de piedra"),
     ("jefe_aviso", jefe_aviso, 0.80, -7.0, 6000.0, 0.04, "Anticipación de un golpe: piedra que se tensa"),
     ("jefe_losa", jefe_losa, 1.20, -3.0, 6500.0, 0.25, "Golpe de losa: impacto enorme y escombros"),
     ("jefe_barrido", jefe_barrido, 0.90, -6.0, 5500.0, 0.08, "Barrido: silbido grave de masa y roce"),
     ("jefe_llamada", jefe_llamada, 1.50, -4.0, 6000.0, 0.12, "Llamada del Silencio: doble golpe y zumbido que crece"),
-    ("jefe_embestida", jefe_embestida, 1.40, -5.0, 6000.0, 0.05, "Embestida: arrastre de piedra que se acelera"),
-    ("jefe_choque", jefe_choque, 1.30, -3.0, 6500.0, 0.30, "Choque contra una columna que se rompe"),
+    ("jefe_embestida", jefe_embestida, 1.40, -5.0, 6500.0, 0.05, "Embestida: zancadas que se aceleran sobre un arrastre de piedra (elegida de oído)"),
+    ("jefe_choque", jefe_choque, 1.80, -3.0, 6500.0, 0.30, "Choque contra una columna que se parte y cae a trozos, con sala (elegido de oído)"),
     ("jefe_aturdido", jefe_aturdido, 1.50, -7.0, 5500.0, 0.35, "Aturdido: la piedra se asienta con un gemido"),
     ("pilar_sube", pilar_sube, 1.00, -5.0, 6000.0, 0.06, "Una columna emerge del suelo"),
     ("lluvia_piedra", lluvia_piedra, 4.00, -5.0, 6500.0, 0.40, "Lluvia de piedra: caídas irregulares"),
@@ -2843,12 +2972,12 @@ EFECTOS_031 = (
     ("escudo_alux", escudo_alux, 0.70, -8.0, 14000.0, 0.12, "Escudo que se levanta: soplido, cúpula vítrea y tono sostenido", SR_ALTO, "alux"),
     ("escudo_golpe", escudo_golpe, 0.40, -8.0, 8000.0, 0.08, "El escudo absorbe un golpe: «dong» vítreo amortiguado", SR, "alux"),
     ("apoyo_alux", apoyo_alux, 0.80, -8.0, 14000.0, 0.15, "Apoyo a un compañero: tres notas de kalimba con destellos", SR_ALTO, "alux"),
-    ("balam_rugido", balam_rugido, 1.00, -5.0, 4500.0, 0.20, "Rugido de Balam: gruñido con formantes, grave", SR, "balam"),
-    ("balam_grunido", balam_grunido, 0.45, -5.0, 4000.0, 0.08, "Gruñido corto de Balam (al transformarse)", SR, "balam"),
+    ("balam_rugido", balam_rugido, 1.00, -5.0, 6000.0, 0.20, "Rugido de Balam: bufido, soplo que aletea y cierre de garganta (elegido de oído)", SR, "balam"),
+    ("balam_grunido", balam_grunido, 0.45, -5.0, 6000.0, 0.08, "Gruñido corto de Balam (al transformarse): de garganta, ronco (elegido de oído)", SR, "balam"),
     ("garras_2", _var(garras_variante, 0), 0.25, -6.0, 7500.0, 0.04, "Garras, variante 2", SR, "balam"),
     ("garras_3", _var(garras_variante, 1), 0.25, -6.0, 7500.0, 0.04, "Garras, variante 3", SR, "balam"),
     ("balam_golpe", balam_golpe, 0.35, -5.0, 6500.0, 0.08, "La garra impacta: golpe con cuerpo y rasgadura", SR, "balam"),
-    ("balam_especial", balam_especial, 0.90, -5.0, 6000.0, 0.20, "Ataque especial: rugido corto y onda de choque", SR, "balam"),
+    ("balam_especial", balam_especial, 0.90, -5.0, 6000.0, 0.20, "Ataque especial: rugido corto y ronco y onda de choque (elegido de oído)", SR, "balam"),
     ("enemigo_aparece", enemigo_aparece, 0.80, -8.0, 6000.0, 0.08, "Un enemigo surge de la piedra corrompida", SR, "enemigos"),
     ("enemigo_dano", enemigo_dano, 0.20, -8.0, 6000.0, 0.04, "Un enemigo recibe daño: lasca y quejido oscuro", SR, "enemigos"),
     ("enemigo_purificado", enemigo_purificado, 0.70, -8.0, 14000.0, 0.15, "Enemigo purificado: la corrupción se deshace en una campanilla", SR_ALTO, "enemigos"),
@@ -2859,7 +2988,7 @@ EFECTOS_031 = (
     ("criatura_ataque", criatura_ataque, 0.25, -8.0, 6000.0, 0.05, "Ataque de la criatura: arañazos y mordida", SR, "enemigos"),
     ("jefe_respira", jefe_respira, 3.00, -10.0, 3500.0, 0.40, "Respiración del coloso dormido: un pulmón de piedra", SR, "jefe"),
     ("jefe_fase", jefe_fase, 1.80, -3.0, 6000.0, 0.30, "Cambio de fase: trompa grave y crujido que recorre la piedra", SR, "jefe"),
-    ("jefe_cae", jefe_cae, 1.40, -3.0, 6500.0, 0.30, "El coloso cae de rodillas: doble impacto y escombros", SR, "jefe"),
+    ("jefe_cae", jefe_cae, 1.90, -3.0, 6500.0, 0.30, "El coloso cae de rodillas: doble impacto, quejido y escombros, con sala (elegido de oído)", SR, "jefe"),
     ("pilar_rompe", pilar_rompe, 1.00, -3.0, 6500.0, 0.25, "Una columna se hace pedazos", SR, "jefe"),
     ("ritual_pulso", ritual_pulso, 1.20, -3.0, 5000.0, 0.15, "Pulso de Silencio: hinchazón invertida y golpe sordo", SR, "jefe"),
     ("ui_mover", ui_mover, 0.05, -12.0, 12000.0, 0.012, "Mover la selección: tic mínimo de madera", SR_ALTO, "interfaz"),
@@ -2980,7 +3109,7 @@ def generar(compacto: bool, solo=None) -> None:
     for nombre, fn, seg, pico_db, agudos, fundido, _desc in EFECTOS:
         if nombre in elegidos:
             with con_sr(HZ.get(nombre, SR)):
-                previo = PREVIO_031 if nombre in NOMBRES_031 else 0.0
+                previo = PREVIO_031 if nombre in NOMBRES_031 or nombre in ELEGIDOS else 0.0
                 escribir(SALIDA / f"{nombre}.wav", acabar_efecto(fn(), seg, pico_db, agudos, fundido, previo))
 
 
@@ -3128,8 +3257,8 @@ def escribir_manifiesto(ruta: Path) -> int:
             "bytes": archivo.stat().st_size,
             "origen": f"síntesis propia: art/audio/gen_audio.py, función {FUNCION.get(nombre, fn.__name__)}",
             "licencia": "original del proyecto ALUX, sin material de terceros",
-            # numpy.random.default_rng([semilla base, CRC-32 del nombre]); ver `gen`
-            "semilla": [SEMILLA, zlib.crc32(nombre.encode("utf-8"))],
+            # numpy.random.default_rng([semilla base, CRC-32 del nombre]); ver `gen` y `semilla_de`
+            "semilla": semilla_de(nombre),
         })
     ruta.write_text(json.dumps(entradas, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Manifiesto: {len(entradas)} entradas en {ruta}")

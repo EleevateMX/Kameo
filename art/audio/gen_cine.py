@@ -41,6 +41,7 @@ from _dsp_estereo import (  # noqa: E402
     ruido_barrido, ruido_st, salida, saturar, semilla_de, sonaja, t_, tambor, tambor_grave, tirones,
     trompa, zumbido,
 )
+from _voz_granular import Tracto, env_pulsos, filtro_variable, granos, pulsos, suavizar  # noqa: E402
 
 COLA = 1.5  # segundos de cola tras el final de la cinemática
 CALIDAD = 5  # LAME -q:a
@@ -131,28 +132,162 @@ def gota(g, f):
     return y
 
 
-def silaba(g, seg, r0, r1, f1, f2, aire=0.3):
-    """«Sílaba» de la voz de árbol: crujido de madera (pulsos que excitan dos resonancias)
-    y aire por el tronco hueco. No dice nada: solo tiene la curva de una voz."""
+# --- Voz de Chiich Yaxché, la abuela árbol (plano 4 de «El llamado») ---------------------
+# Elegida de oído por el dueño del proyecto el 13 de noviembre de 2026 (candidato A
+# «murmullo» de `art/audio/candidatos/`, escuchado dentro de la escena). Es una voz anciana
+# sugerida, sin palabras: pulsos glotales a altura de voz, con el temblor y la ronquera de
+# una voz vieja; formantes de vocales abiertas que se mueven de sílaba en sílaba; y la
+# entonación de dos frases, una llamada que sube y un refunfuño que cae. Sustituye a la voz
+# de crujidos de la Alpha 0.3.1, que podía sonar a puerta. No parte de ninguna voz grabada:
+# las vocales usan frecuencias de formantes típicas de una voz de mujer.
+
+# Vocales (Hz, ancho, ganancia de cada formante) y murmullo nasal entre sílabas
+VOCALES = {
+    "a": ((800.0, 80.0, 1.00), (1150.0, 90.0, 0.60), (2800.0, 120.0, 0.16), (3500.0, 130.0, 0.06), (4950.0, 140.0, 0.010)),
+    "o": ((450.0, 70.0, 1.00), (800.0, 80.0, 0.38), (2830.0, 100.0, 0.14), (3500.0, 130.0, 0.04), (4950.0, 135.0, 0.005)),
+    "e": ((420.0, 60.0, 1.00), (1650.0, 80.0, 0.22), (2700.0, 120.0, 0.11), (3300.0, 150.0, 0.05), (4950.0, 200.0, 0.005)),
+    "u": ((340.0, 50.0, 1.00), (720.0, 60.0, 0.26), (2530.0, 170.0, 0.04), (3500.0, 180.0, 0.012), (4950.0, 200.0, 0.002)),
+    "m": ((270.0, 60.0, 0.70), (1050.0, 150.0, 0.08), (2300.0, 200.0, 0.03), (3300.0, 250.0, 0.010), (4950.0, 300.0, 0.001)),
+}
+# Sílabas: (inicio, duración, tono inicial y final en semitonos sobre la base, vocal inicial y final, fuerza)
+# «¡Despierta, alux!»: tres sílabas con la segunda acentuada, pausa, y dos más con la última hacia arriba
+FRASE_LLAMADA = ((0.00, 0.22, 0.0, 1.0, "e", "e", 0.80), (0.24, 0.36, 4.0, 3.0, "a", "a", 1.25), (0.62, 0.26, 1.5, -1.0, "o", "o", 0.80),
+                 (1.02, 0.18, 0.0, 2.0, "a", "a", 0.85), (1.22, 0.50, 3.0, 8.0, "o", "a", 1.30))
+# «La selva te necesita…»: siete sílabas más bajas y más rápidas, que caen y acaban con la voz rota
+FRASE_REFUNFUNO = ((0.00, 0.16, 2.0, 2.0, "a", "a", 0.70), (0.18, 0.22, 3.0, 2.0, "o", "o", 0.90), (0.42, 0.16, 1.0, 1.0, "e", "e", 0.70),
+                   (0.62, 0.16, 1.0, 0.0, "o", "o", 0.70), (0.80, 0.16, 0.0, 0.0, "a", "a", 0.70), (0.98, 0.24, 0.0, -2.0, "o", "o", 0.90),
+                   (1.24, 0.44, -3.0, -8.0, "o", "u", 0.80))
+FRASES_VOZ = ((0.30, FRASE_LLAMADA), (2.40, FRASE_REFUNFUNO))  # inicio de cada frase desde el principio del plano
+SEMILLA_VOZ = "candidatos-2026-11:chiich_voz__A_murmullo"  # la del candidato que se escuchó
+# Sonoridad de la voz dentro de la pista antes del acabado: la misma que tenía la voz anterior
+VOZ_LUFS = -16.317061691049965
+
+
+def guion_voz(n):
+    """Curvas de las dos frases a lo largo del plano: tono (semitonos), fuerza, ronquera y tracto."""
+    t = t_(n)
+    tono = np.zeros(n)
+    fuerza = np.zeros(n)
+    ronca = np.zeros(n)
+    claves = []  # (instante, formantes)
+    for t0, frase in FRASES_VOZ:
+        for i, (ini, dur, s0, s1, v0, v1, f) in enumerate(frase):
+            a, b = t0 + ini, t0 + ini + dur
+            dentro = (t >= a) & (t < b)
+            u = (t[dentro] - a) / dur
+            tono[dentro] = s0 + (s1 - s0) * u ** 1.3
+            # la sílaba entra en 45 ms y sale en 70; entre sílabas ligadas queda un murmullo nasal
+            fuerza[dentro] = f ** 0.7 * np.clip(u * dur / 0.045, 0.0, 1.0) ** 0.8 * np.clip((1.0 - u) * dur / 0.07, 0.0, 1.0) ** 0.8
+            claves += [(a - 0.01, VOCALES["m"]), (a + 0.06, VOCALES[v0]), (b - 0.07, VOCALES[v1]), (b + 0.01, VOCALES["m"])]
+            if i == len(frase) - 1 and s1 < s0:  # la frase que cae acaba con la voz rota
+                ronca[dentro] = np.clip((u - 0.35) / 0.4, 0.0, 1.0)
+        # el tono se mantiene en los huecos para que la voz no salte al volver
+        fin = t0 + frase[-1][0] + frase[-1][1]
+        hueco = (t >= t0) & (t < fin) & (fuerza <= 0.0)
+        tono[hueco] = np.interp(t[hueco], t[(t >= t0) & (t < fin) & (fuerza > 0.0)], tono[(t >= t0) & (t < fin) & (fuerza > 0.0)])
+    tono = suavizar(tono, 0.05)
+    murmullo = suavizar((fuerza > 0).astype(float), 0.16)
+    fuerza = np.clip(suavizar(fuerza, 0.02), 0.0, None)
+    fuerza = np.maximum(fuerza, 0.16 * murmullo * (murmullo > 0.55))  # las sílabas ligadas no se cortan
+    claves.sort(key=lambda c: c[0])
+    return tono, fuerza, ronca, np.array([c[0] for c in claves]), np.array([c[1] for c in claves])
+
+
+def voz_anciana(g, n, base, escala, aire, temblor=0.022, ataque=0.0009, pecho=0.55):
+    """Las dos frases sin palabras (mono) y su envolvente.
+
+    `base` es la altura de la voz (Hz) y `escala` multiplica los formantes. `pecho` es la
+    ganancia de un formante grave fijo, justo encima de la altura de la voz: da el calor de
+    la fundamental, que los formantes de las vocales solos dejan flaca.
+    """
+    t = t_(n)
+    tono, fuerza, ronca, tc, m = guion_voz(n)
+    grave = np.tile([[1.12 * base / escala, 110.0, pecho]], (len(tc), 1, 1))
+    m = np.concatenate([grave, m], axis=1)
+    tr = Tracto(tc, m[:, :, 0] * escala, m[:, :, 1], m[:, :, 2])
+    # voz vieja: temblor de unos 5 Hz que no es regular, y altura que deriva
+    tiembla = np.sin(DOS_PI * np.cumsum(5.2 * (1.0 + 0.12 * lento(n, g, 0.5, 2.5))) / SR)
+    f0 = base * 2.0 ** (tono / 12.0) * (1.0 + temblor * tiembla * (0.6 + 0.4 * lento(n, g, 0.3, 1.5))) \
+        * (1.0 + 0.012 * lento(n, g, 1.0, 6.0)) * (1.0 - 0.10 * ronca)
+    tp, amp = pulsos(n, g, f0, jitter=0.018 + 0.05 * ronca, shimmer=0.12, sub=0.10 + 0.75 * ronca, retardo=0.06)
+    env_p = np.interp(tp, t, fuerza * (1.0 + 0.08 * tiembla))
+    vivo = env_p > 1e-3
+    tp, amp = tp[vivo], amp[vivo] * env_p[vivo]
+    voz = granos(n, tp, amp, tr, ataque=ataque)
+    voz /= rms(voz[fuerza > 0.3]) + 1e-12
+    # aire de la voz: ruido a ráfagas glotales por el mismo tracto
+    soplo = ruido(n, g, 300, 9000, color=0.6) * (0.5 * fuerza + env_pulsos(n, tp, amp, 0.0015))
+    soplo = filtro_variable(soplo, lambda tt, f: tr.ganancia(tt, f, ancho=1.6) * (f / (f + 900.0)))
+    soplo /= rms(soplo[fuerza > 0.3]) + 1e-12
+    return voz + aire * soplo, fuerza
+
+
+def crujido_tronco(g, seg, f, ritmo=(9.0, 17.0)):
+    """El tronco cruje al moverse: pega y resbala lento, grave y apagado (sin tono que suba: no es una puerta)."""
     k = n_(seg)
     u = np.arange(k) / k
-    tasa = r0 * (r1 / r0) ** u * (1.0 + 0.08 * np.sin(DOS_PI * g.uniform(5.0, 9.0) * u * seg + g.uniform(0, 6)))
-    ciclos = np.floor(np.cumsum(tasa) / SR)
-    imp = np.diff(ciclos, prepend=-1.0) * (1.0 + 0.3 * g.standard_normal(k))
-    nucleo = modos(((f1, 1.0, 0.012), (f2, 0.55, 0.007), (2.6 * f2, 0.18, 0.004)), 0.06)
-    x = convolucionar(imp, nucleo, circular=False)
-    soplo = ruido(k, g, 0.7 * f1, 1.6 * f2, orden=3)
-    return (x / (np.max(np.abs(x)) + 1e-12) + aire * soplo / 3.0) * np.sin(np.pi * u) ** 0.7
+    tp, amp = pulsos(k, g, ritmo[0] + (ritmo[1] - ritmo[0]) * np.sin(np.pi * u), jitter=0.3, shimmer=0.5)
+    tr = Tracto(np.array([0.0, seg]), np.tile([f, 2.71 * f, 5.15 * f], (2, 1)), np.tile([14.0, 30.0, 60.0], (2, 1)),
+                np.tile([1.0, 0.45, 0.15], (2, 1)))
+    y = granos(k, tp, amp * np.interp(tp, t_(k), np.sin(np.pi * u) ** 0.8), tr, ataque=0.0015)
+    return filtrar(y, 80, 1600) / (np.max(np.abs(y)) + 1e-12)
 
 
-def frase_arbol(y, g, t0, silabas, gan, p):
-    """Coloca una frase de la voz de árbol. Cada sílaba: (inicio, duración, tono 0..1, acento)."""
-    for ini, dur, tono, acento in silabas:
-        r0 = 30.0 + 26.0 * tono
-        r1 = r0 * (1.25 if acento > 1.0 else 0.85)
-        f1 = 250.0 + 170.0 * tono + g.uniform(-20, 20)
-        f2 = 760.0 + 330.0 * g.uniform()
-        poner(y, silaba(g, dur, r0, r1, f1, f2), t0 + ini, gan * acento, p + g.uniform(-0.08, 0.08))
+def en_tronco(x, mezcla):
+    """La voz dentro de un tronco hueco: se le suma su paso por las resonancias de la cavidad."""
+    ri = modos(((132.0, 0.45, 0.050), (287.0, 1.0, 0.035), (455.0, 0.7, 0.025), (910.0, 0.3, 0.012)), 0.25)
+    hueco = convolucionar(x, ri, circular=False)
+    return x + mezcla * hueco * (rms(x) / (rms(hueco) + 1e-12))
+
+
+def voz_chiich():
+    """La voz de Chiich Yaxché para el plano 4 de «El llamado» (estéreo, 5 s desde el inicio del plano).
+
+    Voz de anciana que tararea con la boca entreabierta (base de 172 Hz), algo a la izquierda,
+    con el aire del tronco hueco y dos crujidos de tronco; lleva su sala corta y la sala de la
+    pista, y sale con la sonoridad `VOZ_LUFS`. Tiene su propio generador aleatorio (el del
+    candidato que se eligió de oído), aparte del de la pista.
+    """
+    g = gen(SEMILLA_VOZ)
+    n = n_(4.4)
+    mono, fuerza = voz_anciana(g, n, base=172.0, escala=0.95, aire=0.28)
+    mono = en_tronco(mono, 0.15)
+    cuerpo = rms(mono[fuerza > 0.3])
+    y = pan(mono, -0.15)
+    y = y + 0.10 * cuerpo * ruido_st(n, g, 150, 1100, color=1.2, ancho=0.6) * np.clip(suavizar(fuerza, 0.35), 0.0, None)
+    for t0, f in ((0.05, 150.0), (2.10, 120.0)):  # el tronco cruje al moverse
+        poner(y, crujido_tronco(g, 0.5, f), t0, 0.35 * cuerpo, 0.3)
+    v = reverb(filtrar(y, 110.0, 6000.0), g, t60=0.9, mezcla=0.18, agudos=4500.0)[:, :n_(4.7)]
+    v = reverb(v, g, t60=1.5, mezcla=0.2, agudos=6000.0)  # la misma sala que el resto de la pista
+    k = n_(5.0)
+    v = np.concatenate([v, np.zeros((2, max(0, k - v.shape[-1])))], axis=-1)[:, :k]
+    v = v * rampa(k, 0.01) * salida(k, 0.3)
+    return v * lin(VOZ_LUFS - lufs(v))
+
+
+def _gastar_voz_anterior(g):
+    """Gasta del generador de la pista los mismos números que gastaba la voz anterior.
+
+    La voz de crujidos de la Alpha 0.3.1 se sintetizaba con el generador de la pista, entre
+    las hojas del plano 4 y el toc-toc de madera. Al quitarla, el toc-toc, las chispas del
+    final y la sala de toda la pista saldrían con otros números: aquí se piden los mismos
+    (por sílaba: cinco uniformes y dos tandas de ruido; después los dos crujidos de tronco y
+    las cuatro respuestas de su sala), para que el resto de la pista sea, muestra a muestra,
+    el que se midió y se escuchó con la voz nueva.
+    """
+    for dur in (0.22, 0.36, 0.24, 0.18, 0.48, 0.16, 0.22, 0.16, 0.16, 0.16, 0.24, 0.42):
+        for _ in range(4):
+            g.uniform()
+        g.standard_normal(n_(dur))
+        g.standard_normal(n_(dur))
+        g.uniform()
+    for _ in range(2):  # los dos crujidos de tronco
+        g.uniform()
+        g.uniform()
+        g.standard_normal(n_(0.5))
+        g.standard_normal(n_(0.5))
+    for _ in range(4):  # la sala de la voz (0.9 s): dos respuestas por canal
+        g.standard_normal(n_(0.9 * 1.1))
 
 
 def notas(y, g, inst, lista, gan=1.0, p=0.0):
@@ -552,29 +687,22 @@ def fx_llamado():
         destellos(y, g, t0, t0 + 0.5, 6, 2500.0, 6000.0, 0.05 * gan)
     j = n_(0.5)
     poner(y, ruido(j, g, 250, 2000, color=1.0) * tirones(j, g, 12.0, 40.0) * campana_env(j, 0.8), 11.4, 0.07, -0.5)
-    # --- Plano 4 (14.5–19 s): la voz de árbol de Chiich Yaxché (madera y aire) y la llamada
+    # --- Plano 4 (14.5–19 s): hojas, la voz de Chiich Yaxché (se suma al final) y la llamada
     k = n_(5.6)
     hojas = ruido_st(k, g, 1500, 6500, color=1.0, ancho=0.7) * rampa(k, 0.6) * salida(k, 1.5)
     poner(y, hojas * np.clip(0.4 + 0.5 * lento(k, g, 0.3, 2.0), 0.05, None) ** 1.5 * tirones(k, g, 1.5, 8.0, 1.0),
           14.3, 0.05)
     poner(y, ruido_st(k, g, 120, 700, color=1.3, ancho=0.5) * rampa(k, 0.6) * salida(k, 1.5), 14.3, 0.045)
-    voz = np.zeros((2, n_(4.2)))
-    # «¡Despierta, alux!»: tres sílabas con la segunda acentuada, pausa, dos con la última arriba
-    frase_arbol(voz, g, 0.30, ((0.00, 0.22, 0.45, 0.8), (0.24, 0.36, 0.90, 1.25), (0.62, 0.24, 0.40, 0.8),
-                               (1.02, 0.18, 0.50, 0.8), (1.22, 0.48, 1.00, 1.3)), 0.55, -0.15)
-    # «La selva te necesita…»: murmullo más bajo, que cae
-    frase_arbol(voz, g, 2.40, ((0.00, 0.16, 0.55, 0.7), (0.18, 0.22, 0.65, 0.9), (0.42, 0.16, 0.5, 0.7),
-                               (0.62, 0.16, 0.45, 0.7), (0.80, 0.16, 0.5, 0.7), (0.98, 0.24, 0.6, 0.9),
-                               (1.24, 0.42, 0.25, 0.8)), 0.40, -0.15)
-    for t0, f in ((0.05, 150.0), (2.1, 120.0)):  # el tronco cruje al moverse
-        poner(voz, silaba(g, 0.5, 14.0, 22.0, f, 3.1 * f, aire=0.1), t0, 0.3, 0.3)
-    poner(y, sala(filtrar(voz, 120, 4500), g, t60=0.9, mezcla=0.18, agudos=4500.0), 14.5, 1.8)
+    _gastar_voz_anterior(g)  # la voz ya no sale de este generador: ver `voz_chiich`
     for t0, f, gan in ((18.35, 294.0, 0.8), (18.58, 392.0, 1.0)):  # toc-toc de madera hueca: despierta
         poner(y, madera(g, f=f), t0, 0.8 * gan, 0.1)
     for i, m in enumerate((86, 89, 93)):  # y algo se enciende
         poner(y, campana(midi(m), 1.6, tau=0.5, ataque=0.004), 18.72 + 0.09 * i, 0.16, -0.2 + 0.25 * i)
     destellos(y, g, 18.7, 19.6, 14, 3000.0, 7000.0, 0.05)
-    return sala(y, g, t60=1.5, mezcla=0.2, agudos=6000.0)
+    y = sala(y, g, t60=1.5, mezcla=0.2, agudos=6000.0)
+    # La voz de Chiich Yaxché, elegida de oído: primera frase 14.80–16.50 s, segunda 16.90–18.56 s
+    poner(y, voz_chiich(), 14.5)
+    return y
 
 
 def mus_llamado():

@@ -619,14 +619,14 @@
     "archivo": "game/assets/audio/jefe_despierta.wav",
     "tipo": "efecto",
     "bus": "SFX",
-    "duracion_s": 3.5,
+    "duracion_s": 3.9,
     "hz": 22050,
-    "bytes": 154394,
+    "bytes": 172034,
     "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_despierta",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
-      20261111,
-      3272708448
+      20261112,
+      1325424370
     ]
   },
   {
@@ -715,8 +715,8 @@
     "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_embestida",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
-      20261111,
-      226065373
+      20261112,
+      71043798
     ]
   },
   {
@@ -724,14 +724,14 @@
     "archivo": "game/assets/audio/jefe_choque.wav",
     "tipo": "efecto",
     "bus": "SFX",
-    "duracion_s": 1.3,
+    "duracion_s": 1.8,
     "hz": 22050,
-    "bytes": 57374,
+    "bytes": 79424,
     "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_choque",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
-      20261111,
-      4061774821
+      20261112,
+      112317274
     ]
   },
   {
@@ -1330,8 +1330,8 @@
     "origen": "síntesis propia: art/audio/gen_audio.py, función balam_rugido",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
-      20261111,
-      2061831719
+      20261112,
+      3599139671
     ]
   },
   {
@@ -1345,8 +1345,8 @@
     "origen": "síntesis propia: art/audio/gen_audio.py, función balam_grunido",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
-      20261111,
-      3997693491
+      20261112,
+      661331470
     ]
   },
   {
@@ -1405,8 +1405,8 @@
     "origen": "síntesis propia: art/audio/gen_audio.py, función balam_especial",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
-      20261111,
-      328275660
+      20261112,
+      644630767
     ]
   },
   {
@@ -1564,14 +1564,14 @@
     "archivo": "game/assets/audio/jefe_cae.wav",
     "tipo": "efecto",
     "bus": "SFX",
-    "duracion_s": 1.4,
+    "duracion_s": 1.9,
     "hz": 22050,
-    "bytes": 61784,
+    "bytes": 83834,
     "origen": "síntesis propia: art/audio/gen_audio.py, función jefe_cae",
     "licencia": "original del proyecto ALUX, sin material de terceros",
     "semilla": [
-      20261111,
-      3929649566
+      20261112,
+      2165396046
     ]
   },
   {

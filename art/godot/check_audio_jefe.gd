@@ -10,8 +10,8 @@ const Audio := preload("res://scripts/client/audio.gd")
 
 ## nombre -> duración esperada (s)
 const EFECTOS := {
-	"jefe_despierta": 3.5, "jefe_paso": 0.5, "jefe_aviso": 0.8, "jefe_losa": 1.2,
-	"jefe_barrido": 0.9, "jefe_llamada": 1.5, "jefe_embestida": 1.4, "jefe_choque": 1.3,
+	"jefe_despierta": 3.9, "jefe_paso": 0.5, "jefe_aviso": 0.8, "jefe_losa": 1.2,
+	"jefe_barrido": 0.9, "jefe_llamada": 1.5, "jefe_embestida": 1.4, "jefe_choque": 1.8,
 	"jefe_aturdido": 1.5, "pilar_sube": 1.0, "lluvia_piedra": 4.0, "ancla_activa": 0.6,
 	"cadenas_jade": 1.2, "corazon_expuesto": 1.0, "corazon_golpe": 0.4, "corazon_libre": 1.6,
 	"glifo_restaurado": 1.2, "ritual_toque": 2.0, "silencio_grieta": 0.8, "liberacion": 4.0,
