@@ -2,7 +2,7 @@ import { randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import {
   GAME_TICKET_AUDIENCE, GAME_TICKET_TTL_SECONDS, MAX_PLAYERS_PER_ROOM, REWARDS, SESSION_AUDIENCE,
-  cleanName, inviteActive, isValidColor, signJwt, verifyJwt,
+  HATS, cleanName, inviteActive, isValidColor, isValidLook, lookToList, signJwt, verifyJwt,
   type HeartbeatBody, type RewardBody, type RewardResult, type RoomInfo,
 } from '@alux/shared-contracts';
 import type { Config } from './config.ts';
@@ -201,13 +201,19 @@ export function createApp(store: Store, config: Config) {
   });
 
   app.put('/v1/me/character', requireSession, async (req, res) => {
-    const { name, color, hat } = req.body ?? {};
+    const { name, color, hat, look } = req.body ?? {};
+    const playerId = (req as AuthedRequest).playerId;
     const clean = cleanName(name, '');
     if (!clean) return res.status(400).json({ error: 'invalid_name', message: 'El nombre debe tener entre 2 y 20 caracteres.' });
     if (!isValidColor(color)) return res.status(400).json({ error: 'invalid_color' });
-    if (!Number.isInteger(hat) || hat < 0 || hat > 3) return res.status(400).json({ error: 'invalid_hat' });
-    await store.updateCharacter((req as AuthedRequest).playerId, { name: clean, color: color.toLowerCase(), hat });
-    res.json(await store.getProfile((req as AuthedRequest).playerId));
+    if (!Number.isInteger(hat) || hat < 0 || hat >= HATS.length) return res.status(400).json({ error: 'invalid_hat' });
+    // La apariencia es opcional (el editor sencillo del portal no la manda: se conserva la guardada),
+    // pero si viene tiene que ser exactamente del catálogo
+    if (look !== undefined && !isValidLook(look)) return res.status(400).json({ error: 'invalid_look' });
+    const current = await store.getProfile(playerId);
+    if (!current) return res.status(401).json({ error: 'no_session' });
+    await store.updateCharacter(playerId, { name: clean, color: color.toLowerCase(), hat, look: look ?? current.character.look });
+    res.json(await store.getProfile(playerId));
   });
 
   // ───────────── Salas ─────────────
@@ -270,6 +276,7 @@ export function createApp(store: Store, config: Config) {
     const ticket = signJwt({
       aud: GAME_TICKET_AUDIENCE, sub: playerId, jti, room: code,
       name: profile.character.name, color: profile.character.color, hat: profile.character.hat,
+      look: lookToList(profile.character.look),
       forms: profile.unlocks,
     }, config.ticketSecret, GAME_TICKET_TTL_SECONDS);
     recentTickets.set(`${code}:${playerId}`, Date.now());
@@ -334,6 +341,20 @@ export function createApp(store: Store, config: Config) {
       for (const [k, t] of recentTickets) if (now - t > MEMBER_GRACE_MS * 2) recentTickets.delete(k);
     }
     res.json({ ok: true });
+  });
+
+  // El servidor de juego relee la apariencia de un jugador de su sala (la cambió en el
+  // personalizador con la partida en marcha). Sólo de quien pidió ticket para esa sala.
+  app.post('/internal/game/character', requireService, async (req, res) => {
+    const { room, player } = (req.body ?? {}) as { room?: unknown; player?: unknown };
+    if (typeof room !== 'string' || !CODE_RE.test(room) || typeof player !== 'string' || !UUID_RE.test(player)) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+    if (!(await store.listMembers(room)).some((m) => m.id === player)) return res.status(404).json({ error: 'not_in_room' });
+    const profile = await store.getProfile(player);
+    if (!profile) return res.status(404).json({ error: 'not_found' });
+    const c = profile.character;
+    res.json({ name: c.name, color: c.color, hat: c.hat, look: lookToList(c.look) });
   });
 
   // El servidor de juego avisa de una recompensa ganada. Idempotente: reintentar no duplica.

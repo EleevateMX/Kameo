@@ -1,5 +1,5 @@
 import pg from 'pg';
-import { DEFAULT_UNLOCKS, cleanName, type Character, type FormId, type PlayerProfile } from '@alux/shared-contracts';
+import { DEFAULT_UNLOCKS, cleanLook, cleanName, type Character, type FormId, type PlayerProfile } from '@alux/shared-contracts';
 import type { MemberRow, RoomRow, SessionMetrics, Store } from './types.ts';
 
 /** PostgreSQL / Supabase. El esquema está en supabase/migrations. */
@@ -46,7 +46,7 @@ export class PgStore implements Store {
 
   async getProfile(id: string): Promise<PlayerProfile | null> {
     const { rows } = await this.pool.query(
-      `select p.id, p.display_name, p.avatar_url, p.provider, c.name, c.color, c.hat,
+      `select p.id, p.display_name, p.avatar_url, p.provider, c.name, c.color, c.hat, c.look,
               coalesce((select array_agg(form order by unlocked_at) from unlocks u where u.player_id = p.id), '{}') as unlocks,
               coalesce((select array_agg(reward order by granted_at) from rewards_ledger r where r.player_id = p.id), '{}') as rewards,
               coalesce((select jsonb_object_agg(quest, status) from quest_progress q where q.player_id = p.id), '{}'::jsonb) as quests
@@ -58,16 +58,16 @@ export class PgStore implements Store {
     if (!r) return null;
     return {
       id: r.id, displayName: r.display_name, avatarUrl: r.avatar_url, provider: r.provider,
-      character: { name: r.name ?? cleanName(r.display_name), color: r.color ?? '#2ec4a6', hat: r.hat ?? 0 },
+      character: { name: r.name ?? cleanName(r.display_name), color: r.color ?? '#2ec4a6', hat: r.hat ?? 0, look: cleanLook(r.look) },
       unlocks: r.unlocks, rewards: r.rewards, quests: r.quests,
     };
   }
 
   async updateCharacter(id: string, c: Character) {
     await this.pool.query(
-      `insert into characters (player_id, name, color, hat) values ($1, $2, $3, $4)
-       on conflict (player_id) do update set name = excluded.name, color = excluded.color, hat = excluded.hat, updated_at = now()`,
-      [id, c.name, c.color, c.hat],
+      `insert into characters (player_id, name, color, hat, look) values ($1, $2, $3, $4, $5)
+       on conflict (player_id) do update set name = excluded.name, color = excluded.color, hat = excluded.hat, look = excluded.look, updated_at = now()`,
+      [id, c.name, c.color, c.hat, JSON.stringify(cleanLook(c.look))],
     );
   }
 

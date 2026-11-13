@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { DEFAULT_UNLOCKS, cleanName, type Character, type FormId, type PlayerProfile } from '@alux/shared-contracts';
+import { DEFAULT_LOOK, DEFAULT_UNLOCKS, cleanLook, cleanName, type Character, type FormId, type PlayerProfile } from '@alux/shared-contracts';
 import type { MemberRow, RoomRow, Store, SessionMetrics } from './types.ts';
 
 interface PlayerRec {
@@ -62,7 +62,7 @@ export class MemoryStore implements Store {
       rec = {
         id: randomUUID(), provider: p.provider, providerId: p.providerId,
         displayName: p.displayName, avatarUrl: p.avatarUrl,
-        character: { name: cleanName(p.displayName), color: '#2ec4a6', hat: 0 },
+        character: { name: cleanName(p.displayName), color: '#2ec4a6', hat: 0, look: { ...DEFAULT_LOOK } },
         unlocks: [...DEFAULT_UNLOCKS], quests: {},
       };
       this.data.players[rec.id] = rec;
@@ -79,7 +79,7 @@ export class MemoryStore implements Store {
     if (!r) return null;
     return {
       id: r.id, displayName: r.displayName, avatarUrl: r.avatarUrl, provider: r.provider,
-      character: { ...r.character }, unlocks: [...r.unlocks],
+      character: { ...r.character, look: cleanLook(r.character.look) }, unlocks: [...r.unlocks],
       rewards: this.data.ledger.filter((l) => l.playerId === id).map((l) => l.reward),
       quests: { ...r.quests },
     };
@@ -87,7 +87,7 @@ export class MemoryStore implements Store {
 
   async updateCharacter(id: string, c: Character) {
     const r = this.data.players[id];
-    if (r) r.character = { ...c };
+    if (r) r.character = { ...c, look: cleanLook(c.look) };
     this.save();
   }
 

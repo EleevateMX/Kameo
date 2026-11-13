@@ -224,7 +224,9 @@ step('Las migraciones no borran ni alteran datos existentes', () => {
     for (const st of statements) {
       const kind = /^create table if not exists/i.test(st) ? 'crea tabla' : /^create index if not exists/i.test(st) ? 'crea índice'
         : /^alter table \w+ enable row level security/i.test(st) ? 'activa RLS' : /^alter table \w+ drop constraint if exists \w+_check$/i.test(st) ? 'quita una restricción CHECK'
-        : /^alter table \w+ add constraint \w+_check check/i.test(st) ? 'añade una restricción CHECK' : /^create extension if not exists/i.test(st) ? 'activa extensión' : '';
+        : /^alter table \w+ add constraint \w+_check check/i.test(st) ? 'añade una restricción CHECK' : /^create extension if not exists/i.test(st) ? 'activa extensión'
+        // una columna nueva con valor por defecto no toca lo que ya había en las filas
+        : /^alter table \w+ add column if not exists \w+ [\w ]+ default [^;]+$/i.test(st) ? 'añade una columna con valor por defecto' : '';
       assert.ok(kind, `${f}: sentencia fuera de lo permitido: ${st.slice(0, 90)}`);
       kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
     }
@@ -233,6 +235,8 @@ step('Las migraciones no borran ni alteran datos existentes', () => {
   // La única restricción que se cambia se sustituye por otra más amplia: no invalida filas existentes
   const beta = fs.readFileSync(path.join(dir, files[1]), 'utf8');
   assert.match(beta, /check \(provider in \('discord', 'dev', 'beta'\)\)/, "la restricción nueva debe seguir admitiendo 'discord' y 'dev'");
+  const look = files.find((f) => f.endsWith('_look.sql'));
+  if (look) assert.match(fs.readFileSync(path.join(dir, look), 'utf8'), /check \(hat between 0 and \d\d\)/, 'el límite nuevo del tocado debe seguir admitiendo los cuatro de antes');
   assert.match(read('apps/api/src/migrate.ts'), /ALLOW_DESTRUCTIVE_MIGRATIONS !== '1'/, 'el migrador debe negarse a borrar datos sin permiso');
   return `\n    ${notes.join('\n    ')}`;
 });

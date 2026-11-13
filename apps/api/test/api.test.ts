@@ -148,7 +148,19 @@ function suite(label: string, makeStore: () => Promise<Store>) {
       assert.equal((await a.call('PUT', '/v1/me/character', { name: 'Ixchel', color: 'rojo', hat: 1 })).status, 400);
       assert.equal((await a.call('PUT', '/v1/me/character', { name: 'Ixchel', color: '#ff0000', hat: 9 })).status, 400);
       const ok = await (await a.call('PUT', '/v1/me/character', { name: '  Ixchel <b> ', color: '#E4007C', hat: 2 })).json();
-      assert.deepEqual(ok.character, { name: 'Ixchel b', color: '#e4007c', hat: 2 });
+      assert.deepEqual(ok.character, { name: 'Ixchel b', color: '#e4007c', hat: 2, look: { outfit: 0, accessory: 0, amulet: 0, accent: 0, skin: 0 } });
+
+      // Apariencia del personalizador 3D: sólo valores del catálogo, y se conserva si no se manda
+      const look = { outfit: 1, accessory: 2, amulet: 3, accent: 4, skin: 2 };
+      for (const bad of [{ ...look, outfit: 99 }, { ...look, amulet: -1 }, { ...look, skin: 1.5 }, { ...look, scale: 3 }, { outfit: 1 }, 'capa', [1, 2, 3, 4, 2]]) {
+        assert.equal((await a.call('PUT', '/v1/me/character', { name: 'Ixchel', color: '#e4007c', hat: 2, look: bad })).status, 400, `apariencia inválida: ${JSON.stringify(bad)}`);
+      }
+      const dressed = await (await a.call('PUT', '/v1/me/character', { name: 'Ixchel', color: '#19b4d6', hat: 5, look })).json();
+      assert.deepEqual(dressed.character, { name: 'Ixchel', color: '#19b4d6', hat: 5, look });
+      // el editor sencillo del portal sólo manda nombre, color y tocado: lo demás no se pierde
+      const renamed = await (await a.call('PUT', '/v1/me/character', { name: 'Ixchel Dos', color: '#19b4d6', hat: 5 })).json();
+      assert.deepEqual(renamed.character.look, look);
+      assert.deepEqual((await (await a.call('GET', '/v1/me')).json()).character, { name: 'Ixchel Dos', color: '#19b4d6', hat: 5, look });
     });
 
     test('sala privada: ticket firmado, de un solo jugador, con el perfil del servidor', async () => {
