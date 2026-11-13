@@ -14,7 +14,7 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 
 | Closed Alpha 0.3.1 | Publicada el 13 nov 2026 (commit `cdf1543`): **es el punto de rollback de la 0.4** | La 0.3 con el audio arreglado (no sonaba nada), mezclador propio, música original, ambientes por zona, bandas sonoras de las cinemáticas, 50 efectos nuevos y prueba de sonido en el menú |
 
-| **Closed Alpha 0.4** | **Candidata a publicación** (13 nov 2026). Rollback: `cdf1543` (0.3.1) | Pantalla completa al pulsar JUGAR, personalizador 3D del alux, plaza social de Mérida (prototipo) con portal al Claro, primeros sonidos elegidos de oído |
+| **Closed Alpha 0.4** | **Publicada** el 13 nov 2026 en <https://alux-beta.onrender.com> (commit `b27e4c1`). Rollback: `cdf1543` (0.3.1) | Pantalla completa al pulsar JUGAR, personalizador 3D del alux, plaza social de Mérida (prototipo) con portal al Claro, primeros sonidos elegidos de oído |
 
 ## Publicación en la rama `beta`
 
@@ -26,11 +26,14 @@ informa el servicio, y `--commit <hash>` exige que sea uno concreto.
 
 ## ALUX Closed Alpha 0.4 — El mundo empieza en una plaza
 
-**Candidata a publicación.** El commit candidato lleva el juego con la etiqueta «ALUX Closed Alpha
-0.4», el servidor de zonas dentro de la imagen de Render y las comprobaciones que siguen. Rollback:
-`git push --force-with-lease origin cdf1543:beta` (la 0.3.1 funciona con la base de datos de la 0.4:
-la migración sólo añade una columna y amplía un límite; un tocado nuevo se vería como el pelo de
-siempre).
+**Publicada el 13 nov 2026.** En `beta` está el commit `b27e4c1`: une la historia de `beta`
+(`cdf1543`) con la candidata verificada `7c7ac6c` **sin cambiar ni un archivo de ésta** (mismo árbol
+de Git, `75e0ed9`). Todo lo que sigue se comprobó sobre `7c7ac6c`.
+
+**Rollback:** en Render → `alux-beta` → Events → el despliegue de `cdf1543` → Rollback (no
+reconstruye). La 0.3.1 funciona con la base de datos de la 0.4: la migración sólo añade una columna
+y amplía un límite; un tocado nuevo se vería como el pelo de siempre. Para cerrar sólo la plaza sin
+volver atrás: variable `ALUX_ZONE=off` en el panel.
 
 | Incremento | Estado | Documento |
 | --- | --- | --- |
@@ -53,27 +56,45 @@ a 512 MB como el plan actual):
 | `beta:check` contra la imagen | 13 de 13, con los dos pasos nuevos de la plaza; repetido tras reiniciar aplicación y base de datos |
 | Costo | El mismo servicio y el mismo plan (`0.5c-512mb`) y la misma base de datos. Nada nuevo que contratar |
 
+**Regresión sobre el commit exacto `7c7ac6c`** (copia limpia, una prueba cada vez): API 12 de 12 ·
+catálogos 3 · simulación sin violaciones · servidor de mazmorras 17 · servidor de zonas 7 · audio 11 ·
+flujo de playtest 15 · jefe completo 7 · pantalla completa 7 · personalizador 6, a la primera.
+Tres necesitaron repetirse, y se cuenta por qué:
+
+- **Cuatro navegadores (10 de 10 a la segunda):** «demasiadas reconexiones», el fallo conocido de
+  cuatro juegos dibujando por software a la vez.
+- **Vídeo de las cinemáticas (7 de 7 a la tercera):** dos fallos de tiempos distintos (2,6 s de
+  preparación con límite de 2,5; un plano que el muestreo no llegó a ver).
+- **Plaza (5 de 5 tras reordenar la prueba):** fallaba siempre en la copia limpia. Instrumentada:
+  con el segundo navegador dibujando la plaza por software, el motor de la sala tardaba 297 s en
+  arrancar (5,6 s cuando está solo; límite de la prueba, 300 s). La prueba cierra ahora ese
+  navegador después de comprobar que ve irse al primero. No es un defecto del juego, pero **no se
+  ha medido en ordenadores reales con dos pestañas abiertas**.
+
+Contra la imagen definitiva, con navegadores reales por HTTPS/WSS a través de dos proxies: plaza con
+dos jugadores 5 de 5, personalizador 6 de 6 y el camino completo 4 de 4. Memoria contando también
+los binarios cargados (PSS): 331 MB en reposo, 350 MB tras esas pruebas, de 512.
+
+**En producción, tras desplegar (`b27e4c1`, 13 nov 2026):**
+
+| Qué | Resultado |
+| --- | --- |
+| Despliegue | Render construyó y cambió el tráfico en unos 4 minutos; `/healthz` informa `b27e4c1` |
+| `beta:check` con invitación | 13 de 13: HTTPS, base de datos, nada abierto sin sesión, descarga (12,2 MB), 28 pistas de audio, `wss://…/ws` y `wss://…/zone`, sala con reconexión, plaza (10 estados/s, aforo 32). El perfil conserva Sello del Claro y Pluma de Jade |
+| Camino completo en navegador (`e2e/beta-plaza.ts`) | Portal → personalizador 3D (guardado) → plaza de Mérida con ese aspecto, andando y con música → portal → sala del Claro con el aspecto y con sonido |
+| Audio en la salida del navegador | Normal 8 de 8 (ambiente −27,7 dBFS, chispa −9,6 dBFS de pico), bloqueo simulado 2 de 2, «El llamado» con su banda sonora y omisión |
+| Cinemáticas | «El sello cede» como vídeo con banda sonora, omisión a los 2,4 s y respaldo del motor |
+| Jefe por protocolo | Tres fases y liberación en 82 s, pista del Cenote anotada |
+
+**No comprobado:** registros, memoria y reinicios reales del servicio (sólo se ven en el panel de
+Render); dos personas viéndose en la plaza de producción (sólo hay una invitación de verificación;
+comprobado contra la imagen); navegadores con tarjeta gráfica, Firefox y Safari; personas reales.
+
 **Qué cambia respecto a la 0.3.1 fuera del cliente:** una migración sólo aditiva (columna `look` y
 límite del tocado más amplio; la 0.3.1 sigue funcionando con la base nueva), el ticket de sala
 lleva el aspecto, endpoints nuevos de la API para la plaza, y un proceso nuevo (servidor de zonas)
 que la imagen de Render **todavía no arranca**. El servidor de mazmorras sólo cambia en que acepta
 el aspecto del ticket y lo relee de la API cuando el jugador se cambia.
-
-**Regresión de la rama (13 nov 2026, en local):** API 12 de 12 · catálogos 3 de 3 · simulación sin
-violaciones · servidor de mazmorras 17 de 17 · servidor de zonas 7 de 7 · audio 11 de 11 · vídeo 7 ·
-flujo de playtest 15 · jefe completo 7 · cuatro navegadores 10 · pantalla completa 7 ·
-personalizador 6 · plaza 5. Varias pruebas de navegador fallaron mientras otros procesos cargaban
-la máquina y pasaron al repetirlas en calma; tres (flujo, cuatro jugadores y pantalla completa)
-fallaban de verdad porque seguían probando el portal de la 0.3 o usaban una orden de clic que se
-cuelga al cambiar de modo de pantalla, y se corrigieron las pruebas.
-
-**Repetida entera con los sonidos elegidos y su mezcla** (commit `bd140aa`, misma fecha, máquina en
-calma, una prueba cada vez): mismos resultados, todo en verde salvo una prueba del servidor de zonas
-(«nadie se teletransporta») que falló una vez. Era una carrera de la propia prueba: el bot daba por
-asentado al alux con la cola de entradas del servidor a medio vaciar. Corregida la espera del bot,
-no el servidor ni la comprobación; 7 de 7 en siete pasadas seguidas. Estas pruebas miden que hay
-señal y que la partida funciona: **no dicen si la mezcla nueva suena bien**, eso sigue pendiente de
-oído dentro del juego.
 
 ## ALUX Closed Alpha 0.3.1 — El claro vuelve a oírse
 

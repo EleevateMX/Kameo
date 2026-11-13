@@ -10,9 +10,8 @@ Pruebas: [PLAYTEST.md](PLAYTEST.md) · Versiones: [RELEASES.md](RELEASES.md).
 
 | Área | Estado real |
 | --- | --- |
-| Versión publicada | **Closed Alpha 0.3.1** en <https://alux-beta.onrender.com> (rama `beta`, commit `cdf1543`), desde el 13 nov 2026: la 0.3 con el audio arreglado y medido en producción, música original, ambientes, bandas sonoras de las cinemáticas y 50 efectos nuevos. Rollback a la 0.3: commit `93007a0` ([RELEASES.md](RELEASES.md)). La calidad artística del audio está **sin evaluar por personas**. |
 | Versión candidata | Ninguna ahora mismo. |
-| Versión en desarrollo | **Alpha 0.4**, en la rama de trabajo, sin publicar. Hecho: pantalla completa ([FULLSCREEN.md](FULLSCREEN.md)), personalizador 3D ([PERSONALIZADOR.md](PERSONALIZADOR.md)), arquitectura del mundo abierto y prototipo de la plaza social de Mérida con portal al Claro ([OPEN_WORLD.md](OPEN_WORLD.md)), primeros sonidos elegidos de oído. Falta: desplegar el servidor de zonas, medir con navegadores reales, grupos y personaje de bienvenida en la plaza. |
+| Versión publicada | **Closed Alpha 0.4** (13 nov 2026, commit `b27e4c1`): pantalla completa ([FULLSCREEN.md](FULLSCREEN.md)), personalizador 3D ([PERSONALIZADOR.md](PERSONALIZADOR.md)), plaza social de Mérida con portal al Claro ([OPEN_WORLD.md](OPEN_WORLD.md)), primeros sonidos elegidos de oído. **Desarrollo detenido hasta la evaluación del dueño del proyecto.** Siguiente prioridad acordada: volver del Claro a la plaza conservando identidad, grupo, apariencia y progreso. |
 | Multijugador | Servidor autoritativo, 4 jugadores, reconexión, salas. Verificado con bots, navegadores y contra el servicio desplegado (un jugador). **Cuatro personas reales a la vez: sin probar.** |
 | Combate y formas | Alux y Balam, dos enemigos, emboscada, derrota y otra ronda. Datos modulares (`combat_def.gd`). Equilibrio sin probar con personas. |
 | Historia | Introducción, un personaje con diálogo, primer objetivo narrativo, **jefe con tres fases y cierre del capítulo** con la Pluma de Jade y la pista del Cenote (candidata 0.3). Falta «El vínculo de Balam». |
