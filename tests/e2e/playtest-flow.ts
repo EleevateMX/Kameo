@@ -34,8 +34,12 @@ await page.screenshot({ path: path.join(OUT, '00-portal-sala.png') });
 ok(`Portal: sesión iniciada y sala ${code} creada`);
 
 // 2) Entrar al claro: pantalla de carga → bienvenida
-await page.click('text=Entrar al claro');
-await page.waitForURL('**/game/index.html**', { timeout: 60_000 });
+// (desde la Alpha 0.4 el botón JUGAR abre el juego dentro de la página de la sala, para
+// conservar la pantalla completa; el resto de la prueba lo abre directamente con depuración)
+await page.click('button.enter');
+await page.waitForURL(`**/play/${code}`, { timeout: 60_000 });
+await page.waitForSelector('iframe.play-frame');
+assert.ok((await page.getAttribute('iframe.play-frame', 'src'))!.includes(`/game/index.html?room=${code}`), 'JUGAR abre el juego de esa sala');
 await page.goto(`${BASE}/game/index.html?room=${code}&debug=1&q=${QUALITY}`);
 await waitFor('el juego conecta', async () => (await state(page))?.net === 'PLAYING', 300_000);
 

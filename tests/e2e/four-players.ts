@@ -44,7 +44,7 @@ async function main() {
   // 2) La primera personaliza su alux y crea una sala privada
   const host = pages[0];
   await host.click('.swatch[aria-label="#e4007c"]');
-  await host.click('.hats .chip:nth-child(2)');
+  // (el tocado y el resto del aspecto se eligen ahora en el personalizador 3D: test:customizer)
   await host.click('text=Guardar alux');
   await host.waitForSelector('.saved:has-text("Guardado")');
   await host.click('text=Crear sala privada');

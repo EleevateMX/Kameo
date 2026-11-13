@@ -38,7 +38,18 @@ En Chromium (el mismo motor que Chrome y Edge), automatizado:
 6. Si el navegador niega la petición, se entra igual, en ventana.
 7. Abriendo el juego directamente, el primer clic la pide, una sola vez.
 
+Desde la plaza (`/plaza`) y el personalizador (`/alux`) el juego se abre en el mismo marco. La plaza
+pide la pantalla completa con el primer clic o tecla dentro del juego, si esa es la preferencia; el
+personalizador no la pide.
+
+Nota de las pruebas: el botón del juego se pulsa con el ratón de verdad (mover, pulsar, soltar). La
+orden de clic de alto nivel del arnés se queda esperando cuando el propio clic cambia el modo de
+pantalla; no es un defecto del juego.
+
 ## Sin comprobar y límites conocidos
+
+En este entorno sólo hay Chromium: **Firefox y Safari siguen sin probar**, a mano o
+automáticamente.
 
 | Navegador | Estado |
 | --- | --- |

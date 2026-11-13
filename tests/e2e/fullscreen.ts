@@ -31,6 +31,14 @@ async function waitGame(page: Page): Promise<Frame> {
   await waitFor('el motor arranca', async () => frame.evaluate(() => Number((window as any).ALUX?.engineMs) > 0).catch(() => false), 300_000);
   return frame;
 }
+/** Pulsa el botón de pantalla completa del juego con el ratón de verdad (mover, pulsar, soltar).
+ *  La orden de clic de alto nivel se queda esperando cuando el propio clic cambia el modo de pantalla. */
+async function pressFs(page: Page, frame: Frame) {
+  const box = (await frame.locator('#fs').boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.up();
+}
 const snd = (frame: Frame) => frame.evaluate(() => JSON.parse((window as any).ALUX_SND.state()));
 
 async function newPlayer(browser: Browser, name: string, init?: string) {
@@ -74,12 +82,12 @@ const browser = await launch();
   await page.keyboard.press('Escape');
   await waitFor('el ratón queda libre', async () => frame.evaluate(() => !document.pointerLockElement), 10_000);
   assert.equal(await isFullscreen(page), true, 'Esc abre el menú del juego sin sacar de pantalla completa');
-  await frame.click('#fs');
+  await pressFs(page, frame);
   await waitFor('sale de pantalla completa', async () => !(await isFullscreen(page)), 10_000);
   assert.equal(await pref(page), '0', 'salir con el botón se recuerda');
   await sleep(1000);
   assert.ok((await snd(frame)).ctx === 'running', 'la partida sigue en ventana');
-  await frame.click('#fs');
+  await pressFs(page, frame);
   await waitFor('vuelve a pantalla completa', async () => isFullscreen(page), 10_000);
   assert.equal(await pref(page), '1', 'volver a entrar se recuerda');
   ok('Botón del juego: sale a ventana y vuelve a pantalla completa; la preferencia se guarda');
