@@ -6,7 +6,7 @@ reproducible: los `.glb` salen idénticos, byte a byte, cada vez que se ejecutan
 
 | Archivo | Qué es |
 | --- | --- |
-| `blender/build_alux.py` | Genera `game/assets/characters/alux.glb` (el alux y sus cuatro tocados). |
+| `blender/build_alux.py` | Genera `game/assets/characters/alux.glb`: el alux y las piezas del personalizador (tocados, vestimenta, accesorios y amuletos), cada una en su malla. |
 | `blender/build_balam.py` | Genera `game/assets/characters/balam.glb` (Balam, el jaguar). |
 | `blender/build_yaxche.py` | Genera `game/assets/characters/yaxche.glb` (Chiich Yaxché, la abuela del claro, con su bastón). Reutiliza las medidas de la cabeza de `build_alux.py`. |
 | `blender/alux_common.py` | Utilidades: mallas, dibujos recortados en la superficie, oclusión, esqueleto, cinemática inversa, horneado de animaciones, exportación, renders. |
@@ -16,7 +16,9 @@ reproducible: los `.glb` salen idénticos, byte a byte, cada vez que se ejecutan
 | `blender/render_nojoch.py` | Imágenes del jefe en `propuestas/nojoch/` y sus hojas de `referencias/`; también sus medidas. |
 | `blender/videos_nojoch.py` | Vídeos de las animaciones del jefe, dibujados con Godot (`propuestas/nojoch/animaciones/`). |
 | `godot/check_nojoch.gd`, `godot/render_nojoch.gd` | Comprobación sin ventana del `.glb` del jefe y capturas o cuadros de animación con el renderer de Godot y la luz del juego. |
-| `godot/check_characters.gd` | Comprobación sin ventana de lo que Godot importa. |
+| `blender/hojas_alux_opciones.py` | Hojas de opciones del personalizador en `propuestas/alux_personalizacion/`, dibujadas con Godot (no usa Blender). La ficha de las piezas es `propuestas/alux_personalizacion/README.md`. |
+| `godot/render_alux_opciones.gd` | El alux con cualquier combinación de piezas y colores, con el renderer de Godot y la luz del juego: enciende las mallas y tiñe los materiales como `avatar.gd`. |
+| `godot/check_characters.gd` | Comprobación sin ventana de lo que Godot importa. Para el alux comprueba además el contrato del personalizador (nodos, materiales, esqueleto y animaciones) y sale con código 1 si algo falla. |
 | `godot/render_check.gd` | Capturas con el renderer real de Godot (bajo `xvfb`). |
 | `previews/` | Renders de referencia. `*_hoja.png` es la hoja de contacto; `godot_validacion.png` y `yaxche_godot_hoja.png` son capturas hechas con Godot. |
 | `referencias/` | Hojas de personaje sobre fondo neutro (frente, tres cuartos, lado, espalda) y su ficha (`referencias/README.md`): proporciones, paleta, rasgos fijos y descripción para prompt. |
@@ -39,10 +41,11 @@ python3 -m venv .tools/blender-venv
 .tools/blender-venv/bin/python art/blender/render_previews.py portraits yaxche   # solo el suyo
 .tools/blender-venv/bin/python art/blender/render_referencias.py          # hojas de personaje (todas)
 .tools/blender-venv/bin/python art/blender/render_referencias.py balam    # solo las de un personaje
+.tools/blender-venv/bin/python art/blender/hojas_alux_opciones.py        # hojas del personalizador (con Godot)
 
 # comprobar en Godot
 .tools/godot --headless --path game --import
-.tools/godot --headless --path game --script "$PWD/art/godot/check_characters.gd"
+.tools/godot --headless --path game --script "$PWD/art/godot/check_characters.gd"   # alux: «CONTRATO ALUX: OK»
 xvfb-run -a .tools/godot --rendering-driver opengl3 --path game --resolution 480x480 \
     --script "$PWD/art/godot/render_check.gd" -- /tmp/capturas          # todas las tomas
 xvfb-run -a .tools/godot --rendering-driver opengl3 --path game --resolution 480x480 \
@@ -74,27 +77,69 @@ algún dibujo ha dejado un hueco por el que se vería el interior.
   `vertex_color_use_as_albedo = true`.
 - Los materiales se localizan por nombre de superficie
   (`mesh.surface_get_material(i).resource_name`), no por índice. Son de una sola cara.
+- **Materiales que el juego tiñe.** El renderer Compatibility multiplica el albedo del
+  material por el color de vértice tal como están guardados (en sRGB). Un material
+  teñible lleva el color en el albedo y, en los vértices, solo el matiz (sombra,
+  cenefas, rubor) como factor; el juego cambia `albedo_color` y nada más. En Blender,
+  `make_material(..., tint=True)` y `MeshBuilder.vdiv` se encargan de dividir.
 - Las animaciones cíclicas cierran exactas, pero Godot las importa sin bucle.
 - Todas las animaciones llevan pista en los mismos huesos, así que cambiar de una a
   otra no deja restos de la pose anterior. Ninguna desplaza la raíz.
 
-### `alux.glb` — 9 614 triángulos, 641 KB, 33 huesos
+### `alux.glb` — 12 721 triángulos, 823 KB, 33 huesos
 
-Mide 1.30 m hasta la coronilla (1.47 m con sombrero, 1.61 m con penacho).
+Mide 1.30 m hasta la coronilla (1.47 m con sombrero, 1.61 m con penacho). Lleva el cuerpo,
+el cabello y las piezas del personalizador, cada una en su malla; el juego enciende
+una por familia buscándola por nombre (`find_children(prefijo + "*")` da esa malla y
+ninguna otra). **Todas llegan visibles**: quien instancie el modelo apaga las que no
+toquen. La ficha completa (huesos de cada pieza, combinaciones, problemas conocidos y
+hojas de opciones) está en `propuestas/alux_personalizacion/README.md`.
 
 | Nodo (MeshInstance3D) | Uso | Triángulos | Materiales |
 | --- | --- | --- | --- |
-| `Alux` | cuerpo, siempre visible | 7 172 | `Body`, `Tunic`, `Eye`, `Jade` |
-| `Hat_Palma` | sombrero de palma con pluma | 656 | `Headwear`, `Jade` |
-| `Hat_Penacho` | penacho de plumas | 976 | `Headwear`, `Jade` |
-| `Hat_Flor` | flor de mayo (con `Hair`) | 504 | `Headwear` |
-| `Hair` | cabello oscuro; va bien con los tres tocados | 306 | `Headwear` |
+| `Alux` | cuerpo, siempre visible | 6 560 | `Skin`, `Body`, `Tunic`, `Trim`, `Eye`, `Jade` |
+| `Hair` | cabello oscuro; visible con todos los tocados | 306 | `Headwear` |
+| `Hat_Palma` | tocado 0: sombrero de palma con pluma | 656 | `Headwear`, `Jade` |
+| `Hat_Penacho` | tocado 1: penacho de plumas | 976 | `Headwear`, `Jade` |
+| `Hat_Flor` | tocado 2: flor de mayo | 504 | `Headwear` |
+| `Hat_Plumas` | tocado 4: diadema baja de plumas cortas | 352 | `Headwear` |
+| `Hat_Panuelo` | tocado 5: pañuelo anudado | 204 | `Trim` |
+| `Hat_Hojas` | tocado 6: corona de hojas y florecillas | 308 | `Headwear` |
+| `Outfit_Capa` | vestimenta 1: capa corta con broche | 340 | `Trim`, `Body` |
+| `Outfit_Faja` | vestimenta 2: faja ancha con flecos y delantal | 268 | `Trim`, `Body` |
+| `Outfit_Bordado` | vestimenta 3: pechera y bajo de rombos | 352 | `Trim`, `Body` |
+| `Acc_Morral` | accesorio 1: sabucán cruzado | 364 | `Trim`, `Body` |
+| `Acc_Sonaja` | accesorio 2: sonaja de jícara al cinto | 177 | `Body` |
+| `Acc_Caracol` | accesorio 3: caracol marino a la espalda | 292 | `Body` |
+| `Acc_Farol` | accesorio 4: farolito de luciérnagas al cinto | 198 | `Body`, `Firefly` |
+| `Amu_Jade` | amuleto 1: colgante de jade | 248 | `Body`, `Jade` |
+| `Amu_Concha` | amuleto 2: concha en cordón | 152 | `Body` |
+| `Amu_Obsidiana` | amuleto 3: espejo de obsidiana | 204 | `Body`, `Obsidian` |
+| `Amu_Semillas` | amuleto 4: collar de semillas rojas | 260 | `Body` |
 
-- `Body`: blanco, todo el color está en los vértices (piel, bordados, faja, huaraches…).
-- `Tunic`: color del jugador (se exporta en `#2ec4a6`); sus vértices solo llevan
-  sombra y costuras, en gris.
+El tocado 3 es «sin tocado» y el índice 0 de vestimenta, accesorios y amuletos es
+«ninguno». El sabucán y el amuleto de jade, que antes iban fijos en el cuerpo, son
+ahora `Acc_Morral` y `Amu_Jade`: el alux de siempre es accesorio 1 y amuleto 1 (y así
+sale en los renders de `previews/`, `referencias/` y los retratos).
+
+- `Tunic`: color principal del jugador (se exporta en `#2ec4a6`); sus vértices solo
+  llevan sombra y costuras, en gris.
+- `Trim`: color secundario (se exporta en `#f8efdc`, el crema de siempre): jubón, ruedo
+  y puños del huipil, telas de `Outfit_*`, `Hat_Panuelo` y la correa del morral. Vértices
+  en blanco y grises. Los bordados de encima siguen en `Body`.
+- `Skin`: la piel. Como el rubor y las palmas son más claros que la piel media y un
+  vértice no pasa de 1, la piel media va en gris 0.75 y el albedo es el tono de piel
+  × 4/3: se exporta en `#e19764`, que da el `#a9714b` de siempre. Para otro tono,
+  `albedo_color = tono × 4/3` (y × 1.12 si se aclara como `Body`).
+- `Body`: blanco, todo el color está en los vértices (bordados, faja, huaraches, y en
+  las piezas: cuero, madera, jícara, conchas, semillas…).
 - `Eye`: iris de jade emisivo (energía 1.2). `Jade`: amuleto, pulsera y arete, emisivo suave.
 - `Headwear`: blanco con color de vértice, para tocados y cabello.
+- `Firefly`: la luz del farol, emisivo suave (0.7). `Obsidian`: el espejo, el único
+  material pulido (rugosidad 0.12), con el color y el destello en los vértices.
+- El esqueleto no tiene huesos nuevos: lo que cuelga del cinto va pesado a `Bag`, lo
+  que cuelga del cuello a `Amulet`, y las puntas de la faja ancha a `SashTail`, que ya
+  se balanceaban en todas las animaciones.
 
 | Animación | Duración | Tipo | Notas |
 | --- | --- | --- | --- |
@@ -201,6 +246,11 @@ vida, pero no sustituye a un modelado y una animación hechos a mano.
   `Death` y `Swim` las piernas van por cinemática directa y puede haber pequeños
   cruces con el suelo o la ropa. Las mangas atraviesan el jubón al levantar los brazos.
 - **Expresión.** La boca del alux solo se abre y se estrecha (un hueso); los ojos no giran.
+- **Piezas del personalizador.** Son rígidas (sin tela ni física). Con los brazos en
+  alto la capa se arruga sobre los hombros y asoman las mangas; lo que cuelga del cinto
+  va en la cadera derecha, hacia atrás, y de frente casi no se ve; con la cabeza
+  agachada el mentón tapa el amuleto. El detalle, en
+  `propuestas/alux_personalizacion/README.md`.
 - **Abuela Yaxché.** El rebozo es una esclavina rígida con dos puntas: al levantar un
   brazo (`Scold`, `Bless`) sube con él y se arruga, y el antebrazo derecho roza la
   punta de ese lado. La mano izquierda solo separa el índice; el puño derecho no se

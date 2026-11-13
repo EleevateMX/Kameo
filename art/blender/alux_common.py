@@ -68,9 +68,12 @@ def mulc(a, k):
 WHITE = (1.0, 1.0, 1.0)
 
 
-def make_material(name, color, rough=0.8, emission=0.0, metallic=0.0, emission_color=None):
+def make_material(name, color, rough=0.8, emission=0.0, metallic=0.0, emission_color=None, tint=False):
     """Material PBR de color plano. `color` es "#rrggbb" (sRGB). El color de vértice
-    multiplica a este color al exportar (COLOR_0) y en Godot."""
+    multiplica a este color al exportar (COLOR_0) y en Godot.
+    `tint=True` marca un material que el juego tiñe y cuyos vértices llevan el matiz
+    dividido por este color (ver `MeshBuilder.vdiv`): la vista previa lo multiplica como
+    Godot, en sRGB, para que salga el color de siempre."""
     m = bpy.data.materials.new(name)
     if m.node_tree is None or "Principled BSDF" not in m.node_tree.nodes:
         m.use_nodes = True
@@ -84,6 +87,8 @@ def make_material(name, color, rough=0.8, emission=0.0, metallic=0.0, emission_c
         bsdf.inputs["Emission Strength"].default_value = emission
     m.diffuse_color = (*lin, 1.0)
     m.use_backface_culling = True          # una sola cara: en glTF, doubleSided = false
+    if tint:
+        m["tinte_srgb"] = list(hex_rgb(color))
     return m
 
 
@@ -218,6 +223,11 @@ class MeshBuilder:
         self.fcols = []
         self.focc = []
         self.ao = None
+        # {material: (r, g, b) en sRGB}: el color guardado en los vértices de ese material
+        # se divide por ese valor, que debe ser el albedo del material. Así el color vive
+        # en el material (el juego lo cambia para teñir) y el vértice solo lleva el matiz
+        # como factor: con el albedo de fábrica, material × vértice da el color de siempre.
+        self.vdiv = {}
 
     def vert(self, p, w):
         self.verts.append(Vector(p))
@@ -512,12 +522,15 @@ class MeshBuilder:
         mesh.polygons.foreach_set("use_smooth", [True] * len(faces))
         attr = mesh.color_attributes.new(COLOR_ATTR, "FLOAT_COLOR", "CORNER")
         flat = []
-        for f, cols in zip(self.faces, self.fcols):
+        for f, cols, mname in zip(self.faces, self.fcols, self.fmat):
+            div = self.vdiv.get(mname)
             for v, c in zip(f, cols):
                 k = self.ao[v] if self.ao else 1.0
                 rgb = (c[0] * k, c[1] * k, c[2] * k)
                 if VERTEX_COLORS_SRGB:
                     rgb = tuple(linear_to_srgb(x) for x in rgb)
+                if div:
+                    rgb = tuple(min(1.0, x / d) for x, d in zip(rgb, div))
                 flat.extend((rgb[0], rgb[1], rgb[2], 1.0))
         attr.data.foreach_set("color", flat)
         mesh.color_attributes.active_color = attr
@@ -1060,6 +1073,16 @@ def link_vertex_colors():
         mix.blend_type = "MULTIPLY"
         mix.inputs["Factor"].default_value = 1.0
         mix.inputs["A"].default_value = bsdf.inputs["Base Color"].default_value
+        if VERTEX_COLORS_SRGB and m.get("tinte_srgb"):
+            # material teñible: Godot multiplica albedo y vértice tal como están guardados
+            # (en sRGB); aquí se hace igual y se pasa a lineal el producto
+            mix.inputs["A"].default_value = (*m["tinte_srgb"], 1.0)
+            gam = nt.nodes.new("ShaderNodeGamma")
+            gam.inputs["Gamma"].default_value = 2.2
+            nt.links.new(vc.outputs["Color"], mix.inputs["B"])
+            nt.links.new(mix.outputs["Result"], gam.inputs["Color"])
+            nt.links.new(gam.outputs["Color"], bsdf.inputs["Base Color"])
+            continue
         if VERTEX_COLORS_SRGB:              # Cycles sí trabaja en lineal: deshacer la codificación
             gam = nt.nodes.new("ShaderNodeGamma")
             gam.inputs["Gamma"].default_value = 2.2
