@@ -19,6 +19,8 @@ export interface Config {
   databaseUrl: string | null;
   dataFile: string | null;
   gameServers: GameServerRef[];
+  /** URL pública del servidor de zonas sociales (ws:// o wss://); '' si no hay. */
+  zoneWsUrl: string;
   production: boolean;
   /** Interfaz en la que escucha la API (127.0.0.1 detrás del proxy interno). */
   host: string;
@@ -47,6 +49,7 @@ export function loadConfig(): Config {
   const production = process.env.NODE_ENV === 'production';
   return {
     port: Number(process.env.API_PORT) || 4000,
+    zoneWsUrl: process.env.ZONE_WS_URL ?? (production ? '' : 'ws://localhost:9081'),
     sessionSecret: readSecret('SESSION_SECRET'),
     ticketSecret: readSecret('GAME_TICKET_SECRET'),
     serviceKey: readSecret('SERVICE_KEY'),

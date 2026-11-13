@@ -5,7 +5,7 @@ import { after, before, describe, test } from 'node:test';
 import pg from 'pg';
 import {
   GAME_TICKET_AUDIENCE, SESSION_AUDIENCE, betaAccessEnabled, findInvite, generateInviteCode, hashInviteCode, parseBetaInvites,
-  signJwt, verifyJwt, type GameTicketClaims,
+  ZONE_TICKET_AUDIENCE, signJwt, verifyJwt, type GameTicketClaims,
 } from '@alux/shared-contracts';
 import { createApp } from '../src/app.ts';
 import { migrate } from '../src/migrate.ts';
@@ -17,7 +17,7 @@ import type { Store } from '../src/store/types.ts';
 const config: Config = {
   port: 0, sessionSecret: 'test-session-secret-123456', ticketSecret: 'test-ticket-secret-123456',
   serviceKey: 'test-service-key-123456', databaseUrl: null, dataFile: null,
-  gameServers: [{ id: 'gs-1', wsUrl: 'ws://localhost:9080' }], production: false,
+  gameServers: [{ id: 'gs-1', wsUrl: 'ws://localhost:9080' }], zoneWsUrl: 'ws://localhost:9081', production: false,
   host: '127.0.0.1', commit: 'abc1234',
   // Acceso de testers: una invitación vigente y otra vencida
   betaEnabled: true,
@@ -177,6 +177,28 @@ function suite(label: string, makeStore: () => Promise<Store>) {
       assert.ok(claims.exp - claims.iat <= 120);
       assert.equal(verifyJwt(t.ticket, 'secreto-equivocado', GAME_TICKET_AUDIENCE), null);
       assert.equal((await a.call('POST', '/v1/rooms/ZZZZZZ/ticket')).status, 404);
+    });
+
+    test('plaza: ticket de zona propio, con el aspecto del perfil, que no vale para una sala', async () => {
+      const a = await login(3);
+      const look = { outfit: 2, accessory: 3, amulet: 0, accent: 5, skin: 1 };
+      await a.call('PUT', '/v1/me/character', { name: 'Plazera', color: '#ffd23f', hat: 4, look });
+      const t = await (await a.call('POST', '/v1/zones/merida/ticket')).json();
+      assert.equal(t.wsUrl, 'ws://localhost:9081');
+      assert.equal(t.zone, 'merida');
+      const claims = verifyJwt<any>(t.ticket, config.ticketSecret, ZONE_TICKET_AUDIENCE);
+      assert.ok(claims);
+      assert.equal(claims.sub, a.id);
+      assert.deepEqual([claims.zone, claims.name, claims.color, claims.hat, claims.look], ['merida', 'Plazera', '#ffd23f', 4, [2, 3, 0, 5, 1]]);
+      assert.ok(claims.exp - claims.iat <= 120);
+      assert.equal(verifyJwt(t.ticket, config.ticketSecret, GAME_TICKET_AUDIENCE), null, 'un ticket de zona no abre una sala');
+      assert.equal((await a.call('POST', '/v1/zones/atlantida/ticket')).status, 404);
+      // sin sesión no hay ticket
+      assert.equal((await fetch(base + '/v1/zones/merida/ticket', { method: 'POST', headers: { 'x-alux-csrf': '1' } })).status, 401);
+      // el servidor de zonas relee el aspecto con su clave de servicio; sin ella, nada
+      const fresh = await (await svc('/internal/zone/character', { player: a.id })).json();
+      assert.deepEqual(fresh, { name: 'Plazera', color: '#ffd23f', hat: 4, look: [2, 3, 0, 5, 1] });
+      assert.equal((await svc('/internal/zone/character', { player: a.id }, 'clave-falsa')).status, 401);
     });
 
     test('máximo 4 aluxes por sala; el quinto recibe room_full', async () => {

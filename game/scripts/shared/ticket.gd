@@ -10,8 +10,9 @@ static func _b64url_decode(s: String) -> PackedByteArray:
 	return Marshalls.base64_to_raw(t)
 
 
-## Devuelve el contenido del ticket, o {} si no es válido.
-static func verify(token: String, secret: String) -> Dictionary:
+## Devuelve el contenido del ticket, o {} si no es válido. `audience` dice para qué servidor se
+## emitió: un ticket de sala no sirve en el servidor de zonas, ni al revés.
+static func verify(token: String, secret: String, audience := "alux-game") -> Dictionary:
 	if token.length() > 4096 or secret.is_empty():
 		return {}
 	var parts := token.split(".")
@@ -39,6 +40,6 @@ static func verify(token: String, secret: String) -> Dictionary:
 		return {}
 	if float(exp) < Time.get_unix_time_from_system():
 		return {}
-	if payload.get("aud") != "alux-game":
+	if payload.get("aud") != audience:
 		return {}
 	return payload

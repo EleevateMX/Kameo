@@ -4,6 +4,10 @@
 export const PROTOCOL_VERSION = 2;
 export const MAX_PLAYERS_PER_ROOM = 4;
 export const GAME_TICKET_AUDIENCE = 'alux-game';
+/** Tickets del servidor de zonas sociales (otro proceso): no valen en las salas, ni los de sala aquí. */
+export const ZONE_TICKET_AUDIENCE = 'alux-zone';
+/** Zonas sociales que existen. */
+export const ZONES = ['merida'] as const;
 export const SESSION_AUDIENCE = 'alux-session';
 export const GAME_TICKET_TTL_SECONDS = 90;
 

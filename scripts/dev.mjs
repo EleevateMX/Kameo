@@ -33,7 +33,7 @@ if (production) {
   if (r.status !== 0) process.exit(1);
 }
 
-const colors = { api: '\x1b[36m', juego: '\x1b[33m', portal: '\x1b[35m' };
+const colors = { api: '\x1b[36m', juego: '\x1b[33m', zona: '\x1b[32m', portal: '\x1b[35m' };
 const children = [];
 
 function run(name, cmd, args, env = {}) {
@@ -72,6 +72,8 @@ process.on('SIGTERM', () => shutdown(0));
 
 run('api', 'npm', ['run', production ? 'start' : 'dev', '-w', '@alux/api']);
 run('juego', path.join(root, 'scripts/run-game-server.sh'), [], { ALUX_DEV: '1' });
+// Servidor de zonas sociales (la plaza): otro proceso; las salas no dependen de él
+run('zona', path.join(root, 'scripts/run-zone-server.sh'), [], { ALUX_DEV: '1' });
 run('portal', 'npm', ['run', production ? 'start' : 'dev', '-w', '@alux/portal']);
 
 console.log('\nALUX arrancando… abre http://localhost:3000 cuando el portal esté listo.\n');

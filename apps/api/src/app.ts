@@ -1,7 +1,7 @@
 import { randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import {
-  GAME_TICKET_AUDIENCE, GAME_TICKET_TTL_SECONDS, MAX_PLAYERS_PER_ROOM, REWARDS, SESSION_AUDIENCE,
+  GAME_TICKET_AUDIENCE, GAME_TICKET_TTL_SECONDS, MAX_PLAYERS_PER_ROOM, REWARDS, SESSION_AUDIENCE, ZONES, ZONE_TICKET_AUDIENCE,
   HATS, cleanName, inviteActive, isValidColor, isValidLook, lookToList, signJwt, verifyJwt,
   type HeartbeatBody, type RewardBody, type RewardResult, type RoomInfo,
 } from '@alux/shared-contracts';
@@ -341,6 +341,34 @@ export function createApp(store: Store, config: Config) {
       for (const [k, t] of recentTickets) if (now - t > MEMBER_GRACE_MS * 2) recentTickets.delete(k);
     }
     res.json({ ok: true });
+  });
+
+  // ───────────── Zonas sociales ─────────────
+  // Ticket para entrar a una zona social (la plaza). Como el de sala: firmado, de un solo uso y
+  // con el perfil dentro; el servidor de zonas no acepta nada que diga el cliente sobre sí mismo.
+  app.post('/v1/zones/:zone/ticket', requireSession, async (req, res) => {
+    const zone = String(req.params.zone);
+    if (!(ZONES as readonly string[]).includes(zone)) return res.status(404).json({ error: 'zone_not_found' });
+    if (!config.zoneWsUrl) return res.status(503).json({ error: 'zone_unavailable', message: 'La plaza no está abierta en este servidor.' });
+    const playerId = (req as AuthedRequest).playerId;
+    const profile = await store.getProfile(playerId);
+    if (!profile) return res.status(401).json({ error: 'no_session' });
+    const c = profile.character;
+    const ticket = signJwt({
+      aud: ZONE_TICKET_AUDIENCE, sub: playerId, jti: randomUUID(), zone,
+      name: c.name, color: c.color, hat: c.hat, look: lookToList(c.look),
+    }, config.ticketSecret, GAME_TICKET_TTL_SECONDS);
+    res.json({ ticket, wsUrl: config.zoneWsUrl, zone });
+  });
+
+  // El servidor de zonas relee la apariencia de un jugador (la cambió en el personalizador).
+  app.post('/internal/zone/character', requireService, async (req, res) => {
+    const { player } = (req.body ?? {}) as { player?: unknown };
+    if (typeof player !== 'string' || !UUID_RE.test(player)) return res.status(400).json({ error: 'invalid_request' });
+    const profile = await store.getProfile(player);
+    if (!profile) return res.status(404).json({ error: 'not_found' });
+    const c = profile.character;
+    res.json({ name: c.name, color: c.color, hat: c.hat, look: lookToList(c.look) });
   });
 
   // El servidor de juego relee la apariencia de un jugador de su sala (la cambió en el

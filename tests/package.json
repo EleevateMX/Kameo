@@ -13,6 +13,8 @@
     "test:fullscreen": "tsx e2e/fullscreen.ts",
     "test:customizer": "tsx e2e/customizer.ts",
     "test:look": "tsx --test look-catalog.test.ts",
+    "test:zone": "tsx --test zone.test.ts",
+    "zone:load": "tsx zone-load.ts",
     "test:cine-coop": "tsx e2e/cine-coop.ts",
     "beta:check": "tsx beta-check.ts",
     "beta:preflight": "tsx beta-preflight.ts",

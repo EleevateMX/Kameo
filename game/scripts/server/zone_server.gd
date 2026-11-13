@@ -50,6 +50,7 @@ class P:
 	var yaw := 0.0
 	var queue: Array = []        # entradas pendientes: [seq, mx, mz, salto, yaw]
 	var ack := 0
+	var credit := 1.0            # entradas que puede aplicar: una por paso, con un pequeño margen
 	var conn_id := 0
 	var sees := {}               # num -> P que este jugador está recibiendo
 	var look_asked := -100.0
@@ -352,17 +353,21 @@ func _enter_msg(p: P) -> Dictionary:
 
 func _step() -> void:
 	_tick += 1
-	# 1) Movimiento: una entrada por jugador y paso (dos si va con retraso, para ponerse al día)
+	# 1) Movimiento: una entrada por jugador y paso. Cada paso da derecho a una entrada, con un
+	#    margen de tres para absorber ráfagas de red: mandar entradas más deprisa no hace correr
+	#    más, porque a la larga no se aplican más entradas que pasos han transcurrido.
 	for p in _players.values():
 		var pl: P = p
-		var n := 2 if pl.queue.size() > 3 else 1
-		while n > 0 and not pl.queue.is_empty():
-			n -= 1
+		pl.credit = minf(pl.credit + 1.0, 3.0)
+		var applied := 0
+		while applied < 2 and pl.credit >= 1.0 and not pl.queue.is_empty():
+			applied += 1
+			pl.credit -= 1.0
 			var inp: Array = pl.queue.pop_front()
 			pl.s = Zone.step(pl.s, float(inp[1]), float(inp[2]), bool(inp[3]))
 			pl.yaw = float(inp[4])
 			pl.ack = int(inp[0])
-		if pl.queue.is_empty() and float(pl.s[1]) > 0.0 and n > 0:
+		if applied == 0 and float(pl.s[1]) > 0.0:
 			pl.s = Zone.step(pl.s, 0.0, 0.0, false)   # sin entradas, al menos termina de caer
 	# 2) Quién ve a quién
 	if _tick % VIS_EVERY == 0:
