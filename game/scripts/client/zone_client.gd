@@ -25,6 +25,7 @@ const Kit := preload("res://scripts/client/ui/ui_kit.gd")
 const Hud := preload("res://scripts/client/hud.gd")
 const Combat := preload("res://scripts/shared/combat_def.gd")
 const PerfGovernor := preload("res://scripts/client/perf_governor.gd")
+const ShopPanel := preload("res://scripts/client/shop_panel.gd")
 
 ## Perfil de calidad de la plaza (0 alta · 1 baja · 2 mínima). El regulador mueve la resolución del
 ## 3D entre `min_scale` y `max_scale`; `max_pixels` acota las pantallas de alta densidad.
@@ -115,6 +116,7 @@ var _poi := ""                              # el que está al alcance
 var _panel: Control
 var _panel_body: VBoxContainer
 var _panel_id := ""
+var _shop: ShopPanel
 var _panel_recapture := false
 var _account: Dictionary = {}               # perfil del jugador (/api/v1/me): recompensas y formas
 var _account_poll := 0.0
@@ -124,6 +126,12 @@ var _account_state := ""                    # "" sin pedir · "wait" · "ok" · 
 func _ready() -> void:
 	_is_web = OS.has_feature("web")
 	Audio.ground_override = "piedra"
+	# Puesto de Saberes: la tienda de la progresión RPG (pide a la API y se repinta sola)
+	_shop = ShopPanel.new()
+	add_child(_shop)
+	_shop.changed.connect(func() -> void:
+		if _panel_id == "shop":
+			_fill_panel())
 	_gov = PerfGovernor.new()
 	add_child(_gov)
 	_gov.struggling.connect(_on_struggling)
@@ -928,7 +936,9 @@ func _open_panel(id: String) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_was_captured = false
 	Audio.play("ui_abrir")
-	if id != "guide":
+	if id == "shop":
+		_shop.refresh()
+	elif id != "guide":
 		_request_account()
 
 
@@ -956,7 +966,7 @@ func _fill_panel() -> void:
 			custom.custom_minimum_size = Vector2(220, 40)
 			buttons.add_child(custom)
 		"shop":
-			_fill_shop()
+			_shop.fill(_panel_body, func(text: String, on_press: Callable) -> Button: return _button(text, on_press, true))
 		"board":
 			_fill_board()
 	var close := _button("Entendido  ·  F", func() -> void: _close_panel(true), true)
@@ -1148,6 +1158,10 @@ func _debug_export(delta: float) -> void:
 				_gov.set_scale(1.0)
 			"gov:on":
 				_gov.enabled = true
+			_:
+				# (pruebas) órdenes al puesto: shop:buy:skill:chispa, shop:gacha, shop:equip:0…
+				if act.begins_with("shop:"):
+					_shop.command(act.trim_prefix("shop:"))
 	var cmd := str(_js("window.ALUX_CUSTOM || ''"))
 	if not cmd.is_empty():
 		_js("window.ALUX_CUSTOM = ''")
@@ -1177,7 +1191,7 @@ func _debug_export(delta: float) -> void:
 		"me": {"name": _profile.get("n", ""), "color": _profile.get("c", ""), "hat": _profile.get("h", 0), "look": _profile.get("l", []),
 			"x": snappedf(float(_pred[0]), 0.01), "y": snappedf(float(_pred[1]), 0.01), "z": snappedf(float(_pred[2]), 0.01)},
 		"portal": Zone.at_portal(float(_pred[0]), float(_pred[2])), "prompt": _prompt.text, "overlay": _overlay.text,
-		"custom": _custom.info(), "snd": _audio.info(),
+		"custom": _custom.info(), "shop": _shop.info(), "snd": _audio.info(),
 		"ui": {"menu": _menu.visible, "captured": Input.mouse_mode == Input.MOUSE_MODE_CAPTURED, "panel": _panel_id, "perf": _perf_box.visible},
 		"pois": pois, "npcs": npcs, "poi": _poi, "account": {"state": _account_state, "rewards": _account.get("rewards", []), "unlocks": _account.get("unlocks", [])},
 		"quality": ["high", "low", "min"][_quality], "perf": _perf_stats(), "scene": _plaza.info(),

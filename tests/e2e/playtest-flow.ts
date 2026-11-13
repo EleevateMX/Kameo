@@ -185,7 +185,15 @@ assert.equal(s.encounter, 2);
 assert.match(s.ui.objective, /Entra al santuario/, 'el objetivo invita a seguir: el guardián espera dentro');
 assert.equal(s.ui.captured, false, 'el ratón queda libre para pulsar los botones');
 assert.ok(s.stats.kills + s.stats.purified >= 8, `el resumen cuenta las 8 bajas (${s.stats.kills} + ${s.stats.purified})`);
+// Progresión RPG: jugar el Claro da experiencia y semillas (las pone la API), y se ve en pantalla
+await waitFor('recompensa del Claro en pantalla', async () => ((await state(page) as any).rpg?.xp ?? 0) >= 150 + 8 * 15, 30_000);
+s = await state(page);
+assert.ok(s.rpg.seeds >= 75 + 8 * 5, `semillas por el Claro y las ocho criaturas (${s.rpg.seeds})`);
+assert.match(s.rpg.hud.level, /NIVEL [3-9]/, `con ${s.rpg.xp} de experiencia ya subió de nivel (${s.rpg.hud.level})`);
+assert.equal(s.rpg.hud.open, true);
+const earned = { xp: s.rpg.xp, seeds: s.rpg.seeds, level: s.rpg.hud.level };
 await shot(page, '06-victoria.png');
+ok(`Progresión: ${earned.xp} de experiencia y ${earned.seeds} semillas por jugar el Claro; el HUD marca «${earned.level}»`);
 ok(`Victoria: panel con resumen (${Math.round(s.stats.secs)} s, ${s.stats.kills} vencidos, ${s.stats.purified} purificadas, ${s.stats.falls} caídas)`);
 
 // 6b) El guardián duerme en el patio; en cuanto un compañero entra, despierta para todos
@@ -285,6 +293,46 @@ await page.evaluate(() => { (window as any).ALUX_ACTION = 'exit'; });   // botó
 await page.waitForURL('**/hub', { timeout: 60_000 });
 await page.screenshot({ path: path.join(OUT, '10-portal-de-vuelta.png') });
 ok('Salir al portal desde el menú');
+
+// 11) El ciclo completo de la progresión: con las semillas ganadas se compra un amuleto en el
+//     Puesto de Saberes de Mérida, se equipa y su efecto se ve al volver a una sala
+{
+  const me0 = await page.evaluate(async () => (await (await fetch('/api/v1/me')).json()).rpg);
+  assert.ok(me0.seeds >= 80, `lo ganado quedó guardado en el perfil (${me0.seeds} semillas, nivel ${me0.level})`);
+  await page.goto(`${BASE}/plaza?debug=1&q=min&fs=0`);
+  const plaza = () => page.frames().find((f) => f.url().includes('mode=plaza'));
+  const zs = async (): Promise<any> => plaza()?.evaluate(() => (window as any).__aluxState).catch(() => undefined);
+  const act = (v: string) => plaza()!.evaluate((x) => { (window as any).ALUX_ACTION = x; }, v);
+  await waitFor('dentro de la plaza', async () => (await zs())?.net === 'PLAYING', 300_000);
+  await act('shop');
+  await waitFor('el puesto abre con el perfil', async () => (await zs())?.shop?.rpg?.level >= 1 && (await zs()).shop.catalog === true && !(await zs()).shop.busy, 60_000);
+  let shop = (await zs()).shop;
+  assert.deepEqual([shop.rpg.seeds, shop.rpg.level, shop.rpg.items.length], [me0.seeds, me0.level, 0]);
+  await act('shop:buy:amulet:semilla_ceiba');
+  await waitFor('amuleto comprado', async () => (await zs()).shop.rpg.items.length === 1 && !(await zs()).shop.busy, 60_000);
+  shop = (await zs()).shop;
+  assert.equal(shop.rpg.seeds, me0.seeds - 80, 'el amuleto común cuesta 80 semillas');
+  assert.equal(shop.rpg.stats.hp, me0.stats.hp, 'sin equipar todavía no hace nada');
+  await act('shop:equip:0');
+  await waitFor('amuleto equipado', async () => (await zs()).shop.rpg.equipped !== null && !(await zs()).shop.busy, 60_000);
+  shop = (await zs()).shop;
+  const hp = Math.round(me0.stats.hp * 1.02);
+  assert.equal(shop.rpg.stats.hp, hp, 'común de vida: +2 % sobre la vida de su nivel');
+  await sleep(1500);
+  await page.screenshot({ path: path.join(OUT, '11-puesto-de-saberes.png'), timeout: 180_000 });
+  // No alcanza para algo más caro: el puesto no lo regala
+  await act('shop:buy:amulet:espejo_obsidiana');
+  await waitFor('compra rechazada', async () => (await zs()).shop.ok === false && !(await zs()).shop.busy, 60_000);
+  assert.equal((await zs()).shop.rpg.items.length, 1);
+  // Y se nota en una sala: la vida máxima es la del amuleto
+  const room2 = await page.evaluate(async () => (await (await fetch('/api/v1/rooms', { method: 'POST', headers: { 'content-type': 'application/json', 'x-alux-csrf': '1' }, body: '{}' })).json()).code);
+  await page.goto(`${BASE}/game/index.html?room=${room2}&debug=1&q=${QUALITY}`);
+  await waitFor('la sala nueva', async () => (await state(page))?.net === 'PLAYING', 300_000);
+  await waitFor('vida máxima con el amuleto', async () => (await state(page) as any).rpg?.hp_max === hp, 30_000);
+  s = await state(page);
+  assert.equal(s.hp, hp, 'entra con la vida llena, ya con el amuleto');
+  ok(`Ciclo completo: ${me0.seeds} semillas ganadas jugando → amuleto «Semilla de ceiba» comprado (quedan ${shop.rpg.seeds}) → equipado → ${hp} de vida máxima en la sala (antes ${me0.stats.hp})`);
+}
 
 const bad = errors.filter((e) => !/favicon|WebGL|GPU stall|swiftshader|deprecated/i.test(e));
 if (bad.length) console.log('Errores de consola:\n  ' + bad.slice(0, 8).join('\n  '));

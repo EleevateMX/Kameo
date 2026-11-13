@@ -8,7 +8,7 @@ import {
 import type { Config } from './config.ts';
 import type { RoomRow, Store } from './store/types.ts';
 import { buy, equip, gacha, grant } from './rpg.ts';
-import { rpgStats, rpgView } from '@alux/shared-contracts';
+import { AMULETS_RPG, AMULET_PRICE, GACHA, GRANTS, RARITY_BONUS, RARITY_NAMES, RPG_MAX_LEVEL, SKILLS, rpgStats, rpgView } from '@alux/shared-contracts';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const CODE_RE = /^[A-Z0-9]{4,12}$/;
@@ -205,6 +205,21 @@ export function createApp(store: Store, config: Config) {
   // ───────────── Progresión RPG: Puesto de Saberes (docs/RPG.md) ─────────────
   // Todo se decide aquí: el cliente sólo dice qué quiere y con qué identificador de petición
   // (repetir la misma petición no vuelve a cobrar ni a tirar).
+  // Catálogo: lo que vende el puesto, lo que cuesta y las probabilidades del gachapón (públicas).
+  // El juego lo pinta tal cual: los números viven en un solo sitio.
+  app.get('/v1/rpg/catalog', requireSession, (_req, res) => {
+    res.json({
+      maxLevel: RPG_MAX_LEVEL,
+      skills: Object.entries(SKILLS).map(([id, s]) => ({ id, name: s.name, form: s.form, cost: s.cost, bonus: s.bonus })),
+      amulets: AMULETS_RPG.map((a) => ({
+        id: a.id, name: a.name, rarity: a.rarity, rarityName: RARITY_NAMES[a.rarity], stat: a.stat,
+        bonus: RARITY_BONUS[a.rarity], price: AMULET_PRICE[a.rarity] ?? null,
+      })),
+      gacha: { cost: GACHA.cost, pity: GACHA.pity, odds: GACHA.odds },
+      grants: GRANTS,
+    });
+  });
+
   app.post('/v1/rpg/buy', requireSession, async (req, res) => {
     const out = await buy(store, (req as AuthedRequest).playerId, req.body?.what, req.body?.requestId);
     if (!out.ok) return res.status(out.status).json({ error: out.error });
