@@ -119,22 +119,22 @@ func player_action(p: Variant, ev: Dictionary, players: Array) -> void:
 			var b := {
 				"id": _next_id, "owner": p, "x": s.pos.x + sin(yaw) * 0.5, "y": s.pos.y + 0.9, "z": s.pos.z + cos(yaw) * 0.5,
 				"dx": sin(yaw), "dz": cos(yaw), "speed": float(ab.speed), "life": float(ab.life),
-				"dmg": float(ab.dmg), "radius": float(ab.radius),
+				"dmg": float(ab.dmg) * float(p.dmg_all) * float(p.dmg_chispa), "radius": float(ab.radius),
 			}
 			_next_id += 1
 			bolts.append(b)
 			events.append(["bolt", b.id, p.slot, snappedf(b.x, 0.01), snappedf(b.y, 0.01), snappedf(b.z, 0.01), snappedf(yaw, 0.01)])
 		"claw":
 			var ab: Dictionary = form.primary
-			_melee(p, yaw, ab.range, ab.arc, ab.dmg, "claw", 1.5, 0.0)
+			_melee(p, yaw, ab.range, ab.arc, float(ab.dmg) * float(p.dmg_all) * float(p.dmg_garras), "claw", 1.5, 0.0)
 		"charged":
 			var ab: Dictionary = form.secondary
 			var power: float = clampf(ev.p, 0.0, 1.0)
-			_melee(p, yaw, ab.range, ab.arc, lerpf(ab.dmg_min, ab.dmg_max, power), "charged", ab.knock, ab.stun * (0.5 + 0.5 * power))
+			_melee(p, yaw, ab.range, ab.arc, lerpf(ab.dmg_min, ab.dmg_max, power) * float(p.dmg_all), "charged", ab.knock, ab.stun * (0.5 + 0.5 * power))
 		"pounce_land":
 			var ab: Dictionary = form.special
 			if ab.kind == "pounce":
-				_melee(p, yaw, ab.radius, TAU, ab.dmg, "pounce", ab.knock, ab.stun)
+				_melee(p, yaw, ab.radius, TAU, float(ab.dmg) * float(p.dmg_all), "pounce", ab.knock, ab.stun)
 		"interact":
 			_interact(p, players)
 
@@ -193,7 +193,7 @@ func _interact(p: Variant, players: Array) -> void:
 
 func _heal(p: Variant, amount: float) -> void:
 	var before: float = p.hp
-	p.hp = minf(Defs.MAX_HP, p.hp + amount)
+	p.hp = minf(float(p.max_hp), p.hp + amount)
 	if p.hp > before:
 		events.append(["heal", p.slot, int(round(p.hp - before)), int(round(p.hp))])
 
@@ -280,8 +280,8 @@ func tick(players: Array, gate_open: bool) -> int:
 			p.respawn_t -= DT
 			if p.respawn_t <= 0.0:
 				_respawn(p)
-		elif p.hp < Defs.MAX_HP and _time - p.hurt_at > Defs.HP_REGEN_DELAY:
-			p.hp = minf(Defs.MAX_HP, p.hp + Defs.HP_REGEN * DT)
+		elif p.hp < float(p.max_hp) and _time - p.hurt_at > Defs.HP_REGEN_DELAY:
+			p.hp = minf(float(p.max_hp), p.hp + Defs.HP_REGEN * DT)
 
 	_tick_bolts()
 	for e in enemies:
@@ -377,7 +377,7 @@ func _respawn(p: Variant, announce := true) -> void:
 	s.grounded = true
 	s.swim = false
 	s.energy = Defs.MAX_ENERGY
-	p.hp = Defs.MAX_HP
+	p.hp = float(p.max_hp)
 	p.invuln_t = Defs.RESPAWN_INVULN
 	p.hurt_at = _time
 	p.respawn_t = 0.0

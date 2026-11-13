@@ -21,13 +21,15 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let godot: ChildProcess;
 let fakeApi: http.Server;
 const rewardCalls: any[] = [];
+const rpgCalls: any[] = [];
 const heartbeats: any[] = [];
 let serverLog = '';
 
-function ticket(opts: { id: string; room: string; name?: string; forms?: FormId[]; secret?: string; ttl?: number; jti?: string }) {
+function ticket(opts: { id: string; room: string; name?: string; forms?: FormId[]; secret?: string; ttl?: number; jti?: string; rpg?: unknown }) {
   return signJwt({
     aud: GAME_TICKET_AUDIENCE, sub: opts.id, jti: opts.jti ?? randomUUID(), room: opts.room,
     name: opts.name ?? 'Bot', color: '#e4007c', hat: 1, forms: opts.forms ?? ['alux', 'balam'],
+    ...(opts.rpg !== undefined ? { rpg: opts.rpg } : {}),
   }, opts.secret ?? SECRET, opts.ttl ?? 60);
 }
 
@@ -143,9 +145,12 @@ before(async () => {
       const ok = req.headers['x-service-key'] === SERVICE_KEY;
       const data = body ? JSON.parse(body) : {};
       if (ok && req.url === '/internal/game/rewards') rewardCalls.push(data);
+      if (ok && req.url === '/internal/rpg/grant') rpgCalls.push(data);
       if (ok && req.url === '/internal/game/heartbeat') heartbeats.push(data);
       res.writeHead(ok ? 200 : 401, { 'content-type': 'application/json' });
-      res.end(JSON.stringify(req.url === '/internal/game/rewards' ? { granted: data.players ?? [] } : { ok: true }));
+      // La API de verdad pone las cantidades; aquí basta con que conteste como ella
+      const rpg = { results: (data.grants ?? []).map((g: any) => ({ ...g, applied: true, xp: g.kind === 'purify' ? 20 : 15, seeds: g.kind === 'purify' ? 8 : 5, level: 2, leveledUp: g.kind === 'purify', totalXp: 120, totalSeeds: 48 })) };
+      res.end(JSON.stringify(req.url === '/internal/game/rewards' ? { granted: data.players ?? [] } : req.url === '/internal/rpg/grant' ? rpg : { ok: true }));
     });
   }).listen(0);
   const apiPort = (fakeApi.address() as AddressInfo).port;
@@ -442,6 +447,53 @@ test('combate: el servidor decide daño, enfriamientos y energía; el cliente no
     assert.equal(death![3], 1, 'cae purificada, no a golpes');
   }
   a.close();
+});
+
+test('progresión: vida y daño salen del ticket (acotados), y purificar avisa a la API una vez por criatura para todo el grupo', async () => {
+  const room = 'RPG001';
+  const a = new Bot(randomUUID(), 'Nivel5');
+  const b = new Bot(randomUUID(), 'Tramposo');
+  await a.connect(ticket({ id: a.id, room, rpg: { lv: 5, hp: 104, dmg: { all: 1.04, chispa: 1.1, garras: 1 } } }));
+  // Un ticket firmado con cifras absurdas no da superpoderes: el servidor las acota
+  await b.connect(ticket({ id: b.id, room, rpg: { lv: 9999, hp: 99999, dmg: { all: 50, chispa: -3, garras: 'mucho' } } }));
+  await sleep(400);
+  const entry = (bot: Bot) => a.roster.find((r) => r.id === bot.id) as any;
+  assert.deepEqual([entry(a).lv, entry(a).hpm, a.hp()], [5, 104, 104], 'nivel 5: 104 de vida');
+  assert.deepEqual([entry(b).lv, entry(b).hpm, b.hp()], [60, 150, 150], 'lo absurdo queda acotado');
+  // Chispa de jade: 12 × 1.04 (amuleto) × 1.1 (Chispa I) × 1.5 contra corrompidas = 20.6 → 21 (sin mejoras: 18)
+  const foe0 = a.foes().find((f) => f.kind === 1 && f.z > 20)!;
+  const aimAt = (bot: Bot) => bot.foes().find((f) => f.id === foe0.id);
+  await a.fight(aimAt, () => a.ofType('hit').some((e) => e[1] === 'e' && e[2] === foe0.id), 20, { reach: 9 });
+  assert.equal(a.ofType('hit').find((e) => e[1] === 'e' && e[2] === foe0.id)![3], 21, 'el daño lleva las mejoras del ticket');
+  // Se la debilita y se purifica: la API recibe un aviso con una clave por criatura y los dos jugadores
+  await a.fight(aimAt, () => { const f = aimAt(a); return !f || f.hp <= 16; }, 20, { reach: 9 });
+  const end = Date.now() + 15_000;
+  while (Date.now() < end && aimAt(a)) {
+    const f = aimAt(a)!;
+    const m = a.me()!;
+    const d = Math.hypot(f.x - m[4], f.z - m[6]) || 1;
+    a.input(d > 1.6 ? (f.x - m[4]) / d : 0, d > 1.6 ? (f.z - m[6]) / d : 0, { a: a.seq % 6 === 0 ? 4 : 0 });
+    await sleep(33);
+  }
+  await until('la API recibe la recompensa', () => rpgCalls.some((c) => c.grants?.some((g: any) => g.key?.startsWith(`${room}:`))), 5_000);
+  const mine = rpgCalls.filter((c) => c.grants?.some((g: any) => g.key?.startsWith(`${room}:`)));
+  assert.equal(mine.length, 1, 'un solo aviso por la criatura');
+  const death = a.ofType('die').find((e) => e[1] === 'e' && e[2] === foe0.id)!;
+  const kind = death[3] === 1 ? 'purify' : 'enemy';
+  assert.deepEqual(mine[0].grants.map((g: any) => [g.playerId, g.kind]).sort(), [[a.id, kind], [b.id, kind]].sort(), 'cobra todo el grupo conectado');
+  assert.match(mine[0].grants[0].key, /^RPG001:\d+:k1$/);
+  assert.equal(mine[0].grants[0].xp, undefined, 'el servidor de juego no manda cantidades: las pone la API');
+  await until('cada jugador recibe su recompensa', () => [a, b].every((bot) => bot.events.some((e) => e.e === 'rpg')), 5_000);
+  const got = a.events.find((e) => e.e === 'rpg');
+  assert.deepEqual([got.kind, got.xp, got.seeds, got.level, got.total_xp, got.total_seeds], [kind, kind === 'purify' ? 20 : 15, kind === 'purify' ? 8 : 5, 2, 120, 48]);
+  // El cliente no puede concederse nada: mensajes inventados no generan avisos
+  const before = rpgCalls.length;
+  a.send({ t: 'rpg', kind: 'nojoch', xp: 9999 });
+  a.send({ t: 'event', e: 'rpg', xp: 9999 });
+  await sleep(500);
+  assert.equal(rpgCalls.length, before);
+  a.close();
+  b.close();
 });
 
 test('combate: un jugador que no se defiende cae y reaparece en el punto de control con la vida completa', async () => {

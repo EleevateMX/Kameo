@@ -72,6 +72,13 @@ class Player:
 	var gone_at := -1.0
 	# Combate (sólo el servidor conoce y modifica estos valores)
 	var hp := Defs.MAX_HP
+	# Progresión RPG: lo calcula la API y viaja en el ticket (docs/RPG.md). Nunca viene del cliente.
+	var joined := false          # ya entró alguna vez a esta sala
+	var level := 1
+	var max_hp := Defs.MAX_HP
+	var dmg_all := 1.0           # multiplicador de todo su daño (amuleto)
+	var dmg_chispa := 1.0        # mejora de la Chispa de jade
+	var dmg_garras := 1.0        # mejora de las Garras
 	var respawn_t := 0.0
 	var invuln_t := 0.0
 	var hurt_at := -99.0
@@ -90,6 +97,8 @@ class Room:
 	var combat := Combat.new()
 	var lock_t := 0.0            # mientras sea > 0 los altares no responden (derrota o nueva ronda)
 	var again := {}              # pid -> true: quiere jugar otra ronda tras la victoria
+	var rpg_seq := 0             # hechos con recompensa RPG en esta sala (clave única de cada uno)
+	var rounds := 0              # rondas empezadas (el Claro y Nojoch se cobran por ronda)
 	var story := 0               # banderas del progreso narrativo (Story.F_*)
 	# Cinemática compartida en curso: mientras dura, la sala está en pausa
 	var cine := ""               # id de la cinemática ("" si no hay)
@@ -433,6 +442,7 @@ func _handle_hello(c: Conn, msg: Dictionary) -> void:
 				p.unlocked.append(f)
 	if not p.unlocked.has(p.state.form):
 		p.state.form = "alux"
+	_apply_rpg(p, claims.get("rpg"))
 	p.conn_id = c.id
 	c.last_rx = _time
 	p.gone_at = -1.0
@@ -457,7 +467,8 @@ func _handle_hello(c: Conn, msg: Dictionary) -> void:
 func _roster(room: Room) -> Array:
 	var out := []
 	for p in room.players.values():
-		out.append({"id": p.id, "slot": p.slot, "name": p.name, "color": p.color, "hat": p.hat, "look": p.look, "on": p.conn_id != 0})
+		out.append({"id": p.id, "slot": p.slot, "name": p.name, "color": p.color, "hat": p.hat, "look": p.look, "on": p.conn_id != 0,
+			"lv": p.level, "hpm": int(round(p.max_hp))})
 	return out
 
 
@@ -613,6 +624,12 @@ func _tick_room(room: Room) -> void:
 		if votes >= connected:
 			_restart(room)
 
+	# Progresión: cada criatura purificada o vencida da experiencia y semillas a todo el grupo conectado
+	for ev in room.combat.events:
+		if ev.size() >= 4 and str(ev[0]) == "die" and str(ev[1]) == "e":
+			room.rpg_seq += 1
+			_rpg_grant(room, "purify" if int(ev[3]) != 0 else "enemy", "%s:%d:k%d" % [room.code, room.created, room.rpg_seq])
+
 	if connected == 0:
 		room.combat.events.clear()
 	elif room.tick % SNAP_EVERY == 0:
@@ -698,6 +715,7 @@ func _on_encounter_clear(room: Room) -> void:
 			ids.append(p.id)
 	print("[alux] Sala %s: emboscada superada" % room.code)
 	_grant_reward(room, REWARD_SEAL, ids)
+	_rpg_grant(room, "claro", "%s:%d:r%d" % [room.code, room.created, room.rounds])
 
 
 ## El grupo devolvió la memoria a Nojoch Tuunich. Todo lo que sigue lo decide el servidor: el
@@ -714,6 +732,7 @@ func _on_boss_freed(room: Room) -> void:
 	print("[alux] Sala %s: Nojoch Tuunich liberado por %s" % [room.code, ", ".join(names)])
 	_broadcast(room, {"t": "event", "e": "story", "k": "freed", "by": names})
 	_grant_reward(room, REWARD_FEATHER, ids)
+	_rpg_grant(room, "nojoch", "%s:%d:r%d" % [room.code, room.created, room.rounds])
 	_start_cine(room, "liberacion")
 
 
@@ -732,6 +751,7 @@ func _restart(room: Room) -> void:
 	room.gate_open = false
 	room.lock_t = RESTART_HOLD
 	room.again.clear()
+	room.rounds += 1
 	room.story &= ~(Story.F_FREED | Story.F_CLUE)   # el guardián vuelve a dormirse con la sala
 	room.combat.restart(room.players.values())
 	_broadcast(room, {"t": "event", "e": "restart"})
@@ -809,6 +829,56 @@ func _refresh_look(code: String, pid: String) -> void:
 		p.hat = clampi(int(_num(res.get("hat"))), 0, Look.HATS.size() - 1)
 		p.look = Look.clean(res.get("look"))
 		_broadcast(r, {"t": "roster", "players": _roster(r)})
+	)
+
+
+## Estadísticas del ticket, acotadas: aunque alguien firmara un ticket raro, nadie entra con
+## diez veces la vida o el daño.
+func _apply_rpg(p: Player, raw: Variant) -> void:
+	var first := not p.joined
+	p.joined = true
+	p.level = 1
+	p.max_hp = Defs.MAX_HP
+	p.dmg_all = 1.0
+	p.dmg_chispa = 1.0
+	p.dmg_garras = 1.0
+	if typeof(raw) == TYPE_DICTIONARY:
+		p.level = clampi(int(_num(raw.get("lv"))), 1, 60)
+		p.max_hp = clampf(_num(raw.get("hp")), Defs.MAX_HP, Defs.MAX_HP * 1.5)
+		var d: Variant = raw.get("dmg")
+		if typeof(d) == TYPE_DICTIONARY:
+			p.dmg_all = clampf(_num(d.get("all")), 1.0, 1.5)
+			p.dmg_chispa = clampf(_num(d.get("chispa")), 1.0, 1.5)
+			p.dmg_garras = clampf(_num(d.get("garras")), 1.0, 1.5)
+	# Quien entra por primera vez empieza con la vida llena; quien vuelve conserva la que tenía
+	p.hp = p.max_hp if first else minf(p.hp, p.max_hp)
+
+
+## Pide a la API la recompensa RPG de un hecho para todos los conectados de la sala. La API pone
+## las cantidades, los topes y la unicidad; aquí sólo se avisa a cada jugador de lo que le tocó.
+func _rpg_grant(room: Room, kind: String, key: String) -> void:
+	var code := room.code
+	var grants := []
+	for p in room.players.values():
+		if p.conn_id != 0:
+			grants.append({"playerId": p.id, "kind": kind, "key": key})
+	if grants.is_empty():
+		return
+	_api_post("/internal/rpg/grant", {"grants": grants}, func(ok: bool, res: Dictionary) -> void:
+		if not ok or not _rooms.has(code):
+			return
+		var r: Room = _rooms[code]
+		for item in res.get("results", []):
+			if typeof(item) != TYPE_DICTIONARY or not bool(item.get("applied", false)):
+				continue
+			var p: Variant = r.players.get(str(item.get("playerId", "")))
+			if p == null or p.conn_id == 0 or not _conns.has(p.conn_id):
+				continue
+			_send(_conns[p.conn_id], {
+				"t": "event", "e": "rpg", "kind": kind, "xp": int(_num(item.get("xp"))), "seeds": int(_num(item.get("seeds"))),
+				"level": int(_num(item.get("level"))), "up": bool(item.get("leveledUp", false)),
+				"total_xp": int(_num(item.get("totalXp"))), "total_seeds": int(_num(item.get("totalSeeds"))),
+			})
 	)
 
 

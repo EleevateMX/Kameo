@@ -24,6 +24,8 @@ export interface GameTicketClaims {
   color: string;    // #rrggbb
   hat: number;      // 0..3
   forms: FormId[];  // transformaciones desbloqueadas
+  /** Progresión RPG calculada por la API: nivel, vida máxima y multiplicadores de daño (docs/RPG.md). */
+  rpg?: { lv: number; hp: number; dmg: { all: number; chispa: number; garras: number } };
   iat: number;
   exp: number;
 }
@@ -110,6 +112,9 @@ export interface RosterEntry {
   color: string;
   hat: number;
   on: boolean;
+  /** Nivel y vida máxima (progresión RPG). */
+  lv?: number;
+  hpm?: number;
 }
 
 // Servidor → cliente
@@ -119,6 +124,8 @@ export type ServerMessage =
   | { t: 'snap'; k: number; w: WorldStateArray; p: SnapshotPlayer[]; e: SnapshotEnemy[]; ev: CombatEvent[]; b?: BossStateArray }
   | { t: 'event'; e: 'gate_open'; by: string[] }
   | { t: 'event'; e: 'reward'; reward: string; saved: boolean; new: boolean }
+  /** Experiencia y semillas ganadas (sólo las recibe quien las ganó; las cantidades las pone la API). */
+  | { t: 'event'; e: 'rpg'; kind: string; xp: number; seeds: number; level: number; up: boolean; total_xp: number; total_seeds: number }
   /** defeat: todo el grupo cayó y el santuario se vuelve a sellar · restart: nueva ronda pedida por el grupo */
   | { t: 'event'; e: 'defeat' | 'restart' }
   /**
