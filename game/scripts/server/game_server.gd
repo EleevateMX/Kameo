@@ -14,6 +14,7 @@ extends Node
 ##   ALUX_SERVER_ID       identificador de esta instancia
 ##   ALUX_DEV=1           permite arrancar con un secreto de desarrollo
 
+const Look := preload("res://scripts/shared/look_def.gd")
 const Sim := preload("res://scripts/shared/sim.gd")
 const World := preload("res://scripts/shared/world_def.gd")
 const Ticket := preload("res://scripts/shared/ticket.gd")
@@ -59,6 +60,8 @@ class Player:
 	var name := ""
 	var color := "#2ec4a6"
 	var hat := 0
+	var look: Array = Look.DEFAULT.duplicate()   # vestimenta, accesorio, amuleto, color secundario, piel
+	var look_asked := -100.0                     # cuándo pidió por última vez que se releyera su apariencia
 	var unlocked: Array = ["alux"]
 	var state := Sim.PlayerState.new()
 	var conn_id := 0
@@ -337,6 +340,13 @@ func _handle(c: Conn, msg: Dictionary) -> void:
 			# no hacer esperar a nadie: la escena empieza igual cuando se agota la espera.
 			if room.cine_phase == Story.CINE_PREPARING and str(msg.get("id", "")) == room.cine:
 				room.cine_ready[p.id] = _num(msg.get("v", 0.0)) != 0.0
+		"look":
+			# El jugador guardó su apariencia en el personalizador. No se le cree lo que diga: se
+			# vuelve a leer de la API, que es quien la validó y la guardó, y se reparte a la sala.
+			var now := float(Time.get_ticks_msec()) / 1000.0
+			if now - p.look_asked >= 2.0:
+				p.look_asked = now
+				_refresh_look(room.code, p.id)
 		"skip":
 			# Voto para omitir la cinemática compartida en curso (se cuenta en _tick_room)
 			if room.cine_phase == Story.CINE_PLAYING:
@@ -413,7 +423,8 @@ func _handle_hello(c: Conn, msg: Dictionary) -> void:
 	var col: Variant = claims.get("color")
 	if typeof(col) == TYPE_STRING and col.length() == 7 and col.begins_with("#") and col.substr(1).is_valid_hex_number():
 		p.color = col
-	p.hat = clampi(int(_num(claims.get("hat"))), 0, 3)
+	p.hat = clampi(int(_num(claims.get("hat"))), 0, Look.HATS.size() - 1)
+	p.look = Look.clean(claims.get("look"))
 	p.unlocked = ["alux"]
 	var forms: Variant = claims.get("forms")
 	if typeof(forms) == TYPE_ARRAY:
@@ -446,7 +457,7 @@ func _handle_hello(c: Conn, msg: Dictionary) -> void:
 func _roster(room: Room) -> Array:
 	var out := []
 	for p in room.players.values():
-		out.append({"id": p.id, "slot": p.slot, "name": p.name, "color": p.color, "hat": p.hat, "on": p.conn_id != 0})
+		out.append({"id": p.id, "slot": p.slot, "name": p.name, "color": p.color, "hat": p.hat, "look": p.look, "on": p.conn_id != 0})
 	return out
 
 
@@ -780,6 +791,25 @@ func _api_post(path: String, body: Dictionary, on_done: Callable = Callable(), a
 		req.queue_free()
 		if on_done.is_valid():
 			on_done.call(false, {})
+
+
+## Relee de la API la apariencia de un jugador y la reparte a su sala.
+func _refresh_look(code: String, pid: String) -> void:
+	_api_post("/internal/game/character", {"server_id": _server_id, "room": code, "player": pid}, func(ok: bool, res: Dictionary) -> void:
+		if not ok or not _rooms.has(code):
+			return
+		var r: Room = _rooms[code]
+		var p: Player = r.players.get(pid)
+		if p == null:
+			return
+		p.name = str(res.get("name", p.name)).substr(0, 24)
+		var col: Variant = res.get("color")
+		if typeof(col) == TYPE_STRING and col.length() == 7 and col.begins_with("#") and col.substr(1).is_valid_hex_number():
+			p.color = col
+		p.hat = clampi(int(_num(res.get("hat"))), 0, Look.HATS.size() - 1)
+		p.look = Look.clean(res.get("look"))
+		_broadcast(r, {"t": "roster", "players": _roster(r)})
+	)
 
 
 func _grant_reward(room: Room, reward: String, player_ids: Array) -> void:

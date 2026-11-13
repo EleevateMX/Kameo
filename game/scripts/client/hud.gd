@@ -772,6 +772,7 @@ func _build_panels(root: Control) -> void:
 	_menu_audio.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_menu_audio.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	snd.add_child(_menu_audio)
+	mv.add_child(_button("Personalizar mi alux", "customize"))
 	mv.add_child(_button("Salir al portal", "exit"))
 	var build := Kit.label(BUILD, 11, Color(1, 1, 1, 0.4))
 	build.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

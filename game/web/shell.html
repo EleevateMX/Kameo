@@ -106,12 +106,14 @@ window.ALUX_FS = (() => {
 // Configuración que lee el juego (game/scripts/client/game_client.gd)
 const params = new URLSearchParams(location.search);
 const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-window.ALUX = { room, ticket: '', wsUrl: '', error: '', cine: params.get('cine') !== '0', quality: ['min', 'low', 'high'].includes(params.get('q')) ? params.get('q') : 'auto' };
+window.ALUX = { room, ticket: '', wsUrl: '', error: '', cine: params.get('cine') !== '0', quality: ['min', 'low', 'high'].includes(params.get('q')) ? params.get('q') : 'auto',
+  // mode=alux: el juego se abre sólo para personalizar el alux (sin sala ni servidor de juego)
+  mode: params.get('mode') === 'alux' ? 'alux' : '' };
 window.ALUX_DEBUG = params.get('debug') === '1';
 // Quien llega directo al juego (un enlace, una recarga) entra en pantalla completa con su primer
 // clic o tecla, si así lo prefiere. Desde el portal ya la pidió el botón JUGAR. Una sola vez: si
 // después sale con Esc, no se le vuelve a meter. (En las pruebas automáticas, sólo con ?fs=1.)
-if (ALUX_FS.supported && (params.get('fs') === '1' || (!ALUX_DEBUG && params.get('fs') !== '0'))) {
+if (ALUX_FS.supported && ALUX.mode !== 'alux' && (params.get('fs') === '1' || (!ALUX_DEBUG && params.get('fs') !== '0'))) {
   const first = (ev) => {
     if (ev.target && ev.target.id === 'fs') return;
     window.removeEventListener('pointerdown', first, true);
@@ -144,7 +146,7 @@ window.aluxRefreshTicket = async () => {
     ALUX.error = 'network';
   }
 };
-aluxRefreshTicket();
+if (ALUX.mode !== 'alux') aluxRefreshTicket();
 
 const GODOT_CONFIG = $GODOT_CONFIG;
 const engine = new Engine(GODOT_CONFIG);

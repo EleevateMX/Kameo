@@ -3,6 +3,8 @@ extends Node3D
 ## El cliente nunca decide resultados: manda intenciones y dibuja lo que
 ## el servidor confirma, prediciendo sólo el movimiento de su propio personaje.
 
+const Customizer := preload("res://scripts/client/customizer.gd")
+const Look := preload("res://scripts/shared/look_def.gd")
 const Sim := preload("res://scripts/shared/sim.gd")
 const World := preload("res://scripts/shared/world_def.gd")
 const Defs := preload("res://scripts/shared/combat_def.gd")
@@ -37,7 +39,7 @@ const QUALITY_NAMES := ["alta", "baja", "mínima"]
 ## Errores con los que tiene sentido reintentar recargando (los demás sólo ofrecen volver al portal)
 const RELOADABLE := ["version", "server_full", "rate_limited"]
 
-enum Net { TICKET, CONNECTING, HELLO, PLAYING, WAIT, FATAL }
+enum Net { TICKET, CONNECTING, HELLO, PLAYING, WAIT, FATAL, CUSTOM }   # CUSTOM: sólo el personalizador, sin sala
 
 var _net := Net.TICKET
 var _ws: WebSocketPeer
@@ -84,6 +86,9 @@ var _arena: BossArena  # anclas, columnas, cadenas y glifos del combate con el g
 var _talk_npc := ""    # personaje con el que se puede hablar ahora mismo ("" si ninguno)
 var _touch_sfx := 0.0
 var _fs_poll := 0.0
+var _custom: Customizer        # personalizador 3D del alux
+var _custom_only := false     # el juego se abrió sólo para personalizar (desde el portal)
+var _me_poll := 0.0           # espera del perfil para el personalizador sin sala
 var _cine_staged := false
 var _motes_in := 0.0
 var _bolts := {}        # id del servidor -> {node, pos, dir, speed, life}
@@ -198,6 +203,10 @@ func _ready() -> void:
 	_hud.set_overlay("Preparando el Claro de los Aluxes…")
 	_audio = Audio.new()
 	add_child(_audio)
+	_custom = Customizer.new()
+	add_child(_custom)
+	_custom.saved.connect(_on_look_saved)
+	_custom.closed.connect(_on_custom_closed)
 	_cam_target = Vector3(0, 1.2, 0)
 	_update_camera()
 	_prewarm()
@@ -218,6 +227,8 @@ func _ready() -> void:
 			_quality_locked = true
 		_cine_on = int(_js("(window.ALUX && window.ALUX.cine === false) ? 0 : 1")) == 1
 		_load_settings()
+		if str(_js("(window.ALUX && window.ALUX.mode) || ''")) == "alux":
+			_begin_custom_only()
 	_apply_settings()
 
 
@@ -282,6 +293,8 @@ func _setup_input() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _custom.active or _net == Net.CUSTOM:
+		return   # el personalizador lleva su propia entrada
 	# Cinemática: sólo se puede omitir (Enter o Esc); nada más llega al juego
 	if _cine.active:
 		if event.is_action_pressed("accept") or event.is_action_pressed("menu"):
@@ -464,6 +477,89 @@ func _recenter() -> void:
 	_cam_yaw = _pred.yaw
 	_cam_pitch = 0.42
 	_cam_dist = 7.0
+
+
+# ───────────────────────── Personalizador 3D ─────────────────────────
+
+## El juego se abrió sólo para personalizar (portal → «Personalizar en 3D»): no hay sala ni
+## servidor de juego. Se pide el perfil y se muestra el alux en la plaza del claro.
+func _begin_custom_only() -> void:
+	_custom_only = true
+	_net = Net.CUSTOM
+	_hud.visible = false
+	_js("(function(){window.ALUX_ME='';fetch('/api/v1/me',{credentials:'same-origin'}).then(function(r){return r.ok?r.text():Promise.reject(r.status)})" +
+		".then(function(t){window.ALUX_ME=t}).catch(function(e){window.ALUX_ME='error:'+e})})()")
+	_me_poll = 0.2
+
+
+func _poll_custom_only(delta: float) -> void:
+	if _custom.active or _me_poll <= 0.0:
+		return
+	_me_poll -= delta
+	if _me_poll > 0.0:
+		return
+	_me_poll = 0.2
+	var raw := str(_js("window.ALUX_ME || ''"))
+	if raw.is_empty():
+		return
+	_me_poll = 0.0
+	var parsed: Variant = JSON.parse_string(raw)
+	if raw.begins_with("error:") or not (parsed is Dictionary) or not ((parsed as Dictionary).get("character") is Dictionary):
+		if raw == "error:401":
+			_js("(function(){var w=window;try{if(window.top&&window.top.document)w=window.top}catch(e){}w.location.href='/?next=%2Falux'})()")
+		else:
+			_fatal("No se pudo leer tu perfil para el personalizador.", true)
+		return
+	var c: Dictionary = parsed.character
+	var look: Dictionary = c.get("look", {}) if c.get("look") is Dictionary else {}
+	var at := Vector3(1.6, World.terrain_h(1.6, 5.2), 5.2)
+	_custom.open(self, _cam, at, 0.0, {"name": c.get("name", "Alux"), "color": c.get("color", "#2ec4a6"), "hat": int(c.get("hat", 0)),
+		"look": [int(look.get("outfit", 0)), int(look.get("accessory", 0)), int(look.get("amulet", 0)), int(look.get("accent", 0)), int(look.get("skin", 0))]}, true)
+	_audio.ambience({"amb_selva": 0.7, "amb_aves": 0.45, "amb_insectos": 0.25, "amb_brasero": 0.3})
+	_audio.set_music("mus_claro")
+	_hud.set_overlay("")
+
+
+## Desde el menú, con la partida en marcha: el personalizador se abre donde está el jugador.
+func _open_customizer() -> void:
+	var me: Avatar = _avatars.get(_my_slot)
+	if _net != Net.PLAYING or me == null or _custom.active:
+		return
+	if _encounter == 1 or _frozen or _cine.active or _pred.dead or (_encounter == 2 and _boss_phase() in [BossDef.OLVIDO, BossDef.FURIA, BossDef.RECUERDO]):
+		_hud.hint("Ahora no: cambia tu aspecto cuando no haya combate", 4.0)
+		return
+	_close_menu(false)
+	_hud.hide_result()
+	_hud.visible = false
+	me.visible = false
+	_custom.open(self, _cam, me.global_position, me.rotation.y, {"name": me.player_name, "color": "#" + me.color.to_html(false), "hat": me.hat, "look": me.look})
+
+
+func _on_look_saved(character: Dictionary) -> void:
+	if _custom_only:
+		return
+	# Lo guardó la API. El servidor de juego lo relee de ella y lo reparte a la sala; mientras
+	# llega, el jugador ya se ve con su aspecto nuevo.
+	var me: Avatar = _avatars.get(_my_slot)
+	if me != null:
+		var form := me.form
+		me.setup(me.player_name, str(character.color), int(character.hat), character.look)
+		me.is_local = true
+		me.set_form(form, false)
+	if _ws != null and _net == Net.PLAYING:
+		_ws.send_text(JSON.stringify({"t": "look"}))
+
+
+func _on_custom_closed(_did_save: bool) -> void:
+	if _custom_only:
+		_exit_to_portal()
+		return
+	_hud.visible = true
+	var me: Avatar = _avatars.get(_my_slot)
+	if me != null:
+		me.visible = true
+	if _net == Net.PLAYING:
+		_hud.hint("Pulsa el juego para seguir", 3.0)
 
 
 func _exit_to_portal() -> void:
@@ -704,6 +800,8 @@ func _on_action(id: String) -> void:
 		"reload":
 			if _is_web:
 				_js("location.reload()")
+		"customize":
+			_open_customizer()
 		"exit":
 			_exit_to_portal()
 
@@ -723,6 +821,7 @@ func _js(code: String) -> Variant:
 
 
 func _fatal(text: String, can_reload := false) -> void:
+	_hud.visible = true
 	_net = Net.FATAL
 	if _ws:
 		_ws.close()
@@ -934,11 +1033,15 @@ func _set_roster(players: Array) -> void:
 			add_child(av)
 			_avatars[slot] = av
 			av.is_local = slot == _my_slot
-			av.setup(str(p.name), str(p.color), int(p.hat))
+			av.setup(str(p.name), str(p.color), int(p.hat), p.get("look"))
 			if slot != _my_slot:
 				_remote[slot] = {"buf": []}
-		elif av.player_name != str(p.name) or av.hat != int(p.hat) or av.color.to_html(false) != str(p.color).trim_prefix("#").to_lower():
-			av.setup(str(p.name), str(p.color), int(p.hat))
+		elif av.player_name != str(p.name) or av.hat != int(p.hat) or av.color.to_html(false) != str(p.color).trim_prefix("#").to_lower() \
+				or av.look != Look.clean(p.get("look")):
+			# cambió su aspecto (personalizador): se rehace el modelo conservando forma y estado
+			var was_form := av.form
+			av.setup(str(p.name), str(p.color), int(p.hat), p.get("look"))
+			av.set_form(was_form, false)
 		av.set_online(bool(p.on))
 	for slot in _avatars.keys():
 		if not seen.has(slot):
@@ -1955,7 +2058,7 @@ func _physics_process(_delta: float) -> void:
 	var jump := Input.is_action_pressed("jump")
 	# Con la bienvenida, el menú o un resultado abiertos el personaje se queda quieto
 	# (se sigue enviando la entrada vacía: mantiene viva la conexión)
-	if _hud.panel_open() or _frozen:
+	if _hud.panel_open() or _frozen or _custom.active:
 		move = Vector2.ZERO
 		buttons = 0
 		jump = false
@@ -2032,6 +2135,8 @@ func _can_touch_something() -> bool:
 func _process(delta: float) -> void:
 	_time += delta
 	_poll_net(delta)
+	if _custom_only:
+		_poll_custom_only(delta)
 	if _sound_test_in > 0.0:
 		_sound_test_in -= delta
 		if _sound_test_in <= 0.0:
@@ -2079,6 +2184,11 @@ func _process(delta: float) -> void:
 		if not act.is_empty():
 			_js("window.ALUX_ACTION = ''")
 			_on_action(act)   # (pruebas) pulsa un botón de la interfaz por su id
+		var custom_cmd := str(_js("window.ALUX_CUSTOM || ''"))
+		if not custom_cmd.is_empty():
+			_js("window.ALUX_CUSTOM = ''")
+			if _custom.active:
+				_custom.command(custom_cmd)   # (pruebas) elige una opción del personalizador
 		var setting := str(_js("window.ALUX_SETTING || ''"))
 		if ":" in setting:
 			_js("window.ALUX_SETTING = ''")
@@ -2185,7 +2295,13 @@ func _process(delta: float) -> void:
 			_fs_poll = 0.5
 			_hud.set_menu_fullscreen(_fs_text())
 	_update_cine_flow(delta)
-	if not _cine.process(delta):
+	if _custom.active:
+		# Una emboscada, una escena o un golpe cierran el personalizador sin guardar
+		if not _custom_only and (_encounter == 1 or _frozen or _cine.active or _pred.dead or not _prep.is_empty()):
+			_custom.close(false)
+		else:
+			_custom.process(delta)
+	elif not _cine.process(delta):
 		_update_camera()
 	_update_cine_stage(delta)
 	_update_perf(delta)
@@ -2444,6 +2560,7 @@ func _debug_export(delta: float) -> void:
 			continue
 		players.append({
 			"id": p.id, "slot": p.slot, "name": p.name, "on": p.on, "form": av.form, "dead": av.dead,
+			"color": "#" + av.color.to_html(false), "hat": av.hat, "look": av.look,   # el aspecto que se está dibujando
 			"hp": _team_hp.get(int(p.slot), 100.0),
 			"x": snappedf(av.global_position.x, 0.01), "y": snappedf(av.global_position.y, 0.01), "z": snappedf(av.global_position.z, 0.01),
 		})
@@ -2468,7 +2585,7 @@ func _debug_export(delta: float) -> void:
 			"dialog": _hud.dialogue_open(), "cine": _hud.cine_open(),
 			"objective": _hud.objective_text(), "captured": Input.mouse_mode == Input.MOUSE_MODE_CAPTURED},
 		"votes": _votes, "connected": _connected, "lock": _lock, "voted": _voted,
-		"stats": _stats, "audio": _audio.loaded(), "music": _audio.music(), "snd": _audio.info(), "audio_status": _hud.menu_audio_text(), "settings": _settings,
+		"stats": _stats, "audio": _audio.loaded(), "music": _audio.music(), "snd": _audio.info(), "custom": _custom.info(), "audio_status": _hud.menu_audio_text(), "settings": _settings,
 		"metrics": {"sid": _m.sid, "seconds": _m.seconds, "samples": (_m.fps as Array).size(), "loadMs": _m.load_ms},
 	}
 	_js("window.__aluxState = %s" % JSON.stringify(state))

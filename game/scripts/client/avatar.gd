@@ -11,7 +11,7 @@ const Audio := preload("res://scripts/client/audio.gd")
 const SKIN := Color(0.66, 0.44, 0.29)
 const STRAW := Color(0.74, 0.56, 0.30)
 const EYE := Color(0.35, 1.0, 0.88)
-const HAT_NODES := ["Hat_Palma", "Hat_Penacho", "Hat_Flor", "Hair"]
+const Look := preload("res://scripts/shared/look_def.gd")
 
 ## Acción del juego -> animación del .glb, por forma. [nombre, mantener hasta nueva orden]
 const GLB_ACTIONS := {
@@ -24,6 +24,7 @@ const RUN_SPEED := {"alux": 5.2, "balam": 8.4}
 var player_name := "Alux"
 var color := Color("#2ec4a6")
 var hat := 0
+var look: Array = Look.DEFAULT.duplicate()   # vestimenta, accesorio, amuleto, color secundario, piel
 var form := "alux"
 var online := true
 var dead := false
@@ -52,10 +53,11 @@ var _stride := 0.0
 var _was_swim := false
 
 
-func setup(p_name: String, color_hex: String, p_hat: int) -> void:
+func setup(p_name: String, color_hex: String, p_hat: int, p_look: Variant = null) -> void:
 	player_name = p_name
 	color = Color.from_string(color_hex, Color("#2ec4a6"))
-	hat = p_hat
+	hat = clampi(p_hat, 0, Look.HATS.size() - 1)
+	look = Look.clean(p_look)
 	for c in get_children():
 		c.queue_free()
 	_alux_limbs.clear()
@@ -104,8 +106,11 @@ func _load_glb(f: String) -> Node3D:
 		if ap.has_animation(n):
 			ap.get_animation(n).loop_mode = Animation.LOOP_LINEAR
 	_players[f] = ap
-	# Color del jugador en la túnica (alux) y en el collar (Balam)
+	# Colores del jugador: el principal en la túnica (alux) y en el collar (Balam); en el alux,
+	# además, el secundario en ribetes y telas añadidas y el tono de piel
 	var target := "Tunic" if f == "alux" else "Collar"
+	var accent := Color.from_string(str(Look.ACCENTS[int(look[Look.ACCENT])]), Color.WHITE)
+	var skin := Color.from_string(str(Look.SKINS[int(look[Look.SKIN])]), SKIN)
 	for mi in inst.find_children("*", "MeshInstance3D", true, false):
 		var mesh := (mi as MeshInstance3D).mesh
 		if mesh == null:
@@ -115,25 +120,75 @@ func _load_glb(f: String) -> Node3D:
 			if not (mat is StandardMaterial3D):
 				continue
 			var mat_name := str(mat.resource_name)
+			var tint: Variant = null
 			if mat_name.begins_with(target):
-				var own := mat.duplicate() as StandardMaterial3D
-				own.albedo_color = color
-				(mi as MeshInstance3D).set_surface_override_material(i, own)
+				tint = color
+			elif f == "alux" and mat_name.begins_with("Trim"):
+				tint = accent
+			elif f == "alux" and mat_name.begins_with("Skin"):
+				# la piel lleva sus matices en el vértice sobre blanco; se aclara como el resto del cuerpo
+				tint = Color(skin.r * 1.12, skin.g * 1.12, skin.b * 1.12)
 			elif mat_name == "Body" or mat_name == "Headwear":
 				# El color vive en los vértices: se aclara un poco el conjunto para que la cara
 				# se lea a la sombra del sombrero y de los árboles (sin textura ni luz extra)
-				var lit := mat.duplicate() as StandardMaterial3D
-				lit.albedo_color = Color(1.12, 1.12, 1.12)
-				(mi as MeshInstance3D).set_surface_override_material(i, lit)
+				tint = Color(1.12, 1.12, 1.12)
+			if tint != null:
+				var own := mat.duplicate() as StandardMaterial3D
+				own.albedo_color = tint
+				(mi as MeshInstance3D).set_surface_override_material(i, own)
 	if f == "alux":
-		# (el cabello va también bajo el sombrero y el penacho: sin él la nuca queda calva)
-		var by_hat := {0: ["Hat_Palma", "Hair"], 1: ["Hat_Penacho", "Hair"], 2: ["Hat_Flor", "Hair"], 3: ["Hair"]}
-		var keep: Array = by_hat.get(hat, ["Hair"])
-		for n in HAT_NODES:
+		# Tocado (el cabello va también bajo el sombrero y el penacho: sin él la nuca queda calva)
+		var keep: Array = Look.HATS[hat][1]
+		for n in Look.HAT_NODES:
 			for node in inst.find_children(n + "*", "Node3D", true, false):
 				(node as Node3D).visible = keep.has(n)
+		# Vestimenta, accesorio y amuleto: de cada familia se ve sólo la pieza elegida
+		for family in [[Look.OUTFITS, Look.OUTFIT], [Look.ACCESSORIES, Look.ACCESSORY], [Look.AMULETS, Look.AMULET]]:
+			var chosen := str(family[0][int(look[family[1]])][1])
+			for option in family[0]:
+				var prefix := str(option[1])
+				if prefix.is_empty():
+					continue
+				for node in inst.find_children(prefix + "*", "Node3D", true, false):
+					(node as Node3D).visible = prefix == chosen
 	ap.play("Idle")
 	return inst
+
+
+# ───────────────────────── Personalizador ─────────────────────────
+
+## ¿Trae el modelo del alux alguna pieza cuyo nodo empiece por `prefix`? (el personalizador sólo
+## ofrece lo que existe de verdad)
+func has_part(prefix: String) -> bool:
+	var m: Node3D = _models.get("alux")
+	return m != null and not m.find_children(prefix + "*", "Node3D", true, false).is_empty()
+
+
+## ¿Tiene el modelo del alux un material cuyo nombre empiece por `prefix`?
+func has_material(prefix: String) -> bool:
+	var m: Node3D = _models.get("alux")
+	if m == null:
+		return false
+	for mi in m.find_children("*", "MeshInstance3D", true, false):
+		var mesh := (mi as MeshInstance3D).mesh
+		if mesh == null:
+			continue
+		for i in mesh.get_surface_count():
+			var mat := mesh.surface_get_material(i)
+			if mat != null and str(mat.resource_name).begins_with(prefix):
+				return true
+	return false
+
+
+## Vista previa de una animación del alux (reposo, carrera, salto) sin pasar por el juego.
+func preview_anim(anim: String) -> void:
+	var ap: AnimationPlayer = _players.get("alux")
+	if ap == null or not ap.has_animation(anim):
+		return
+	ap.speed_scale = 1.0
+	if anim == "Jump":
+		ap.get_animation(anim).loop_mode = Animation.LOOP_LINEAR
+	ap.play(anim, 0.15)
 
 
 # ───────────────────────── Estado ─────────────────────────
