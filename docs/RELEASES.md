@@ -18,6 +18,8 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 
 | **Closed Alpha 0.4.1** | **Publicada** el 13 nov 2026 en <https://alux-beta.onrender.com> (commit `7e8fc5b`). Rollback: `b27e4c1` (0.4) | Pulido de la 0.4: plaza más ligera y viva, portal como menú del juego, guía de la pelea con Nojoch y su salida del santuario de un salto |
 
+| Closed Alpha 0.5 | **Candidata, sin publicar** (rama de trabajo). Pendiente del visto bueno del dueño | Progresión RPG (nivel 1–10, Semillas de Jade, Puesto de Saberes, amuletos y gachapón), el santuario se abre al despertar Nojoch, plaza de Mérida rehecha y primera ruta del mundo abierto: el Camino a Motul |
+
 ## Publicación en la rama `beta`
 
 La rama `beta` es lo único que Render despliega. Cada entrada dice qué commit lleva el código de
@@ -25,6 +27,17 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
+
+## ALUX Closed Alpha 0.5 — Los Caminos del Mayab (candidata, sin publicar)
+
+Nada de esto está en `beta`. Rollback cuando se publique: `7e8fc5b` (0.4.1).
+
+| Qué | Dónde | Comprobado | Sin comprobar |
+| --- | --- | --- | --- |
+| Progresión RPG: nivel 1–10, XP `100+20(n−1)²`, Semillas de Jade, inventario, un amuleto equipado, Chispa I y Garras I, gachapón con garantía; todo en la API, idempotente | [RPG.md](RPG.md) | API 20 pruebas (memoria y PostgreSQL real); protocolo; equilibrio en niveles 1, 5 y 10; ciclo completo en navegador: jugar el Claro → subir de nivel → comprar un amuleto → equiparlo → +2 % de vida en la sala | Cifras con partidas reales |
+| El santuario se abre al despertar Nojoch: los muros se hunden en 3,6 s, colisiones autoritativas, se cierran al dormirse | [BOSS.md](BOSS.md) | Simulación (550 885 comprobaciones), protocolo con 1, 2 y 4 jugadores, navegador | Fluidez con GPU; «El despertar» como vídeo |
+| Plaza de Mérida rehecha: ciudad modular, mercado, vegetación, luz de atardecer, vendedores | [OPEN_WORLD.md](OPEN_WORLD.md) §13 | 91 llamadas de dibujo en alta y 75 en mínima en la llegada (antes 90 y 74); servidor de zonas | FPS con GPU; rótulos y nombres provisionales |
+| Mundo abierto: el Camino a Motul (222 m al ENE), zonas seguras, 10 criaturas hostiles, descubrimientos, la misión de la cordelera, mapa con Izamal y Valladolid «próximamente» | [OPEN_WORLD.md](OPEN_WORLD.md) §14 | Servidor de zonas 11 de 11; navegador: plaza → arco → camino → misión → milpa → purificar → cartel de Motul → mapa → vuelta, con recompensas pagadas por la API real; carga con 32 aluxes: 11 % de un núcleo | Misión a medias no sobrevive a un reinicio del servidor; varios navegadores a la vez en el camino |
 
 ## ALUX Closed Alpha 0.4.1 — Pulido de lo publicado
 

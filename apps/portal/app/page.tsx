@@ -67,7 +67,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
             {betaLoginEnabled && (
               <form className="dev-login beta-login" method="post" action="/auth/beta">
                 <input type="hidden" name="next" value={next} />
-                <label htmlFor="beta-code">Closed Alpha 0.4.1 · entra con tu código de invitación</label>
+                <label htmlFor="beta-code">Closed Alpha 0.5 · entra con tu código de invitación</label>
                 <div>
                   <input id="beta-code" name="code" maxLength={64} placeholder="ALUX-XXXXX-XXXXX-XXXXX-XXXXX" autoComplete="off"
                     autoCapitalize="characters" spellCheck={false} required autoFocus />

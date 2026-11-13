@@ -17,7 +17,7 @@ const World := preload("res://scripts/shared/world_def.gd")
 const Kit := preload("res://scripts/client/ui/ui_kit.gd")
 
 ## Nombre de la build, visible en el menú para que quien pruebe pueda citarla al reportar.
-const BUILD := "ALUX Closed Alpha 0.4.1"
+const BUILD := "ALUX Closed Alpha 0.5"
 const FORM_ACCENT := {"alux": Kit.JADE, "balam": Kit.AMBER}
 const KEY_HINTS := ["Clic · J", "Clic der. · K", "F"]
 

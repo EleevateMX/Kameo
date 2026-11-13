@@ -9,6 +9,7 @@
     "test:flow": "tsx e2e/playtest-flow.ts",
     "test:boss": "tsx e2e/boss-fight.ts",
     "test:walls": "tsx e2e/court-walls.ts",
+    "test:camino": "tsx e2e/camino.ts",
     "test:cine": "tsx e2e/cine-video.ts",
     "test:audio": "tsx e2e/audio-probe.ts",
     "test:fullscreen": "tsx e2e/fullscreen.ts",
