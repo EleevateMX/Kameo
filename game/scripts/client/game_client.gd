@@ -2155,7 +2155,8 @@ func _process(delta: float) -> void:
 			_was_captured = false
 			_mouse_l = false
 			_mouse_r = false
-			if _net == Net.PLAYING and not _hud.panel_open() and not _hud.help_open():
+			# (el personalizador suelta el ratón a propósito: no es un Esc)
+			if _net == Net.PLAYING and not _custom.active and not _hud.panel_open() and not _hud.help_open():
 				_open_menu()
 
 	if _result_in > 0.0:

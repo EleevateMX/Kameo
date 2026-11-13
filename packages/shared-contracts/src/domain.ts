@@ -14,7 +14,7 @@ export const ALUX_COLORS = ['#2ec4a6', '#e4007c', '#ffd23f', '#ff7a1a', '#19b4d6
 /** Color secundario (ribetes, capa, faja, pañuelo). */
 export const ACCENT_COLORS = ['#fff7ec', '#ffd23f', '#e4007c', '#ff7a1a', '#2ec4a6', '#19b4d6', '#8f5bd6', '#7ccf4e', '#b3372e', '#3d2a20'] as const;
 /** Tonos de piel. El primero es el de siempre. */
-export const SKIN_TONES = ['#a9714b', '#c08a62', '#8c563a', '#6f4530', '#d6a57e'] as const;
+export const SKIN_TONES = ['#a9714b', '#aa8062', '#8c563a', '#6f4530', '#a98b72'] as const;
 
 /** Lo que el jugador elige además del color principal y el tocado. Todo son índices de los catálogos. */
 export interface Look {
@@ -24,7 +24,8 @@ export interface Look {
   accent: number;
   skin: number;
 }
-export const DEFAULT_LOOK: Look = { outfit: 0, accessory: 0, amulet: 0, accent: 0, skin: 0 };
+/** El alux de siempre lleva su morral y su colgante de jade: ése es el aspecto inicial. */
+export const DEFAULT_LOOK: Look = { outfit: 0, accessory: 1, amulet: 1, accent: 0, skin: 0 };
 const LOOK_LIMITS: Record<keyof Look, number> = {
   outfit: OUTFITS.length, accessory: ACCESSORIES.length, amulet: AMULETS.length, accent: ACCENT_COLORS.length, skin: SKIN_TONES.length,
 };

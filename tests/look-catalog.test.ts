@@ -45,6 +45,8 @@ test('lo que no es del catálogo no pasa', () => {
   assert.equal(isValidLook({ outfit: 1.5, accessory: 0, amulet: 0, accent: 0, skin: 0 }), false, 'índice no entero');
   assert.equal(isValidLook({ outfit: 0, accessory: 0, amulet: 0, accent: 0 }), false, 'falta un campo');
   assert.equal(isValidLook({ outfit: 0, accessory: 0, amulet: 0, accent: 0, skin: 0, scale: 9 }), false, 'campo desconocido');
-  assert.deepEqual(cleanLook({ outfit: 99, accessory: 'x', amulet: 2 }), { outfit: 0, accessory: 0, amulet: 2, accent: 0, skin: 0 });
-  assert.deepEqual(cleanLook(null), { outfit: 0, accessory: 0, amulet: 0, accent: 0, skin: 0 });
+  // lo que falta o no vale vuelve al aspecto inicial (el alux de siempre lleva morral y colgante de jade)
+  assert.deepEqual(cleanLook({ outfit: 99, accessory: 'x', amulet: 2 }), { outfit: 0, accessory: 1, amulet: 2, accent: 0, skin: 0 });
+  assert.deepEqual(cleanLook(null), { outfit: 0, accessory: 1, amulet: 1, accent: 0, skin: 0 });
+  assert.deepEqual(JSON.parse(block('DEFAULT')), lookToList(cleanLook(null)), 'el aspecto inicial es el mismo en el juego y en el contrato');
 });

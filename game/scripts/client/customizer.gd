@@ -377,7 +377,10 @@ func _swatches(parent: Control, family: String, title: String, colors: Array) ->
 		b.tooltip_text = str(colors[i])
 		var value: Variant = str(colors[i]) if family == "color" else i
 		b.pressed.connect(func() -> void: _choose(family, value))
-		b.set_meta("swatch", Color.from_string(str(colors[i]), Color.WHITE))
+		var shown := Color.from_string(str(colors[i]), Color.WHITE)
+		if family == "skin":
+			shown = Color(minf(shown.r * 1.49, 1.0), minf(shown.g * 1.49, 1.0), minf(shown.b * 1.49, 1.0))   # como se ve en el modelo
+		b.set_meta("swatch", shown)
 		flow.add_child(b)
 		(_groups[family] as Array).append([value, b])
 

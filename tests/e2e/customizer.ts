@@ -55,12 +55,12 @@ ok(`El portal abre el juego en modo vestir con el alux del perfil (ofrece: ${Obj
 await c.cmd('color:#e4007c');
 await c.cmd('hat:1');
 await c.cmd('accent:3');
-const want: Record<string, number> = { outfit: 0, accessory: 0, amulet: 0, accent: 3, skin: 0 };
+const want: Record<string, number> = { outfit: s.look[0], accessory: s.look[1], amulet: s.look[2], accent: 3, skin: s.look[4] };
 const expectParts = ['Hat_Penacho'];
-// De cada familia se elige una opción que no sea la primera, si el modelo la trae
+// De cada familia se elige una pieza distinta de la que lleva, si el modelo la trae
 for (const [family, prefix] of [['outfit', 'Outfit_'], ['accessory', 'Acc_'], ['amulet', 'Amu_']] as const) {
   const offered: number[] = s.options[family] ?? [];
-  const pick = offered.find((v) => v > 0);
+  const pick = offered.find((v) => v > 0 && v !== want[family]);
   if (pick === undefined) continue;
   await c.cmd(`${family}:${pick}`);
   want[family] = pick;
@@ -130,7 +130,7 @@ assert.equal(other.color, '#e4007c');
 assert.equal(other.hat, 1);
 assert.deepEqual(other.look, [want.outfit, want.accessory, want.amulet, want.accent, want.skin]);
 const neighbour = await seenBy(a, 'Vecina');
-assert.deepEqual([neighbour.color, neighbour.hat, neighbour.look], ['#2ec4a6', 0, [0, 0, 0, 0, 0]], 'quien no se ha vestido se ve con el aspecto inicial');
+assert.deepEqual([neighbour.color, neighbour.hat, neighbour.look], ['#2ec4a6', 0, [0, 1, 1, 0, 0]], 'quien no se ha vestido se ve con el aspecto inicial (morral y colgante de jade)');
 ok('Réplica: el otro jugador dibuja a Vestida con el color, el tocado y las piezas guardadas');
 
 // ── 5) Cambiarse dentro de la sala ──
@@ -140,7 +140,11 @@ await a.keyboard.press('Enter');
 await waitFor('bienvenida cerrada', async () => ((await state(a)) as any).ui.intro === false, 30_000);
 await a.evaluate(() => { (window as any).ALUX_ACTION = 'customize'; });
 const inRoom = async () => ((await state(a)) as any).custom;
-await waitFor('personalizador abierto en la sala', async () => (await inRoom()).active === true, 30_000);
+await waitFor('personalizador abierto en la sala', async () => (await inRoom()).active === true, 30_000).catch(async (e) => {
+  const st: any = await state(a);
+  console.log(`  no se abrió: ${JSON.stringify({ ui: st.ui, encounter: st.encounter, frozen: st.frozen, cine: st.cine, hint: st.hint, me: st.players.find((p: any) => p.name === 'Vestida') })}`);
+  throw e;
+});
 const send = async (v: string) => { await a.evaluate((x) => { (window as any).ALUX_CUSTOM = x; }, v); await sleep(900); };
 await send('hat:2');
 await send('color:#19b4d6');

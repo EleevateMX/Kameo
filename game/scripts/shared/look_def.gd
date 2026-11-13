@@ -30,7 +30,8 @@ const AMULETS := [["Ninguno", ""], ["Colgante de jade", "Amu_Jade"], ["Concha", 
 const COLORS := ["#2ec4a6", "#e4007c", "#ffd23f", "#ff7a1a", "#19b4d6", "#8f5bd6", "#7ccf4e", "#f25f5c",
 	"#fff7ec", "#3f7d5c", "#b3372e", "#31466b"]
 const ACCENTS := ["#fff7ec", "#ffd23f", "#e4007c", "#ff7a1a", "#2ec4a6", "#19b4d6", "#8f5bd6", "#7ccf4e", "#b3372e", "#3d2a20"]
-const SKINS := ["#a9714b", "#c08a62", "#8c563a", "#6f4530", "#d6a57e"]
+## (Los tonos no pasan de 0,67 en rojo: el juego los aclara × 1,49 al pintarlos y más se quemarían.)
+const SKINS := ["#a9714b", "#aa8062", "#8c563a", "#6f4530", "#a98b72"]
 
 ## Orden de los campos cuando la apariencia viaja como lista: [vestimenta, accesorio, amuleto, secundario, piel]
 const OUTFIT := 0
@@ -38,7 +39,8 @@ const ACCESSORY := 1
 const AMULET := 2
 const ACCENT := 3
 const SKIN := 4
-const DEFAULT: Array = [0, 0, 0, 0, 0]
+## El alux de siempre lleva su morral y su colgante de jade: ése es el aspecto inicial.
+const DEFAULT: Array = [0, 1, 1, 0, 0]
 const LIMITS: Array = [4, 5, 5, 10, 5]
 
 

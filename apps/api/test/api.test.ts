@@ -148,7 +148,7 @@ function suite(label: string, makeStore: () => Promise<Store>) {
       assert.equal((await a.call('PUT', '/v1/me/character', { name: 'Ixchel', color: 'rojo', hat: 1 })).status, 400);
       assert.equal((await a.call('PUT', '/v1/me/character', { name: 'Ixchel', color: '#ff0000', hat: 9 })).status, 400);
       const ok = await (await a.call('PUT', '/v1/me/character', { name: '  Ixchel <b> ', color: '#E4007C', hat: 2 })).json();
-      assert.deepEqual(ok.character, { name: 'Ixchel b', color: '#e4007c', hat: 2, look: { outfit: 0, accessory: 0, amulet: 0, accent: 0, skin: 0 } });
+      assert.deepEqual(ok.character, { name: 'Ixchel b', color: '#e4007c', hat: 2, look: { outfit: 0, accessory: 1, amulet: 1, accent: 0, skin: 0 } });
 
       // Apariencia del personalizador 3D: sólo valores del catálogo, y se conserva si no se manda
       const look = { outfit: 1, accessory: 2, amulet: 3, accent: 4, skin: 2 };

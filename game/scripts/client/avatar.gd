@@ -126,8 +126,11 @@ func _load_glb(f: String) -> Node3D:
 			elif f == "alux" and mat_name.begins_with("Trim"):
 				tint = accent
 			elif f == "alux" and mat_name.begins_with("Skin"):
-				# la piel lleva sus matices en el vértice sobre blanco; se aclara como el resto del cuerpo
-				tint = Color(skin.r * 1.12, skin.g * 1.12, skin.b * 1.12)
+				# La piel lleva sus matices en el vértice; el tono medio va en gris 0,75 para que el
+				# rubor y las palmas, que son más claros, quepan. Por eso el tinte es el tono × 4/3,
+				# y × 1,12 más para aclararla como al resto del cuerpo.
+				var k := 1.12 * 4.0 / 3.0
+				tint = Color(skin.r * k, skin.g * k, skin.b * k)
 			elif mat_name == "Body" or mat_name == "Headwear":
 				# El color vive en los vértices: se aclara un poco el conjunto para que la cara
 				# se lea a la sombra del sombrero y de los árboles (sin textura ni luz extra)
