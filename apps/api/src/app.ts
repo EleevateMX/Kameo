@@ -7,6 +7,8 @@ import {
 } from '@alux/shared-contracts';
 import type { Config } from './config.ts';
 import type { RoomRow, Store } from './store/types.ts';
+import { buy, equip, gacha, grant } from './rpg.ts';
+import { rpgStats, rpgView } from '@alux/shared-contracts';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const CODE_RE = /^[A-Z0-9]{4,12}$/;
@@ -197,7 +199,26 @@ export function createApp(store: Store, config: Config) {
   app.get('/v1/me', requireSession, async (req, res) => {
     const profile = await store.getProfile((req as AuthedRequest).playerId);
     if (!profile) return res.status(401).json({ error: 'no_session' });
-    res.json(profile);
+    res.json({ ...profile, rpg: rpgView(await store.getRpg(profile.id)) });
+  });
+
+  // ───────────── Progresión RPG: Puesto de Saberes (docs/RPG.md) ─────────────
+  // Todo se decide aquí: el cliente sólo dice qué quiere y con qué identificador de petición
+  // (repetir la misma petición no vuelve a cobrar ni a tirar).
+  app.post('/v1/rpg/buy', requireSession, async (req, res) => {
+    const out = await buy(store, (req as AuthedRequest).playerId, req.body?.what, req.body?.requestId);
+    if (!out.ok) return res.status(out.status).json({ error: out.error });
+    res.json(out);
+  });
+  app.post('/v1/rpg/gacha', requireSession, async (req, res) => {
+    const out = await gacha(store, (req as AuthedRequest).playerId, req.body?.requestId);
+    if (!out.ok) return res.status(out.status).json({ error: out.error });
+    res.json(out);
+  });
+  app.post('/v1/rpg/equip', requireSession, async (req, res) => {
+    const out = await equip(store, (req as AuthedRequest).playerId, req.body?.itemId ?? null);
+    if (!out.ok) return res.status(out.status).json({ error: out.error });
+    res.json(out);
   });
 
   app.put('/v1/me/character', requireSession, async (req, res) => {
@@ -278,6 +299,8 @@ export function createApp(store: Store, config: Config) {
       name: profile.character.name, color: profile.character.color, hat: profile.character.hat,
       look: lookToList(profile.character.look),
       forms: profile.unlocks,
+      // Nivel, vida y daño ya calculados (nivel + amuleto + mejoras): el servidor de juego los aplica
+      rpg: rpgStats(await store.getRpg(playerId)),
     }, config.ticketSecret, GAME_TICKET_TTL_SECONDS);
     recentTickets.set(`${code}:${playerId}`, Date.now());
     await store.recordSession({ jti, playerId, code, expiresAt: new Date(Date.now() + GAME_TICKET_TTL_SECONDS * 1000) });
@@ -357,6 +380,7 @@ export function createApp(store: Store, config: Config) {
     const ticket = signJwt({
       aud: ZONE_TICKET_AUDIENCE, sub: playerId, jti: randomUUID(), zone,
       name: c.name, color: c.color, hat: c.hat, look: lookToList(c.look),
+      rpg: rpgStats(await store.getRpg(playerId)),
     }, config.ticketSecret, GAME_TICKET_TTL_SECONDS);
     res.json({ ticket, wsUrl: config.zoneWsUrl, zone });
   });
@@ -383,6 +407,18 @@ export function createApp(store: Store, config: Config) {
     if (!profile) return res.status(404).json({ error: 'not_found' });
     const c = profile.character;
     res.json({ name: c.name, color: c.color, hat: c.hat, look: lookToList(c.look) });
+  });
+
+  // Los servidores del juego avisan de hechos que dan experiencia y semillas (docs/RPG.md).
+  // Las cantidades, los topes y la unicidad los pone la API; repetir una clave no vuelve a pagar.
+  app.post('/internal/rpg/grant', requireService, async (req, res) => {
+    const list: unknown = req.body?.grants;
+    if (!Array.isArray(list) || list.length > 64) return res.status(400).json({ error: 'invalid_grants' });
+    const results = [];
+    for (const g of list) {
+      results.push(await grant(store, String(g?.playerId ?? ''), String(g?.kind ?? ''), String(g?.key ?? '')));
+    }
+    res.json({ results });
   });
 
   // El servidor de juego avisa de una recompensa ganada. Idempotente: reintentar no duplica.

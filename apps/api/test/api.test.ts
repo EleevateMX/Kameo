@@ -284,6 +284,178 @@ function suite(label: string, makeStore: () => Promise<Store>) {
       assert.equal(info.online, 1);
       assert.equal(info.members[0].online, true);
     });
+
+    // ───────────── Progresión RPG (docs/RPG.md) ─────────────
+    const grants = async (list: { playerId: string; kind: string; key: string }[]) =>
+      (await (await svc('/internal/rpg/grant', { grants: list })).json()).results as any[];
+    const rpgOf = async (p: { call: (m: string, u: string, b?: unknown) => Promise<Response> }) => (await (await p.call('GET', '/v1/me')).json()).rpg;
+    /** Semillas para las pruebas: misiones distintas, 40 cada una (y 100 de experiencia). */
+    const earn = async (id: string, missions: number, tag = 'm') => {
+      for (let i = 0; i < missions; i++) await grants([{ playerId: id, kind: 'mission', key: `${tag}-${i}` }]);
+    };
+
+    test('rpg: un alux nuevo empieza en nivel 1, sin semillas, y el perfil anterior no cambia', async () => {
+      const a = await login(40);
+      const me = await (await a.call('GET', '/v1/me')).json();
+      assert.deepEqual(me.unlocks, ['alux', 'balam'], 'las formas de siempre siguen ahí');
+      assert.deepEqual(
+        { level: me.rpg.level, xp: me.rpg.xp, next: me.rpg.xpToNext, seeds: me.rpg.seeds, items: me.rpg.items, equipped: me.rpg.equipped, stats: me.rpg.stats },
+        { level: 1, xp: 0, next: 100, seeds: 0, items: [], equipped: null, stats: { lv: 1, hp: 100, dmg: { all: 1, chispa: 1, garras: 1 } } });
+    });
+
+    test('rpg: las recompensas las calcula la API, una clave no paga dos veces y sólo las concede un servidor', async () => {
+      const a = await login(41);
+      let [r] = await grants([{ playerId: a.id, kind: 'purify', key: 'SALA01:1:7' }]);
+      assert.deepEqual([r.applied, r.xp, r.seeds, r.level, r.leveledUp, r.totalXp, r.totalSeeds], [true, 20, 8, 1, false, 20, 8]);
+      [r] = await grants([{ playerId: a.id, kind: 'purify', key: 'SALA01:1:7' }]);
+      assert.deepEqual([r.applied, r.reason, r.xp, r.totalXp, r.totalSeeds], [false, 'duplicate', 0, 20, 8], 'el reintento no paga');
+      [r] = await grants([{ playerId: a.id, kind: 'enemy', key: 'SALA01:1:8' }]);
+      assert.deepEqual([r.applied, r.xp, r.seeds], [true, 15, 5]);
+      // Cantidades inventadas, tipos inventados y jugadores inventados no sirven
+      const bad = await grants([
+        { playerId: a.id, kind: 'regalo', key: 'x' }, { playerId: 'no-es-un-id', kind: 'purify', key: 'x' },
+        { playerId: randomUUID(), kind: 'purify', key: 'x' }, { playerId: a.id, kind: 'purify', key: '' },
+      ]);
+      assert.deepEqual(bad.map((b) => b.applied), [false, false, false, false]);
+      assert.equal((await svc('/internal/rpg/grant', { grants: [{ playerId: a.id, kind: 'nojoch', key: 'x' }] }, 'clave-falsa')).status, 401);
+      assert.equal((await a.call('POST', '/internal/rpg/grant', { grants: [{ playerId: a.id, kind: 'nojoch', key: 'x' }] })).status, 401,
+        'un jugador no puede concederse nada');
+      const me = await rpgOf(a);
+      assert.deepEqual([me.xp, me.seeds], [35, 13]);
+    });
+
+    test('rpg: lo repetible tiene tope diario; lo único se paga una vez', async () => {
+      const a = await login(42);
+      let paid = 0;
+      for (let i = 0; i < 43; i++) {
+        const [r] = await grants([{ playerId: a.id, kind: 'purify', key: `SALA02:1:${i}` }]);
+        if (r.applied) paid++;
+        else assert.equal(r.reason, 'daily_limit');
+      }
+      assert.equal(paid, 40, 'cuarenta purificaciones con recompensa al día');
+      // Descubrir: una vez por lugar; otro lugar sí cuenta
+      const d = await grants([
+        { playerId: a.id, kind: 'discovery', key: 'camino_motul:cenote' }, { playerId: a.id, kind: 'discovery', key: 'camino_motul:cenote' },
+        { playerId: a.id, kind: 'discovery', key: 'camino_motul:cartel' },
+      ]);
+      assert.deepEqual(d.map((x) => [x.applied, x.xp, x.seeds]), [[true, 40, 15], [false, 0, 0], [true, 40, 15]]);
+      // El Claro: una vez al día aunque sea otra sala u otra ronda. Nojoch: una sola vez, sea cual sea la clave
+      const c = await grants([
+        { playerId: a.id, kind: 'claro', key: 'SALA02:1' }, { playerId: a.id, kind: 'claro', key: 'SALA03:1' },
+        { playerId: a.id, kind: 'nojoch', key: 'SALA02:1' }, { playerId: a.id, kind: 'nojoch', key: 'SALA09:4' },
+      ]);
+      assert.deepEqual(c.map((x) => [x.applied, x.xp, x.seeds]), [[true, 150, 75], [false, 0, 0], [true, 300, 150], [false, 0, 0]]);
+      assert.equal(c[1].reason, 'daily_limit');
+      assert.equal(c[3].reason, 'duplicate');
+    });
+
+    test('rpg: curva de niveles 100 + 20·(n−1)² con máximo 10; subir de nivel se avisa', async () => {
+      const a = await login(43);
+      let [r] = await grants([{ playerId: a.id, kind: 'mission', key: 'primera' }]);
+      assert.deepEqual([r.level, r.leveledUp, r.totalXp], [2, true, 100], 'con 100 de experiencia se llega al nivel 2');
+      [r] = await grants([{ playerId: a.id, kind: 'mission', key: 'segunda' }]);
+      assert.deepEqual([r.level, r.leveledUp], [2, false], 'el nivel 3 pide 120 más');
+      await earn(a.id, 5, 'n5');                    // 700 en total: nivel 5 a los 680
+      let me = await rpgOf(a);
+      assert.deepEqual([me.level, me.xpInLevel, me.xpToNext, me.stats.hp], [5, 20, 420, 104]);
+      await earn(a.id, 60, 'n10');                  // de sobra para el máximo (4 980)
+      me = await rpgOf(a);
+      assert.deepEqual([me.level, me.xpToNext, me.stats.hp], [10, 0, 109], 'no pasa del nivel 10: +9 % de vida');
+    });
+
+    test('rpg: comprar una mejora cobra una vez, pide semillas de verdad y se nota en el ticket', async () => {
+      const a = await login(44);
+      const req1 = randomUUID();
+      assert.equal((await a.call('POST', '/v1/rpg/buy', { what: 'skill:chispa', requestId: req1 })).status, 402, 'sin semillas no hay mejora');
+      await earn(a.id, 3);                           // 120 semillas
+      const first = await (await a.call('POST', '/v1/rpg/buy', { what: 'skill:chispa', requestId: req1 })).json();
+      assert.deepEqual([first.ok, first.rpg.seeds, first.rpg.skills.chispa, first.rpg.stats.dmg.chispa], [true, 20, 1, 1.1]);
+      const again = await (await a.call('POST', '/v1/rpg/buy', { what: 'skill:chispa', requestId: req1 })).json();
+      assert.deepEqual([again.ok, again.repeated, again.rpg.seeds], [true, true, 20], 'repetir la petición no vuelve a cobrar');
+      assert.equal((await a.call('POST', '/v1/rpg/buy', { what: 'skill:chispa', requestId: randomUUID() })).status, 409, 'ya la tiene');
+      for (const body of [{ what: 'skill:volar', requestId: randomUUID() }, { what: 'skill:chispa', requestId: 'no-uuid' }, { what: 'amulet:disco_sol', requestId: randomUUID() }, {}]) {
+        assert.equal((await a.call('POST', '/v1/rpg/buy', body)).status, 400, `petición inválida: ${JSON.stringify(body)}`);
+      }
+      assert.equal((await a.call('POST', '/v1/rpg/buy', { what: 'skill:garras', requestId: randomUUID() }, false)).status, 403, 'sin cabecera anti-CSRF no se compra');
+      // El ticket lleva las estadísticas calculadas por la API
+      const room = await (await a.call('POST', '/v1/rooms', {})).json();
+      const t = await (await a.call('POST', `/v1/rooms/${room.code}/ticket`)).json();
+      const claims = verifyJwt<GameTicketClaims & { rpg: any }>(t.ticket, config.ticketSecret, GAME_TICKET_AUDIENCE);
+      assert.deepEqual(claims!.rpg, { lv: 3, hp: 102, dmg: { all: 1, chispa: 1.1, garras: 1 } }, 'tres misiones: nivel 3 (+2 % de vida) y Chispa I');
+      const z = await (await a.call('POST', '/v1/zones/merida/ticket')).json();
+      assert.deepEqual(verifyJwt<any>(z.ticket, config.ticketSecret, ZONE_TICKET_AUDIENCE).rpg.dmg.chispa, 1.1);
+    });
+
+    test('rpg: dos compras a la vez no gastan las mismas semillas', async () => {
+      const a = await login(45);
+      await earn(a.id, 2);                           // 80 semillas: alcanza para un amuleto común, no para dos
+      const tries = await Promise.all(['semilla_ceiba', 'lasca_pedernal', 'semilla_ceiba', 'lasca_pedernal'].map((id) =>
+        a.call('POST', '/v1/rpg/buy', { what: `amulet:${id}`, requestId: randomUUID() })));
+      const codes = tries.map((r) => r.status);
+      assert.equal(codes.filter((c) => c === 200).length, 1, `sólo una compra pasa (respuestas: ${codes.join(', ')})`);
+      assert.ok(codes.every((c) => [200, 402, 409].includes(c)));
+      const me = await rpgOf(a);
+      assert.deepEqual([me.seeds, me.items.length], [0, 1]);
+    });
+
+    test('rpg: amuleto comprado, equipado y con efecto; no se equipa lo ajeno', async () => {
+      const a = await login(46);
+      const b = await login(47);
+      await earn(a.id, 9);                           // 360 semillas
+      await earn(b.id, 2);
+      const common = await (await a.call('POST', '/v1/rpg/buy', { what: 'amulet:semilla_ceiba', requestId: randomUUID() })).json();
+      assert.deepEqual([common.item.item, common.item.rarity, common.rpg.seeds], ['semilla_ceiba', 'common', 280]);
+      assert.equal((await a.call('POST', '/v1/rpg/buy', { what: 'amulet:semilla_ceiba', requestId: randomUUID() })).status, 409, 'ya lo tiene');
+      const rare = await (await a.call('POST', '/v1/rpg/buy', { what: 'amulet:espejo_obsidiana', requestId: randomUUID() })).json();
+      assert.equal(rare.rpg.seeds, 30);
+      assert.equal(common.rpg.equipped, null, 'comprado pero sin equipar no hace nada');
+      const base = (await rpgOf(a)).stats;
+      let worn = await (await a.call('POST', '/v1/rpg/equip', { itemId: common.item.id })).json();
+      assert.equal(worn.rpg.stats.hp, Math.round(base.hp * 1.02), 'común de vida: +2 %');
+      assert.equal(worn.rpg.stats.dmg.all, 1);
+      worn = await (await a.call('POST', '/v1/rpg/equip', { itemId: rare.item.id })).json();
+      assert.deepEqual([worn.rpg.stats.hp, worn.rpg.stats.dmg.all, worn.rpg.equipped], [base.hp, 1.04, rare.item.id], 'un solo espacio: el raro de daño sustituye al común');
+      // Lo de otro jugador no se equipa; quitarse el amuleto vuelve a la base
+      const other = await (await b.call('POST', '/v1/rpg/buy', { what: 'amulet:lasca_pedernal', requestId: randomUUID() })).json();
+      assert.equal((await a.call('POST', '/v1/rpg/equip', { itemId: other.item.id })).status, 400);
+      assert.equal((await a.call('POST', '/v1/rpg/equip', { itemId: 'cualquiera' })).status, 400);
+      const off = await (await a.call('POST', '/v1/rpg/equip', { itemId: null })).json();
+      assert.deepEqual([off.rpg.equipped, off.rpg.stats.dmg.all], [null, 1]);
+    });
+
+    test('rpg: gachapón con probabilidades públicas, garantía cada 20 tiradas y sin dobles tiradas', async () => {
+      const a = await login(48);
+      assert.equal((await a.call('POST', '/v1/rpg/gacha', { requestId: randomUUID() })).status, 402);
+      await earn(a.id, 60, 'g');                     // 2 400 semillas
+      // Por la API: la misma petición devuelve el mismo objeto y cobra una vez
+      const req1 = randomUUID();
+      const one = await (await a.call('POST', '/v1/rpg/gacha', { requestId: req1 })).json();
+      const two = await (await a.call('POST', '/v1/rpg/gacha', { requestId: req1 })).json();
+      assert.deepEqual([one.ok, two.repeated, two.item.id, two.rpg.seeds], [true, true, one.item.id, 2300]);
+      assert.equal(two.rpg.items.length, 1);
+      // La garantía, con la suerte en contra (el dado siempre saca «común»): la tirada 20 es épica
+      const { gacha, gachaRarity } = await import('../src/rpg.ts');
+      const b = await login(49);
+      await earn(b.id, 60, 'g');
+      const worst = (n: number) => (n === 1000 ? 999 : 0);
+      const seen: string[] = [];
+      for (let i = 0; i < 21; i++) {
+        const out = await gacha(store, b.id, randomUUID(), worst);
+        assert.ok(out.ok);
+        if (out.ok) seen.push(out.item!.rarity);
+      }
+      assert.deepEqual(seen.slice(0, 19).every((r) => r === 'common'), true);
+      assert.equal(seen[19], 'epic', 'tras 19 tiradas sin épico, la vigésima lo garantiza');
+      assert.equal(seen[20], 'common', 'y la cuenta vuelve a empezar');
+      assert.equal((await rpgOf(b)).pity, 1);
+      // Las probabilidades: 1 % legendario, 4 % épico, 25 % raro, 70 % común (recorriendo todo el dado)
+      const tally: Record<string, number> = { common: 0, rare: 0, epic: 0, legendary: 0 };
+      for (let roll = 0; roll < 1000; roll++) tally[gachaRarity(roll, false)]++;
+      assert.deepEqual(tally, { common: 700, rare: 250, epic: 40, legendary: 10 });
+      const sure: Record<string, number> = { epic: 0, legendary: 0 };
+      for (let roll = 0; roll < 1000; roll++) sure[gachaRarity(roll, true)]++;
+      assert.deepEqual(sure, { epic: 800, legendary: 200 }, 'con la garantía, la misma proporción entre épico y legendario');
+    });
   });
 }
 

@@ -1,4 +1,4 @@
-import type { Character, FormId, PlayerProfile, RoomVisibility } from '@alux/shared-contracts';
+import type { Character, FormId, PlayerProfile, Rarity, RoomVisibility, RpgState, SkillId } from '@alux/shared-contracts';
 
 export interface RoomRow {
   code: string;
@@ -21,6 +21,26 @@ export interface MemberRow {
 export interface RewardEffect {
   quest?: string;
   unlock?: FormId;
+}
+
+/** Lo que decide una regla de la progresión RPG sobre el estado (ya bloqueado) de un jugador. */
+export interface RpgChange {
+  xp?: number;                                   // experiencia que se suma
+  seeds?: number;                                // semillas que se suman (negativo: gasto)
+  skill?: { id: SkillId; rank: number };         // deja una habilidad en ese rango
+  equipped?: string | null;                      // objeto equipado (null: ninguno); undefined: no cambia
+  pity?: number;                                 // contador de garantía del gachapón
+  addItem?: { item: string; rarity: Rarity };    // objeto nuevo en el inventario
+  /** Lo que se devuelve a quien repita la misma clave (p. ej. qué salió en el gachapón). */
+  result?: Record<string, unknown>;
+}
+export interface RpgApplied {
+  applied: boolean;
+  reason?: string;                               // 'duplicate', o el motivo del rechazo
+  state: RpgState;
+  result?: Record<string, unknown>;
+  /** Objeto creado por este apunte (o por el original, si es una repetición). */
+  itemId?: string;
 }
 
 /**
@@ -50,6 +70,19 @@ export interface Store {
    * Devuelve true sólo la primera vez que se aplica esa clave.
    */
   grantReward(g: { playerId: string; reward: string; source: string; idempotencyKey: string; effect: RewardEffect }): Promise<boolean>;
+
+  /** Progresión RPG de un jugador (si aún no tiene, la de un alux recién llegado). */
+  getRpg(playerId: string): Promise<RpgState>;
+  /**
+   * Aplica un movimiento de la progresión de forma atómica e idempotente: bloquea el estado del
+   * jugador, comprueba que la clave no se haya usado ya y llama a `decide` con el estado y con
+   * cuántos apuntes de ese `kind` lleva hoy (día UTC). `decide` devuelve el cambio o un rechazo.
+   * Repetir una clave no cambia nada y devuelve el resultado del apunte original.
+   */
+  rpgApply(a: {
+    playerId: string; kind: string; key: string;
+    decide: (state: RpgState, today: number) => RpgChange | { reject: string };
+  }): Promise<RpgApplied>;
 
   /** Guarda (o actualiza) las métricas de una sesión de juego. */
   saveMetrics(m: SessionMetrics): Promise<void>;

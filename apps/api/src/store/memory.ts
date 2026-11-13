@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { DEFAULT_LOOK, DEFAULT_UNLOCKS, cleanLook, cleanName, type Character, type FormId, type PlayerProfile } from '@alux/shared-contracts';
-import type { MemberRow, RoomRow, Store, SessionMetrics } from './types.ts';
+import { DEFAULT_LOOK, DEFAULT_UNLOCKS, EMPTY_RPG, cleanLook, cleanName, type Character, type FormId, type PlayerProfile, type RpgState } from '@alux/shared-contracts';
+import type { MemberRow, RoomRow, RpgApplied, RpgChange, Store, SessionMetrics } from './types.ts';
 
 interface PlayerRec {
   id: string;
@@ -23,6 +23,8 @@ interface Data {
   players: Record<string, PlayerRec>;
   rooms: Record<string, RoomRec>;
   ledger: { playerId: string; reward: string; source: string; idempotencyKey: string; grantedAt: string }[];
+  rpg?: Record<string, RpgState>;
+  rpgLedger?: { playerId: string; kind: string; key: string; at: string; result?: Record<string, unknown>; itemId?: string }[];
 }
 
 /** Almacén en memoria con guardado opcional a un archivo JSON (sólo desarrollo). */
@@ -167,6 +169,39 @@ export class MemoryStore implements Store {
     if (g.effect.unlock && !p.unlocks.includes(g.effect.unlock)) p.unlocks.push(g.effect.unlock);
     this.save();
     return true;
+  }
+
+  async getRpg(playerId: string): Promise<RpgState> {
+    const s = this.data.rpg?.[playerId];
+    return s ? { ...s, skills: { ...s.skills }, items: s.items.map((i) => ({ ...i })) } : { ...EMPTY_RPG, skills: {}, items: [] };
+  }
+
+  async rpgApply(a: { playerId: string; kind: string; key: string; decide: (state: RpgState, today: number) => RpgChange | { reject: string } }): Promise<RpgApplied> {
+    this.data.rpg ??= {};
+    this.data.rpgLedger ??= [];
+    const state = await this.getRpg(a.playerId);
+    if (!this.data.players[a.playerId]) return { applied: false, reason: 'no_player', state };
+    const prev = this.data.rpgLedger.find((l) => l.playerId === a.playerId && l.key === a.key);
+    if (prev) return { applied: false, reason: 'duplicate', state, result: prev.result, itemId: prev.itemId };
+    const day = new Date().toISOString().slice(0, 10);
+    const today = this.data.rpgLedger.filter((l) => l.playerId === a.playerId && l.kind === a.kind && l.at.slice(0, 10) === day).length;
+    const change = a.decide(state, today);
+    if ('reject' in change) return { applied: false, reason: change.reject, state };
+    state.xp += change.xp ?? 0;
+    state.seeds += change.seeds ?? 0;
+    if (state.seeds < 0) return { applied: false, reason: 'not_enough_seeds', state: await this.getRpg(a.playerId) };
+    if (change.skill) state.skills[change.skill.id] = change.skill.rank;
+    if (change.pity !== undefined) state.pity = change.pity;
+    let itemId: string | undefined;
+    if (change.addItem) {
+      itemId = randomUUID();
+      state.items.push({ id: itemId, ...change.addItem });
+    }
+    if (change.equipped !== undefined) state.equipped = change.equipped;
+    this.data.rpg[a.playerId] = state;
+    this.data.rpgLedger.push({ playerId: a.playerId, kind: a.kind, key: a.key, at: new Date().toISOString(), result: change.result, itemId });
+    this.save();
+    return { applied: true, state: await this.getRpg(a.playerId), result: change.result, itemId };
   }
 
   private metrics = new Map<string, SessionMetrics & { createdAt: Date; updatedAt: Date }>();

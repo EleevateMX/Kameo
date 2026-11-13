@@ -1,6 +1,6 @@
 import pg from 'pg';
-import { DEFAULT_UNLOCKS, cleanLook, cleanName, type Character, type FormId, type PlayerProfile } from '@alux/shared-contracts';
-import type { MemberRow, RoomRow, SessionMetrics, Store } from './types.ts';
+import { DEFAULT_UNLOCKS, cleanLook, cleanName, type Character, type FormId, type PlayerProfile, type Rarity, type RpgState } from '@alux/shared-contracts';
+import type { MemberRow, RoomRow, RpgApplied, RpgChange, SessionMetrics, Store } from './types.ts';
 
 /** PostgreSQL / Supabase. El esquema está en supabase/migrations. */
 export class PgStore implements Store {
@@ -166,6 +166,77 @@ export class PgStore implements Store {
       return fresh;
     } catch (err) {
       await client.query('rollback');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** Lee el estado RPG con la conexión dada (para usarlo dentro de una transacción). */
+  private async readRpg(q: { query: pg.Pool['query'] }, playerId: string, lock = false): Promise<RpgState> {
+    const st = await q.query(`select xp, seeds, skills, equipped, pity from rpg_state where player_id = $1${lock ? ' for update' : ''}`, [playerId]);
+    const items = await q.query('select id, item, rarity from rpg_items where player_id = $1 order by created_at, id', [playerId]);
+    const r = st.rows[0];
+    return {
+      xp: r?.xp ?? 0, seeds: r?.seeds ?? 0, skills: r?.skills ?? {}, equipped: r?.equipped ?? null, pity: r?.pity ?? 0,
+      items: items.rows.map((i: { id: string; item: string; rarity: Rarity }) => ({ id: i.id, item: i.item, rarity: i.rarity })),
+    };
+  }
+
+  async getRpg(playerId: string): Promise<RpgState> {
+    return this.readRpg(this.pool, playerId);
+  }
+
+  async rpgApply(a: { playerId: string; kind: string; key: string; decide: (state: RpgState, today: number) => RpgChange | { reject: string } }): Promise<RpgApplied> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+      // La fila del jugador se crea si falta y se bloquea: dos peticiones a la vez van en fila
+      const made = await client.query(
+        'insert into rpg_state (player_id) select id from players where id = $1 on conflict (player_id) do nothing', [a.playerId]);
+      const state = await this.readRpg(client, a.playerId, true);
+      const exists = made.rowCount === 1 || (await client.query('select 1 from rpg_state where player_id = $1', [a.playerId])).rowCount === 1;
+      if (!exists) {
+        await client.query('rollback');
+        return { applied: false, reason: 'no_player', state };
+      }
+      const prev = await client.query('select result, item_id from rpg_ledger where player_id = $1 and key = $2', [a.playerId, a.key]);
+      if (prev.rowCount) {
+        await client.query('commit');
+        return { applied: false, reason: 'duplicate', state, result: prev.rows[0].result ?? undefined, itemId: prev.rows[0].item_id ?? undefined };
+      }
+      const today = Number((await client.query(
+        "select count(*)::int as n from rpg_ledger where player_id = $1 and kind = $2 and created_at >= date_trunc('day', now() at time zone 'utc') at time zone 'utc'",
+        [a.playerId, a.kind])).rows[0].n);
+      const change = a.decide(state, today);
+      if ('reject' in change || state.seeds + (change.seeds ?? 0) < 0) {
+        await client.query('rollback');
+        return { applied: false, reason: 'reject' in change ? change.reject : 'not_enough_seeds', state };
+      }
+      let itemId: string | undefined;
+      if (change.addItem) {
+        const ins = await client.query(
+          'insert into rpg_items (player_id, item, rarity, source) values ($1, $2, $3, $4) returning id',
+          [a.playerId, change.addItem.item, change.addItem.rarity, a.kind]);
+        itemId = ins.rows[0].id;
+      }
+      const skills = change.skill ? { ...state.skills, [change.skill.id]: change.skill.rank } : state.skills;
+      await client.query(
+        `update rpg_state set xp = xp + $2, seeds = seeds + $3, skills = $4, equipped = $5, pity = $6, updated_at = now() where player_id = $1`,
+        [a.playerId, change.xp ?? 0, change.seeds ?? 0, JSON.stringify(skills),
+          change.equipped !== undefined ? change.equipped : state.equipped, change.pity ?? state.pity]);
+      await client.query(
+        'insert into rpg_ledger (player_id, kind, key, xp, seeds, result, item_id) values ($1, $2, $3, $4, $5, $6, $7)',
+        [a.playerId, a.kind, a.key, change.xp ?? 0, change.seeds ?? 0, change.result ? JSON.stringify(change.result) : null, itemId ?? null]);
+      const after = await this.readRpg(client, a.playerId);
+      await client.query('commit');
+      return { applied: true, state: after, result: change.result, itemId };
+    } catch (err) {
+      await client.query('rollback').catch(() => {});
+      // Dos peticiones con la misma clave a la vez: la segunda choca con la clave única
+      if ((err as { code?: string }).code === '23505') {
+        return { applied: false, reason: 'duplicate', state: await this.getRpg(a.playerId) };
+      }
       throw err;
     } finally {
       client.release();

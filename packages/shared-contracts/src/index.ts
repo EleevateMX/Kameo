@@ -3,3 +3,4 @@ export * from './protocol.ts';
 export * from './domain.ts';
 export * from './secrets.ts';
 export * from './beta.ts';
+export * from './rpg.ts';
