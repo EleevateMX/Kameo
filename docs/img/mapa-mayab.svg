@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 700" font-family="system-ui, sans-serif">
+<rect width="1100" height="700" fill="#0f1f1b"/>
+<text x="24" y="38" fill="#ffd23f" font-size="24" font-weight="700">El Mayab de los aluxes · mapa conceptual</text>
+<text x="24" y="60" fill="#9ff0dc" font-size="13">Posición relativa real de ocho localidades de Yucatán y sus caminos. Esquema, no cartografía.</text>
+<path d="M 84 397 Q 76 287 170 184 T 398 128 T 1060 104" fill="none" stroke="#19b4d6" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round" opacity="0.75"/>
+<text x="698" y="98" fill="#19b4d6" font-size="13" opacity="0.85">Golfo de México</text>
+<line x1="414" y1="282" x2="398" y2="150" stroke="#c9b78a" stroke-width="2.5" opacity="0.55"/>
+<text x="414" y="232" fill="#c9b78a" font-size="11" opacity="0.9">36 km</text>
+<line x1="414" y1="282" x2="547" y2="228" stroke="#c9b78a" stroke-width="2.5" opacity="0.55"/>
+<text x="489" y="271" fill="#c9b78a" font-size="11" opacity="0.9">44 km</text>
+<line x1="414" y1="282" x2="651" y2="297" stroke="#c9b78a" stroke-width="2.5" opacity="0.55"/>
+<text x="540" y="305" fill="#c9b78a" font-size="11" opacity="0.9">70 km</text>
+<line x1="414" y1="282" x2="545" y2="602" stroke="#c9b78a" stroke-width="2.5" opacity="0.55"/>
+<text x="488" y="458" fill="#c9b78a" font-size="11" opacity="0.9">120 km</text>
+<line x1="414" y1="282" x2="110" y2="327" stroke="#c9b78a" stroke-width="2.5" opacity="0.55"/>
+<text x="270" y="320" fill="#c9b78a" font-size="11" opacity="0.9">89 km</text>
+<line x1="547" y1="228" x2="990" y2="210" stroke="#c9b78a" stroke-width="2.5" opacity="0.55"/>
+<text x="776" y="235" fill="#c9b78a" font-size="11" opacity="0.9">123 km</text>
+<line x1="651" y1="297" x2="970" y2="398" stroke="#c9b78a" stroke-width="2.5" opacity="0.55"/>
+<text x="818" y="364" fill="#c9b78a" font-size="11" opacity="0.9">113 km</text>
+<line x1="970" y1="398" x2="990" y2="210" stroke="#c9b78a" stroke-width="2.5" opacity="0.55"/>
+<text x="988" y="320" fill="#c9b78a" font-size="11" opacity="0.9">50 km</text>
+<line x1="547" y1="228" x2="651" y2="297" stroke="#c9b78a" stroke-width="2.5" opacity="0.55"/>
+<circle cx="414" cy="282" r="13" fill="#ffd23f" stroke="#0b1512" stroke-width="3"/>
+<text x="398" y="262" fill="#fff8ea" font-size="17" font-weight="700" text-anchor="end">Mérida</text>
+<text x="398" y="279" fill="#9ff0dc" font-size="12" text-anchor="end">la Ciudad Blanca · lugar social</text>
+<circle cx="398" cy="150" r="9" fill="#2ec4a6" stroke="#0b1512" stroke-width="3"/>
+<text x="414" y="146" fill="#fff8ea" font-size="17" font-weight="700" text-anchor="start">Progreso</text>
+<text x="414" y="163" fill="#9ff0dc" font-size="12" text-anchor="start">el muelle en la bruma · puerto</text>
+<circle cx="547" cy="228" r="9" fill="#2ec4a6" stroke="#0b1512" stroke-width="3"/>
+<text x="563" y="224" fill="#fff8ea" font-size="17" font-weight="700" text-anchor="start">Motul</text>
+<text x="563" y="241" fill="#9ff0dc" font-size="12" text-anchor="start">campos de agave · región abierta</text>
+<circle cx="651" cy="297" r="9" fill="#2ec4a6" stroke="#0b1512" stroke-width="3"/>
+<text x="667" y="293" fill="#fff8ea" font-size="17" font-weight="700" text-anchor="start">Izamal</text>
+<text x="667" y="310" fill="#9ff0dc" font-size="12" text-anchor="start">la ciudad dorada · lugar social</text>
+<circle cx="970" cy="398" r="9" fill="#2ec4a6" stroke="#0b1512" stroke-width="3"/>
+<text x="954" y="394" fill="#fff8ea" font-size="17" font-weight="700" text-anchor="end">Valladolid</text>
+<text x="954" y="411" fill="#9ff0dc" font-size="12" text-anchor="end">la ciudad del cenote · misiones de agua</text>
+<circle cx="990" cy="210" r="9" fill="#2ec4a6" stroke="#0b1512" stroke-width="3"/>
+<text x="974" y="206" fill="#fff8ea" font-size="17" font-weight="700" text-anchor="end">Tizimín</text>
+<text x="974" y="223" fill="#9ff0dc" font-size="12" text-anchor="end">los llanos y la feria · eventos</text>
+<circle cx="545" cy="602" r="9" fill="#2ec4a6" stroke="#0b1512" stroke-width="3"/>
+<text x="561" y="598" fill="#fff8ea" font-size="17" font-weight="700" text-anchor="start">Tekax</text>
+<text x="561" y="615" fill="#9ff0dc" font-size="12" text-anchor="start">las lomas y sus cuevas · exploración</text>
+<circle cx="110" cy="327" r="9" fill="#2ec4a6" stroke="#0b1512" stroke-width="3"/>
+<text x="126" y="323" fill="#fff8ea" font-size="17" font-weight="700" text-anchor="start">Celestún</text>
+<text x="126" y="340" fill="#9ff0dc" font-size="12" text-anchor="start">el manglar rosa · región tranquila</text>
+<text x="24" y="680" fill="#d8cfe0" font-size="11" opacity="0.8">Coordenadas y distancias: docs/mundo/FUENTES_YUCATAN.md (pendientes de cotejar con INEGI). Los sobrenombres son del juego, no topónimos.</text>
+</svg>
