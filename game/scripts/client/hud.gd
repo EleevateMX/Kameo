@@ -337,6 +337,13 @@ var _boss_name: Label
 var _boss_gauge: Gauge
 var _boss_note: Label
 var _guide: Plaque              # guía del jefe: pasos de la fase en curso
+var _rpg_box: VBoxContainer     # progresión RPG: nivel, experiencia y semillas
+var _rpg_level: Label
+var _rpg_seeds: Label
+var _rpg_xp: Gauge
+var _rpg_note: Label
+var _rpg_note_t := 0.0
+var _rpg_counter := ""
 var _guide_title: Label
 var _guide_rows: Array = []     # [fila, marca, número, texto]
 var _guide_footer: Label
@@ -841,6 +848,24 @@ func _build_party(root: Control) -> void:
 	_players_box = VBoxContainer.new()
 	_players_box.add_theme_constant_override("separation", 7)
 	v.add_child(_players_box)
+	# Progresión del jugador: nivel, experiencia hacia el siguiente y Semillas de Jade
+	_rpg_box = VBoxContainer.new()
+	_rpg_box.add_theme_constant_override("separation", 3)
+	_rpg_box.visible = false
+	v.add_child(_rpg_box)
+	var rpg_head := HBoxContainer.new()
+	rpg_head.add_theme_constant_override("separation", 8)
+	_rpg_box.add_child(rpg_head)
+	_rpg_level = Kit.label("NIVEL 1", 13, Kit.GOLD, Kit.bold_font())
+	rpg_head.add_child(_rpg_level)
+	_rpg_seeds = Kit.label("0 semillas", 12, Kit.JADE, Kit.bold_font())
+	_rpg_seeds.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_rpg_seeds.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	rpg_head.add_child(_rpg_seeds)
+	_rpg_xp = Gauge.new(Kit.GOLD, 6.0)
+	_rpg_box.add_child(_rpg_xp)
+	_rpg_note = Kit.label("", 11, Color(1, 1, 1, 0.75), Kit.bold_font())
+	_rpg_box.add_child(_rpg_note)
 
 
 func _build_top(root: Control) -> void:
@@ -1044,6 +1069,11 @@ func _build_hints(root: Control) -> void:
 
 
 func _process(delta: float) -> void:
+	if _rpg_note_t > 0.0:
+		_rpg_note_t -= delta
+		if _rpg_note_t <= 0.0:
+			_rpg_note.text = _rpg_counter
+			_rpg_note.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
 	if _banner_time > 0.0:
 		_banner_time -= delta
 		_banner.modulate.a = clampf(_banner_time, 0.0, 1.0)
@@ -1158,7 +1188,7 @@ func _refresh_team() -> void:
 			medal.portrait = face
 			medal.queue_redraw()
 		medal.configure("fallen" if dead else form, row.color, Kit.BLOOD if dead else Kit.JADE.lightened(0.3), 0.0, not on)
-		(row.bar as Gauge).set_value(float(info.get("hp", Defs.MAX_HP)) / Defs.MAX_HP)
+		(row.bar as Gauge).set_value(float(info.get("hp", Defs.MAX_HP)) / float(info.get("hp_max", Defs.MAX_HP)))
 		(row.bar as Gauge).modulate.a = 1.0 if on else 0.35
 		(row.name as Label).modulate.a = 1.0 if on else 0.5
 		var st: Label = row.state
@@ -1294,8 +1324,32 @@ func set_compass(cam_yaw: float, pos: Vector3) -> void:
 	_compass.update(cam_yaw, Vector2(pos.x, pos.z))
 
 
-func set_vitals(hp: float, energy: float) -> void:
-	_hp.set_value(hp / Defs.MAX_HP)
+## Progresión RPG del jugador. `xp_in` y `xp_next` son la experiencia dentro del nivel y la que
+## pide el siguiente (0 en el nivel máximo).
+func set_rpg(level: int, xp_in: int, xp_next: int, seeds: int) -> void:
+	_rpg_box.visible = true
+	_rpg_level.text = "NIVEL %d" % level
+	_rpg_seeds.text = "%d semilla%s" % [seeds, "" if seeds == 1 else "s"]
+	_rpg_xp.set_value(1.0 if xp_next <= 0 else clampf(float(xp_in) / float(xp_next), 0.0, 1.0))
+	_rpg_counter = "nivel máximo" if xp_next <= 0 else "%d / %d de experiencia" % [xp_in, xp_next]
+	if _rpg_note_t <= 0.0:
+		_rpg_note.text = _rpg_counter
+
+
+## Lo que se acaba de ganar («+20 XP · +8 semillas»): se queda unos segundos en lugar del contador.
+func rpg_gain(xp: int, seeds: int) -> void:
+	_rpg_note.text = "+%d XP  ·  +%d semilla%s" % [xp, seeds, "" if seeds == 1 else "s"]
+	_rpg_note.add_theme_color_override("font_color", Kit.GOLD)
+	_rpg_note_t = 3.0
+	_rpg_xp.flash = 1.0
+
+
+func rpg_info() -> Dictionary:
+	return {"open": _rpg_box.visible, "level": _rpg_level.text, "seeds": _rpg_seeds.text, "note": _rpg_note.text}
+
+
+func set_vitals(hp: float, energy: float, hp_max := Defs.MAX_HP) -> void:
+	_hp.set_value(hp / hp_max)
 	_hp_text.text = "%d" % int(ceil(hp))
 	_energy.set_value(energy / Defs.MAX_ENERGY)
 

@@ -5,6 +5,7 @@ extends Node3D
 
 const Customizer := preload("res://scripts/client/customizer.gd")
 const Look := preload("res://scripts/shared/look_def.gd")
+const Rpg := preload("res://scripts/shared/rpg_def.gd")
 const Sim := preload("res://scripts/shared/sim.gd")
 const World := preload("res://scripts/shared/world_def.gd")
 const Defs := preload("res://scripts/shared/combat_def.gd")
@@ -103,6 +104,12 @@ var _fs_poll := 0.0
 var _custom: Customizer        # personalizador 3D del alux
 var _custom_only := false     # el juego se abrió sólo para personalizar (desde el portal)
 var _me_poll := 0.0           # espera del perfil para el personalizador sin sala
+# Progresión RPG (sólo para mostrarla: la lleva la API). -1: todavía no se sabe.
+var _rpg_xp := -1
+var _rpg_seeds := 0
+var _rpg_poll := 0.0
+var _hp_max := Defs.MAX_HP    # vida máxima propia (nivel y amuleto; la dice el servidor)
+var _hp_max_of := {}          # slot -> vida máxima de cada jugador de la sala
 var _cine_staged := false
 var _motes_in := 0.0
 var _bolts := {}        # id del servidor -> {node, pos, dir, speed, life}
@@ -502,6 +509,63 @@ func _recenter() -> void:
 
 ## El juego se abrió sólo para personalizar (portal → «Personalizar en 3D»): no hay sala ni
 ## servidor de juego. Se pide el perfil y se muestra el alux en la plaza del claro.
+# ───────────────────────── Progresión RPG (sólo se muestra: la lleva la API) ─────────────────────────
+
+## Pide el perfil para saber con qué nivel, experiencia y semillas se entra a la sala.
+func _fetch_rpg() -> void:
+	if not _is_web:
+		return
+	_js("(function(){window.ALUX_RPG='';fetch('/api/v1/me',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():Promise.reject(r.status)})" +
+		".then(function(j){window.ALUX_RPG=JSON.stringify(j.rpg||{})}).catch(function(e){window.ALUX_RPG='error:'+e})})()")
+	_rpg_poll = 0.3
+
+
+func _poll_rpg(delta: float) -> void:
+	if _rpg_poll <= 0.0:
+		return
+	_rpg_poll -= delta
+	if _rpg_poll > 0.0:
+		return
+	_rpg_poll = 0.3
+	var raw := str(_js("window.ALUX_RPG || ''"))
+	if raw.is_empty():
+		return
+	_rpg_poll = 0.0
+	var parsed: Variant = JSON.parse_string(raw)
+	if not (parsed is Dictionary) or not (parsed as Dictionary).has("xp"):
+		return   # sin perfil no se enseña el bloque; la partida sigue igual
+	# Lo que haya llegado mientras tanto por la sala manda sobre lo leído (es más reciente)
+	if _rpg_xp < 0:
+		_rpg_xp = int(parsed.xp)
+		_rpg_seeds = int(parsed.get("seeds", 0))
+	_show_rpg()
+
+
+func _show_rpg() -> void:
+	if _rpg_xp < 0:
+		return
+	var info := Rpg.level_info(_rpg_xp)
+	_hud.set_rpg(int(info.level), int(info.in_level), int(info.to_next), _rpg_seeds)
+
+
+## El servidor avisa de experiencia y semillas ganadas (las cantidades las puso la API).
+func _on_rpg_gain(m: Dictionary) -> void:
+	_rpg_xp = int(m.get("total_xp", maxi(_rpg_xp, 0)))
+	_rpg_seeds = int(m.get("total_seeds", _rpg_seeds))
+	_show_rpg()
+	_hud.rpg_gain(int(m.get("xp", 0)), int(m.get("seeds", 0)))
+	if bool(m.get("up", false)):
+		var level := int(m.get("level", 1))
+		_hud.banner("¡NIVEL %d!" % level, GOLD, 4.0)
+		_hud.hint("Subiste de nivel: +1 % de vida. En el Puesto de Saberes de Mérida puedes mejorar tus habilidades", 7.0)
+		Audio.play("punto_control", null, 0.0, 0.0)
+		Audio.play("glifo_restaurado", null, -3.0, 0.0)
+		var av: Avatar = _avatars.get(_my_slot)
+		if av != null:
+			Fx.pillar(self, av.global_position, GOLD, 7.0, 1.4, 0.9)
+			Fx.ring(self, av.global_position + Vector3(0, 0.1, 0), 3.0, GOLD, 0.8)
+
+
 func _begin_custom_only() -> void:
 	_custom_only = true
 	_net = Net.CUSTOM
@@ -1011,6 +1075,7 @@ func _on_message(m: Dictionary) -> void:
 				_amb_in = 0.0   # el ambiente de la zona entra en el siguiente cuadro
 			_refresh_music()
 			_net = Net.PLAYING
+			_fetch_rpg()
 		"roster":
 			_set_roster(m.players)
 		"snap":
@@ -1046,6 +1111,9 @@ func _set_roster(players: Array) -> void:
 	for p in players:
 		var slot := int(p.slot)
 		seen[slot] = true
+		_hp_max_of[slot] = maxf(1.0, float(p.get("hpm", Defs.MAX_HP)))
+		if slot == _my_slot:
+			_hp_max = float(_hp_max_of[slot])
 		var av: Avatar = _avatars.get(slot)
 		if av == null:
 			av = Avatar.new()
@@ -1289,7 +1357,8 @@ func _on_snapshot(m: Dictionary) -> void:
 		var state: Array = p.slice(4)
 		_team_hp[slot] = float(p[3])
 		var fallen := (int(state[7]) & 8) != 0
-		_team[slot] = {"hp": float(p[3]), "dead": fallen, "form": Sim.FORM_IDS[clampi(int(state[5]), 0, Sim.FORM_IDS.size() - 1)]}
+		_team[slot] = {"hp": float(p[3]), "hp_max": float(_hp_max_of.get(slot, Defs.MAX_HP)), "dead": fallen,
+			"form": Sim.FORM_IDS[clampi(int(state[5]), 0, Sim.FORM_IDS.size() - 1)]}
 		var av: Avatar = _avatars.get(slot)
 		if av != null:
 			av.set_dead(fallen)
@@ -1355,6 +1424,8 @@ func _on_event(m: Dictionary) -> void:
 		"gate_open":
 			_hud.banner("¡El santuario se abre!", Color(0.5, 1.0, 0.85), 3.0)
 			Audio.play("santuario_abre", Vector3(World.SANCTUARY.x - 7.0, 1.0, World.SANCTUARY.y), 3.0)
+		"rpg":
+			_on_rpg_gain(m)
 		"reward":
 			if str(m.get("reward", "")) == BossDef.REWARD:
 				# La Pluma de Jade: objeto ancestral, queda en el perfil de cada jugador
@@ -2200,6 +2271,7 @@ func _can_touch_something() -> bool:
 func _process(delta: float) -> void:
 	_time += delta
 	_poll_net(delta)
+	_poll_rpg(delta)
 	if _custom_only:
 		_poll_custom_only(delta)
 	if _sound_test_in > 0.0:
@@ -2283,7 +2355,7 @@ func _process(delta: float) -> void:
 		_cam_target = _cam_target.lerp(me.global_position + Vector3(0, 1.25, 0), minf(1.0, delta * 14.0))
 		var form: Dictionary = Defs.FORMS[_pred.form]
 		_hud.set_forms(_unlocked, _pred.form, float(_pred.form_cd))
-		_hud.set_vitals(_hp, _pred.energy)
+		_hud.set_vitals(_hp, _pred.energy, _hp_max)
 		_hud.set_abilities(_pred.form, [
 			float(_pred.cd1) / float(Sim.ticks(form.primary.cd)),
 			float(_pred.cd2) / float(Sim.ticks(form.secondary.cd)),
@@ -2423,7 +2495,7 @@ func _update_hints(delta: float) -> void:
 				continue
 			if Vector2(v.global_position.x - here.x, v.global_position.z - here.y).length() < 3.6:
 				text = "F  ·  Purificar a la criatura" if can_touch else "1  ·  Vuelve a ser alux para purificarla"
-		if text.is_empty() and _brazier_ready and _hp < Defs.MAX_HP - 1.0 and (here - Defs.BRAZIER).length() < Defs.BRAZIER_RANGE:
+		if text.is_empty() and _brazier_ready and _hp < _hp_max - 1.0 and (here - Defs.BRAZIER).length() < Defs.BRAZIER_RANGE:
 			text = "F  ·  Tocar el brasero para curar al grupo" if can_touch else "1  ·  Vuelve a ser alux para tocar el brasero"
 	_hud.context_hint(text)
 
@@ -2760,7 +2832,7 @@ func _debug_export(delta: float) -> void:
 			"dialog": _hud.dialogue_open(), "cine": _hud.cine_open(),
 			"objective": _hud.objective_text(), "captured": Input.mouse_mode == Input.MOUSE_MODE_CAPTURED},
 		"votes": _votes, "connected": _connected, "lock": _lock, "voted": _voted,
-		"stats": _stats, "audio": _audio.loaded(), "music": _audio.music(), "snd": _audio.info(), "custom": _custom.info(), "boss_y": snappedf(_boss.position.y, 0.01) if _boss != null else 0.0, "guide": {"hud": _hud.guide_info(), "step": _guide_step, "beacons": _beacons.count() if _beacons != null else 0}, "audio_status": _hud.menu_audio_text(), "settings": _settings,
+		"stats": _stats, "audio": _audio.loaded(), "music": _audio.music(), "snd": _audio.info(), "custom": _custom.info(), "rpg": {"xp": _rpg_xp, "seeds": _rpg_seeds, "hp_max": _hp_max, "hud": _hud.rpg_info()}, "boss_y": snappedf(_boss.position.y, 0.01) if _boss != null else 0.0, "guide": {"hud": _hud.guide_info(), "step": _guide_step, "beacons": _beacons.count() if _beacons != null else 0}, "audio_status": _hud.menu_audio_text(), "settings": _settings,
 		"metrics": {"sid": _m.sid, "seconds": _m.seconds, "samples": (_m.fps as Array).size(), "loadMs": _m.load_ms},
 	}
 	_js("window.__aluxState = %s" % JSON.stringify(state))
