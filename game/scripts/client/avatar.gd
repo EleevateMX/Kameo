@@ -213,7 +213,7 @@ func set_form(f: String, with_effect := true) -> void:
 		Fx.transform_burst(get_parent(), global_position, gold if form == "balam" else EYE, color.lightened(0.25))
 		Audio.play("transformar", global_position, 0.0 if is_local else -6.0)
 		if form == "balam":
-			Audio.play("balam_grunido", global_position, -3.0 if is_local else -9.0)
+			Audio.play("balam_grunido", global_position, -1.0 if is_local else -7.0)   # (el acorde de la transformación lo tapaba)
 		if _players.has(form) and (_players[form] as AnimationPlayer).has_animation("Transform"):
 			(_players[form] as AnimationPlayer).speed_scale = 1.0
 			(_players[form] as AnimationPlayer).play("Transform", 0.0)

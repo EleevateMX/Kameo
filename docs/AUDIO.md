@@ -172,9 +172,34 @@ Procedencia de cada archivo: [ASSETS_AUDIO.md](ASSETS_AUDIO.md).
 (Brotli de calidad 9 en las dos columnas, medido sobre los mismos archivos de cada compilación.)
 El juego no espera al audio para empezar: cada pista entra con un fundido cuando termina de cargar.
 
+## Primera escucha humana (13 nov 2026)
+
+El dueño del proyecto comparó de oído cinco grupos de sonidos de la 0.3.1 con candidatos de ajuste
+([art/audio/candidatos/](../art/audio/candidatos/LEEME.md)). Es la única evaluación humana que hay,
+y cubre **sólo estos sonidos**:
+
+| Sonido | Elegido | Qué pasa en la Alpha 0.4 |
+| --- | --- | --- |
+| Rugido de Balam | C · bufido | Se adopta. Además se conecta: suena cuando Balam salta (antes no sonaba en ningún sitio) |
+| Gruñido al transformarse | B · rugoso | Se adopta, 2 dB más alto (el acorde de la transformación lo tapaba) |
+| Zarpazo a plena carga | B · rugoso | Se adopta |
+| Voz de Chiich Yaxché | En la escena, A · murmullo (suelta gustó más B · tronco) | Se adopta A en «El llamado», que es donde suena |
+| Aves del claro | En el juego, el actual (suelto gustó más B · timbre) | No cambia |
+| Cenote y ruinas | El actual | No cambian |
+| Paso, losa y barrido de Nojoch | El actual | No cambian de timbre |
+| Embestida, choque, caída y despertar de Nojoch | B · grande | Se adoptan |
+
+Ajustes de mezcla que acompañan (propuestos **por medición**, no de oído, y sólo en la 0.4): el paso
+del coloso sube 5 dB y su embestida 3 dB con la música bajando un momento, para que se le oiga
+venir; la losa baja 2 dB y el choque contra la columna 2 dB (rozaban el limitador); la columna rota
+baja 6 dB dentro del choque; la caída baja 3 dB porque suena a la vez que la liberación.
+
+Todo lo demás —la música, el resto de efectos, los otros ambientes y las otras tres bandas sonoras—
+sigue aprobado **sólo provisionalmente para pruebas**.
+
 ## Validación pendiente
 
-- **Escucha humana.** Ninguna persona ha oído esta versión. Las grabaciones de la salida del
+- **Escucha humana completa.** Salvo los sonidos de la tabla anterior, ninguna persona ha evaluado esta versión. Las grabaciones de la salida del
   navegador que deja `npm run test:audio` permiten oír exactamente lo que salió en la prueba, pero
   eso es una escucha de la grabación, no una validación. Falta que alguien juegue con altavoces y
   con auriculares y diga si la mezcla, los timbres y los bucles convencen. Los propios generadores

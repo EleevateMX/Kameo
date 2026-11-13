@@ -1389,7 +1389,10 @@ func _show_action(slot: int, kind: String, yaw: float, power: float) -> void:
 		"pounce": "salto_jaguar", "pounce_land": "salto_impacto", "dodge": "esquiva"}.get(kind, "")
 	if not snd.is_empty():
 		# las habilidades propias van un poco por encima: tienen que oírse claras sobre la música
-		Audio.play(snd, pos, 3.0 if slot == _my_slot else -5.0)
+		# (el zarpazo a plena carga suena junto al rugido corto de Balam: ahí no se sube, o entre
+		# los dos entran en el limitador)
+		var own := 0.0 if (kind == "charged" and power > 0.7) else 3.0
+		Audio.play(snd, pos, own if slot == _my_slot else -5.0)
 	match kind:
 		"interact":
 			Audio.play("interactuar", pos, -6.0 if slot == _my_slot else -12.0)
@@ -1405,6 +1408,7 @@ func _show_action(slot: int, kind: String, yaw: float, power: float) -> void:
 				Audio.play("balam_especial", pos, -2.0 if slot == _my_slot else -8.0)   # zarpazo a plena carga
 		"pounce":
 			Fx.burst(self, pos + Vector3(0, 0.3, 0), Color(0.9, 0.8, 0.6), 10, 3.0)
+			Audio.play("balam_rugido", pos, 0.0 if slot == _my_slot else -6.0)   # el bufido de Balam al saltar
 		"pounce_land":
 			Fx.ring(self, pos, Defs.FORMS.balam.special.radius, Color(1.0, 0.7, 0.25), 0.4)
 			Fx.burst(self, pos + Vector3(0, 0.2, 0), Color(0.85, 0.75, 0.55), 16, 4.5, 0.09)
@@ -1788,7 +1792,7 @@ func _update_cine_stage(delta: float) -> void:
 func _on_boss_step() -> void:
 	var d := (_boss.position - _pred.pos).length()
 	if d < 26.0:
-		Audio.play("jefe_paso", _boss.position, -2.0, 0.12)
+		Audio.play("jefe_paso", _boss.position, 3.0, 0.12)   # (quedaba 6 dB bajo la música: se tiene que oír venir)
 	if d < 9.0:
 		_bump(0.05 if _boss_action() != "charge" else 0.09)
 
@@ -1867,7 +1871,8 @@ func _on_boss_event(ev: Array) -> void:
 					_tip("lluvia", "Lluvia de piedra: sólo estás a salvo junto a una columna despierta", 7.0)
 				"charge":
 					Audio.play("jefe_aviso", at, 1.0)
-					Audio.play("jefe_embestida", at, 0.0)
+					Audio.play("jefe_embestida", at, 3.0)
+					Audio.duck(-3.0, 1.2, 0.6)   # el anuncio de la embestida tiene que oírse a tiempo
 					_tip("embestida", "Va a embestir en línea recta: quítate… o deja una columna en medio", 7.0)
 				"pulse":
 					Fx.telegraph(self, at + Vector3(0, 0.06, 0), float(ev[4]), float(ev[3]))
@@ -1878,7 +1883,7 @@ func _on_boss_event(ev: Array) -> void:
 			var p := Vector3(float(ev[2]), World.terrain_h(float(ev[2]), float(ev[3])) + 0.1, float(ev[3]))
 			Fx.ring(self, p, float(ev[4]), Color(1.0, 0.8, 0.5), 0.5)
 			Fx.burst(self, p + Vector3(0, 0.3, 0), Color(0.8, 0.75, 0.62), 22, 6.0, 0.12, 0.7)
-			Audio.play("jefe_losa", p, 0.0)
+			Audio.play("jefe_losa", p, -2.0)   # (su pico pasaba del umbral del limitador)
 			Audio.duck(-5.0, 0.25, 0.6)
 			_bump(clampf(0.34 - (p - _pred.pos).length() * 0.02, 0.06, 0.3))
 		"sweep":
@@ -1935,9 +1940,9 @@ func _on_boss_event(ev: Array) -> void:
 			_bump(0.14)
 		"crash":
 			_arena.pillar_fx(int(ev[2]), true)
-			Audio.play("jefe_choque", at, 2.0)
+			Audio.play("jefe_choque", at, 0.0)
 			Audio.play("jefe_aturdido", at, 0.0)
-			Audio.play("pilar_rompe", at, 0.0)
+			Audio.play("pilar_rompe", at, -6.0)   # (el choque ya trae dentro la columna que se parte)
 			Audio.duck(-8.0, 0.6, 1.0)
 			_bump(0.34)
 			_hud.banner("¡Aturdido!  Pisen las anclas", GOLD, 3.0)
@@ -1996,7 +2001,7 @@ func _on_boss_event(ev: Array) -> void:
 			_hud.banner("Nojoch Tuunich recuerda", JADE, 5.0)
 			_pt.freed = true
 			Audio.play("liberacion", null, 0.0, 0.0)
-			Audio.play("jefe_cae", at, 0.0, 0.0)
+			Audio.play("jefe_cae", at, -3.0, 0.0)   # (suena a la vez que la liberación)
 			Audio.duck(-10.0, 1.5, 1.5)
 			Fx.pillar(self, at, JADE, 14.0, 2.6, 1.6)
 			Fx.ring(self, at + Vector3(0, 0.1, 0), 12.0, JADE, 1.2)

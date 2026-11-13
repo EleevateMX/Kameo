@@ -14,6 +14,8 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 
 | **Closed Alpha 0.3.1** | **Publicada** el 13 nov 2026 en <https://alux-beta.onrender.com> (commit `cdf1543`) | La 0.3 con el audio arreglado (no sonaba nada), mezclador propio, música original, ambientes por zona, bandas sonoras de las cinemáticas, 50 efectos nuevos y prueba de sonido en el menú |
 
+| Alpha 0.4 | **En desarrollo, sin publicar** (rama de trabajo) | Pantalla completa al pulsar JUGAR, personalizador 3D del alux, prototipo de la plaza social de Mérida con portal al Claro, primeros ajustes de sonido elegidos de oído |
+
 ## Publicación en la rama `beta`
 
 La rama `beta` es lo único que Render despliega. Cada entrada dice qué commit lleva el código de
@@ -21,6 +23,36 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
+
+## ALUX Alpha 0.4 — El mundo empieza en una plaza (en desarrollo)
+
+**Sin publicar.** Nada de esto está en `beta`; la versión publicada sigue siendo la 0.3.1.
+
+| Incremento | Estado | Documento |
+| --- | --- | --- |
+| Pantalla completa al pulsar JUGAR (Fullscreen API, preferencia guardada, botón discreto, Esc) | Hecho; 7 comprobaciones en Chromium. Firefox y Safari sin probar | [FULLSCREEN.md](FULLSCREEN.md) |
+| Personalizador 3D con el modelo real: 12 colores, 10 secundarios, 5 tonos de piel, 4 vestimentas, 7 tocados, 5 accesorios, 5 amuletos; cámara orbital; guardado y réplica | Hecho; 6 comprobaciones en navegador y reglas en la API | [PERSONALIZADOR.md](PERSONALIZADOR.md) |
+| Arquitectura del mundo abierto y mapa conceptual de Yucatán | Documentado | [OPEN_WORLD.md](OPEN_WORLD.md) |
+| Plaza social de Mérida (prototipo): servidor de zonas aparte, movimiento autoritativo, visibilidad por proximidad, portal al Claro | Hecho en local; 7 pruebas con bots, 5 comprobaciones con dos navegadores, carga medida con 8, 16, 32 y 64 simulados. **Falta desplegarlo y medir con navegadores reales** | [OPEN_WORLD.md](OPEN_WORLD.md) §9 y §13 |
+| Sonido: primeros ajustes elegidos de oído (Balam, voz de Chiich Yaxché, golpes de Nojoch) y mezcla | Adoptados en esta rama | [AUDIO.md](AUDIO.md) |
+
+**Qué cambia respecto a la 0.3.1 fuera del cliente:** una migración sólo aditiva (columna `look` y
+límite del tocado más amplio; la 0.3.1 sigue funcionando con la base nueva), el ticket de sala
+lleva el aspecto, endpoints nuevos de la API para la plaza, y un proceso nuevo (servidor de zonas)
+que la imagen de Render **todavía no arranca**. El servidor de mazmorras sólo cambia en que acepta
+el aspecto del ticket y lo relee de la API cuando el jugador se cambia.
+
+**Regresión de la rama (13 nov 2026, en local):** API 12 de 12 · catálogos 3 de 3 · simulación sin
+violaciones · servidor de mazmorras 17 de 17 · servidor de zonas 7 de 7 · audio 11 de 11 · vídeo 7 ·
+flujo de playtest 15 · jefe completo 7 · cuatro navegadores 10 · pantalla completa 7 ·
+personalizador 6 · plaza 5. Varias pruebas de navegador fallaron mientras otros procesos cargaban
+la máquina y pasaron al repetirlas en calma; tres (flujo, cuatro jugadores y pantalla completa)
+fallaban de verdad porque seguían probando el portal de la 0.3 o usaban una orden de clic que se
+cuelga al cambiar de modo de pantalla, y se corrigieron las pruebas.
+
+**Antes de publicar la 0.4 falta:** arrancar el servidor de zonas en la imagen y encaminar su
+WebSocket, construir y medir esa imagen, repetir la regresión sobre el commit exacto y tu visto
+bueno.
 
 ## ALUX Closed Alpha 0.3.1 — El claro vuelve a oírse
 
