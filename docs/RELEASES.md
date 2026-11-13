@@ -10,9 +10,9 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 
 | Closed Alpha 0.2.1 | Publicada el 12 nov 2026; **sustituida por la 0.3**. Commit `94bb9c8`: es el punto de rollback | La 0.2 más las cinemáticas híbridas, «El sello cede» producida con Kling y los modelos de los personajes corregidos |
 
-| **Closed Alpha 0.3** | **Publicada** el 12 nov 2026 en <https://alux-beta.onrender.com> | Jefe Nojoch Tuunich completo (tres fases, modelo definitivo, cinemáticas de despertar y liberación con Kling), Pluma de Jade y pista del Cenote |
+| Closed Alpha 0.3 | Publicada el 12 nov 2026; **sustituida por la 0.3.1**. Commit `93007a0`: es el punto de rollback | Jefe Nojoch Tuunich completo (tres fases, modelo definitivo, cinemáticas de despertar y liberación con Kling), Pluma de Jade y pista del Cenote |
 
-| Closed Alpha 0.3.1 | **Candidata, sin publicar**: espera tu visto bueno | La 0.3 con el audio arreglado (no sonaba nada), mezclador propio, música original, ambientes por zona, bandas sonoras de las cinemáticas, 50 efectos nuevos y prueba de sonido en el menú |
+| **Closed Alpha 0.3.1** | **Publicada** el 13 nov 2026 en <https://alux-beta.onrender.com> | La 0.3 con el audio arreglado (no sonaba nada), mezclador propio, música original, ambientes por zona, bandas sonoras de las cinemáticas, 50 efectos nuevos y prueba de sonido en el menú |
 
 ## Publicación en la rama `beta`
 
@@ -22,12 +22,13 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
 
-## ALUX Closed Alpha 0.3.1 — El claro vuelve a oírse (candidata)
+## ALUX Closed Alpha 0.3.1 — El claro vuelve a oírse
 
 | | |
 | --- | --- |
-| **Estado** | **Candidata, sin publicar.** Nada llega a `beta` sin tu visto bueno |
-| **Código de la versión** | `963630b` en la rama de trabajo `claude/tender-johnson-c2gk0s` (los commits posteriores sólo añaden este registro, la documentación y el paso de audio de `beta:check`; el juego no cambia) |
+| **Estado** | Candidata `4f47832`, aprobada para publicar el 13 nov 2026 |
+| **Commit publicado en `beta`** | El siguiente a ese: añade este registro y el nombre de la versión en el juego. Es el que informa `/healthz` |
+| **Código de la versión** | `963630b`; la candidata `4f47832` le añade el registro, la documentación y el paso de audio de `beta:check` (el juego no cambia). No incluye nada de la Alpha 0.4 |
 | **Rollback** | Publicar en `beta` el commit `93007a0` (0.3). Sin migraciones ni cambios de infraestructura: los datos sirven en los dos sentidos |
 | **Qué cambia respecto a la 0.3** | Cliente del juego (audio), archivos de sonido, pruebas y documentación; en la API, sólo campos nuevos en la telemetría de sesión. **Sin cambios** en el servidor de juego, el protocolo, `render.yaml`, la imagen ni la base de datos |
 
