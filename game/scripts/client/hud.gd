@@ -336,6 +336,11 @@ var _boss_box: VBoxContainer
 var _boss_name: Label
 var _boss_gauge: Gauge
 var _boss_note: Label
+var _guide: Plaque              # guía del jefe: pasos de la fase en curso
+var _guide_title: Label
+var _guide_rows: Array = []     # [fila, marca, número, texto]
+var _guide_footer: Label
+var _guide_key := ""
 var _boss_sub: Gauge
 var _boss_sub_label: Label
 var _extra_key := ""
@@ -620,6 +625,41 @@ func _build_status(root: Control) -> void:
 	_net_label = Kit.label("", 12, Kit.LIME, Kit.bold_font())
 	row.add_child(_net_label)
 	_net_chip.visible = false
+	# Guía del jefe: los pasos de la fase en curso, con el que toca ahora resaltado
+	_guide = Plaque.new(11, Kit.GOLD, 14.0)
+	_guide.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_guide.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_guide.visible = false
+	col.add_child(_guide)
+	var gv := VBoxContainer.new()
+	gv.add_theme_constant_override("separation", 5)
+	gv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_guide.add_child(gv)
+	_guide_title = Kit.label("", 12, Kit.GOLD, Kit.bold_font())
+	gv.add_child(_guide_title)
+	for i in 4:
+		var line := HBoxContainer.new()
+		line.add_theme_constant_override("separation", 8)
+		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		gv.add_child(line)
+		var mark := PanelContainer.new()
+		mark.custom_minimum_size = Vector2(22, 22)
+		mark.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		line.add_child(mark)
+		var num := Kit.label(str(i + 1), 12, Kit.INK, Kit.bold_font())
+		num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		mark.add_child(num)
+		var text := Kit.label("", 13, Kit.LIME, Kit.bold_font())
+		text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		text.custom_minimum_size = Vector2(236, 0)
+		line.add_child(text)
+		_guide_rows.append([line, mark, num, text])
+	_guide_footer = Kit.label("", 11, Color(1, 1, 1, 0.72), Kit.body_font())
+	_guide_footer.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_guide_footer.custom_minimum_size = Vector2(266, 0)
+	gv.add_child(_guide_footer)
 
 
 func _center(panel: Control) -> void:
@@ -1152,6 +1192,52 @@ func set_objective(text: String, kind := "goal", detail := "") -> void:
 	_objective_plaque.scale = Vector2(1.08, 1.08)
 	var tw := _objective_plaque.create_tween()
 	tw.tween_property(_objective_plaque, "scale", Vector2.ONE, 0.35).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+
+
+## Guía del jefe: `steps` son los pasos de la fase (hasta 4) y `active` el que toca ahora (los
+## anteriores se dan por hechos). Un título vacío la oculta.
+func set_guide(title: String, steps: Array = [], active := -1, footer := "") -> void:
+	_guide.visible = not title.is_empty()
+	if title.is_empty():
+		_guide_key = ""
+		return
+	var key := "%s|%d|%s|%s" % [title, active, footer, "|".join(steps)]
+	if key == _guide_key:
+		return
+	var moved := not _guide_key.begins_with("%s|%d|" % [title, active])
+	_guide_key = key
+	_guide_title.text = title
+	_guide_footer.text = footer
+	_guide_footer.visible = not footer.is_empty()
+	for i in _guide_rows.size():
+		var row: Array = _guide_rows[i]
+		(row[0] as Control).visible = i < steps.size()
+		if i >= steps.size():
+			continue
+		var now := i == active
+		var done := i < active
+		(row[3] as Label).text = str(steps[i])
+		(row[3] as Label).add_theme_color_override("font_color", Kit.GOLD if now else (Color(0.62, 0.86, 0.78, 0.7) if done else Color(1, 1, 1, 0.6)))
+		(row[2] as Label).text = "ok" if done else str(i + 1)
+		(row[2] as Label).add_theme_font_size_override("font_size", 9 if done else 12)
+		(row[1] as PanelContainer).add_theme_stylebox_override("panel",
+			Kit.flat(Kit.GOLD if now else (Kit.JADE_DEEP if done else Color(1, 1, 1, 0.28)), 6.0))
+	if moved:
+		flash_guide()
+
+
+## Llama la atención sobre la guía (cambió el paso, o el jugador pegó sin efecto).
+func flash_guide() -> void:
+	if not _guide.visible:
+		return
+	_guide.pivot_offset = Vector2(_guide.size.x, 0.0)
+	_guide.scale = Vector2(1.1, 1.1)
+	var tw := _guide.create_tween()
+	tw.tween_property(_guide, "scale", Vector2.ONE, 0.4).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+
+
+func guide_info() -> Dictionary:
+	return {"open": _guide.visible, "title": _guide_title.text, "key": _guide_key}
 
 
 func objective_text() -> String:

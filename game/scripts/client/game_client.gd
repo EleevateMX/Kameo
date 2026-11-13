@@ -14,6 +14,7 @@ const BossDef := preload("res://scripts/shared/boss_def.gd")
 const WorldBuilder := preload("res://scripts/client/world_builder.gd")
 const Hud := preload("res://scripts/client/hud.gd")
 const Fx := preload("res://scripts/client/fx.gd")
+const Beacons := preload("res://scripts/client/beacons.gd")
 const Audio := preload("res://scripts/client/audio.gd")
 const Story := preload("res://scripts/shared/story_def.gd")
 const Cutscene := preload("res://scripts/client/cinematics/cutscene.gd")
@@ -83,6 +84,9 @@ var _enemies := {}      # id -> EnemyView
 var _boss: BossView     # Nojoch Tuunich (lo crea la primera instantánea que trae su estado)
 var _boss_state: Array = []
 var _arena: BossArena  # anclas, columnas, cadenas y glifos del combate con el guardián
+var _beacons: Node3D   # balizas sobre el objetivo activo del combate con el guardián
+var _guide_step := -1  # paso de la guía del jefe que toca ahora (para las pruebas)
+var _clang_hint_at := -100.0
 var _talk_npc := ""    # personaje con el que se puede hablar ahora mismo ("" si ninguno)
 var _touch_sfx := 0.0
 var _fs_poll := 0.0
@@ -1712,6 +1716,8 @@ func _apply_boss(b: Array) -> void:
 		_boss.stepped.connect(_on_boss_step)
 		_arena = BossArena.new()
 		add_child(_arena)
+		_beacons = Beacons.new()
+		add_child(_beacons)
 		_arena.setup(_quality >= 1)
 	_boss.apply(b)
 	_arena.apply(b)
@@ -1996,7 +2002,18 @@ func _on_boss_event(ev: Array) -> void:
 		"clang":
 			Audio.play("golpe", at, -4.0)
 			if int(ev[2]) == _my_slot:
-				_tip("clang", "Es de piedra: los golpes no le hacen nada. Hay que exponer su corazón", 6.0)
+				# Cada golpe inútil lo dice sobre el guardián; cada pocos segundos, además, qué hacer en su lugar
+				Fx.number(self, at + Vector3(randf_range(-0.6, 0.6), float(BossDef.HEIGHT) * 0.62, randf_range(-0.6, 0.6)), "Sin efecto", Color(0.82, 0.84, 0.86))
+				if _time - _clang_hint_at > 5.0:
+					_clang_hint_at = _time
+					_hud.flash_guide()
+					match _boss_phase():
+						BossDef.OLVIDO:
+							_hud.hint("No le haces daño así  ·  devuélvele la memoria: purifica criaturas a su lado (F como alux)", 5.0)
+						BossDef.FURIA:
+							_hud.hint("No le haces daño así  ·  hay que exponer su corazón: columna, embestida, anclas y Balam", 5.0)
+						_:
+							_hud.hint("No le haces daño así  ·  ya no hay que pegarle: tócalo con F como alux", 5.0)
 		"heart_hit":
 			var hp := at + Vector3(0, 3.0, 0)
 			Fx.burst(self, hp, Color(1.0, 0.6, 0.35), 10, 5.0, 0.09, 0.45)
@@ -2378,6 +2395,7 @@ func _update_hints(delta: float) -> void:
 		return
 	_hint_in = 0.25
 	var here := Vector2(_pred.pos.x, _pred.pos.z)
+	_update_boss_guide(here)
 	var text := ""
 	if _npc_near:
 		text = "" if _hud.dialogue_open() else "F  ·  Hablar con %s" % Story.NPCS[_talk_npc].name
@@ -2393,6 +2411,111 @@ func _update_hints(delta: float) -> void:
 		if text.is_empty() and _brazier_ready and _hp < Defs.MAX_HP - 1.0 and (here - Defs.BRAZIER).length() < Defs.BRAZIER_RANGE:
 			text = "F  ·  Tocar el brasero para curar al grupo" if can_touch else "1  ·  Vuelve a ser alux para tocar el brasero"
 	_hud.context_hint(text)
+
+
+## Guía del jefe: los pasos de la fase en curso (panel de la derecha), cuál toca ahora y balizas
+## en el mundo sobre aquello a lo que hay que ir. Todo sale del estado que manda el servidor.
+func _update_boss_guide(here: Vector2) -> void:
+	var b := _boss_state
+	var phase := _boss_phase()
+	if _encounter != 2 or b.size() < 24 or not (phase in [BossDef.OLVIDO, BossDef.FURIA, BossDef.RECUERDO]) or _cine.active:
+		_guide_step = -1
+		_hud.set_guide("")
+		if _beacons != null:
+			_beacons.show_at([], JADE)
+		return
+	var st := _boss_action()
+	var boss_at := Vector3(float(b[1]), World.terrain_h(float(b[1]), float(b[2])), float(b[2]))
+	var weak: Array = []          # criaturas que ya se pueden purificar, las más cercanas primero
+	var foes := 0
+	for id in _enemies:
+		var v: EnemyView = _enemies[id]
+		if not is_instance_valid(v) or not v.visible:
+			continue
+		foes += 1
+		if v.purifiable():
+			weak.append(v.global_position)
+	weak.sort_custom(func(p: Vector3, q: Vector3) -> bool:
+		return Vector2(p.x - here.x, p.z - here.y).length_squared() < Vector2(q.x - here.x, q.z - here.y).length_squared())
+	var title := ""
+	var steps: Array = []
+	var footer := ""
+	var step := 0
+	var points: Array = []
+	var color := GOLD
+	var arrow_h := 3.2
+	match phase:
+		BossDef.OLVIDO:
+			title = "FASE 1  ·  CÓMO VENCERLO"
+			steps = ["Esquiva sus golpes: él llama criaturas del Silencio",
+				"Golpea a una criatura hasta dejarla débil",
+				"Como alux (1), purifícala con F cerca del guardián"]
+			footer = "Cada criatura purificada a su lado enciende un glifo (%d/%d). Tus golpes no dañan al guardián." % [int(b[7]), int(b[8])]
+			step = 2 if not weak.is_empty() else (1 if foes > 0 else 0)
+			points = weak
+			arrow_h = 2.6
+		BossDef.FURIA:
+			title = "FASE 2  ·  CÓMO VENCERLO"
+			steps = ["Como alux (1), despierta una columna con F en un glifo dorado",
+				"Que te apunte con la columna en medio: embestirá contra ella",
+				"Aturdido: pisen las anclas de jade (%d/%d)" % [_bits(int(b[14])), int(b[15])],
+				"Como Balam (2), golpea el corazón de su espalda"]
+			footer = "Corazones liberados %d/%d. Hay que repetir los cuatro pasos." % [int(b[18]), BossDef.EXPOSURES]
+			if st == "bound":
+				step = 3
+				points = [boss_at]
+				color = MAGENTA
+				arrow_h = float(BossDef.HEIGHT) + 1.2
+			elif st == "stunned":
+				step = 2
+				color = JADE
+				for i in BossDef.ANCHORS.size():
+					if (int(b[14]) & (1 << i)) == 0:
+						var a: Vector2 = BossDef.ANCHORS[i]
+						points.append(Vector3(a.x, World.terrain_h(a.x, a.y), a.y))
+				arrow_h = 2.4
+			elif st == "kneel" or st == "leap_w" or st == "leap" or st == "transit":
+				step = 0
+				footer = "Sale a la explanada: la pelea sigue fuera del santuario."
+			elif (b[16] as Array).is_empty():
+				step = 0
+				var spots: Array = []
+				for i in BossDef.PILLAR_SPOTS.size():
+					spots.append(BossDef.PILLAR_SPOTS[i])
+				spots.sort_custom(func(p: Vector2, q: Vector2) -> bool: return (p - here).length_squared() < (q - here).length_squared())
+				for i in mini(3, spots.size()):
+					var s: Vector2 = spots[i]
+					points.append(Vector3(s.x, World.terrain_h(s.x, s.y), s.y))
+				arrow_h = 2.4
+			else:
+				step = 1
+				color = JADE
+				for pl in (b[16] as Array):
+					var s2: Vector2 = BossDef.PILLAR_SPOTS[int(pl[0])]
+					points.append(Vector3(s2.x, World.terrain_h(s2.x, s2.y), s2.y))
+				arrow_h = 5.2
+				if st == "rain_w" or st == "rain":
+					footer = "Lluvia de piedra: sólo estás a salvo junto a una columna."
+		BossDef.RECUERDO:
+			title = "FASE 3  ·  CÓMO LIBERARLO"
+			steps = ["Purifica criaturas junto a él: glifos de memoria (%d/%d)" % [int(b[19]), int(b[20])],
+				"Como alux (1), acércate y mantén F para tocarlo%s (%d/%d)" % [" todos a la vez" if _connected > 1 else "", _bits(int(b[22])), int(b[23])]]
+			footer = "Un golpe corta el contacto. Ya no hay que pegarle: hay que recordarle quién es."
+			if st != "ritual":
+				step = 0
+				footer = "Se arrodilla en la explanada."
+			elif int(b[19]) < int(b[20]):
+				step = 0
+				points = weak
+				arrow_h = 2.6
+			else:
+				step = 1
+				points = [boss_at]
+				arrow_h = float(BossDef.HEIGHT) + 1.2
+	_guide_step = step
+	_hud.set_guide(title, steps, step, footer)
+	if _beacons != null:
+		_beacons.show_at(points, color, arrow_h)
 
 
 ## Qué se puede hacer aquí durante el combate con el guardián (según la forma del jugador).
@@ -2619,7 +2742,7 @@ func _debug_export(delta: float) -> void:
 			"dialog": _hud.dialogue_open(), "cine": _hud.cine_open(),
 			"objective": _hud.objective_text(), "captured": Input.mouse_mode == Input.MOUSE_MODE_CAPTURED},
 		"votes": _votes, "connected": _connected, "lock": _lock, "voted": _voted,
-		"stats": _stats, "audio": _audio.loaded(), "music": _audio.music(), "snd": _audio.info(), "custom": _custom.info(), "audio_status": _hud.menu_audio_text(), "settings": _settings,
+		"stats": _stats, "audio": _audio.loaded(), "music": _audio.music(), "snd": _audio.info(), "custom": _custom.info(), "boss_y": snappedf(_boss.position.y, 0.01) if _boss != null else 0.0, "guide": {"hud": _hud.guide_info(), "step": _guide_step, "beacons": _beacons.count() if _beacons != null else 0}, "audio_status": _hud.menu_audio_text(), "settings": _settings,
 		"metrics": {"sid": _m.sid, "seconds": _m.seconds, "samples": (_m.fps as Array).size(), "loadMs": _m.load_ms},
 	}
 	_js("window.__aluxState = %s" % JSON.stringify(state))

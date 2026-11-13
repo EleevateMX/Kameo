@@ -62,9 +62,16 @@ pecho (y por un instante la cara se le ablanda). Romperlas no cuenta. Con los gl
 
 ### 2. Furia — «El corazón de piedra», en la explanada
 
-Recuerda un instante, de rodillas… y el Silencio lo arrastra fuera: **cruza el portal andando** hasta
-el centro de la explanada. A ningún jugador se le mueve de sitio; el punto de reaparición pasa a
-estar camino de la plaza, fuera de su alcance.
+Recuerda un instante, de rodillas… y el Silencio lo arrastra fuera: **sale del santuario de un
+salto**. Se agacha (1,3 s, con un círculo en la explanada donde va a caer), vuela en arco por encima
+del muro (1,7 s) y cae en el centro de la explanada, empujando sin daño a quien esté debajo. A
+ningún jugador se le mueve de sitio; el punto de reaparición pasa a estar camino de la plaza, fuera
+de su alcance.
+
+*Por qué un salto (Alpha 0.4.1):* antes cruzaba el portal andando y, al rodear el pedestal, podía
+quedarse hasta 5 s empujando contra él (en 7 de 121 posiciones de salida simuladas, incluida la de
+reposo). El salto no depende de colisiones ni de caber por el portal: dura siempre lo mismo. El
+servidor lo lleva en línea recta; la altura del arco sólo se dibuja.
 
 | Elemento | Qué es | Reglas |
 | --- | --- | --- |
@@ -120,6 +127,9 @@ sala, el servidor entrega la Pluma de Jade y empieza «La liberación».
 | Barra superior | «NOJOCH TUUNICH · Olvido / Furia / Recuerdo», barra magenta de Silencio y debajo lo que cuenta en la fase: glifos, corazones liberados o glifos de memoria |
 | Segunda barra | Fase 2: el aguante del corazón («CORAZÓN EXPUESTO · ¡garras de Balam!» con las cadenas puestas). Fase 3: el contacto («2 de 4 lo tocan») |
 | Objetivo | Cambia con cada momento: «Despierta una columna», «Haz que embista contra una columna», «¡Lluvia de piedra!», «¡Aturdido! Pisen las anclas (1/2)», «¡Corazón expuesto!», «Enciende los glifos de memoria», «Tóquenlo todos a la vez (3/4)» |
+| Guía de la fase (derecha) | Los pasos de la fase en curso, numerados, con el que toca ahora resaltado y los hechos marcados: fase 1 «esquiva → debilita una criatura → purifícala con F cerca de él»; fase 2 «despierta una columna → que embista contra ella → pisen las anclas → Balam golpea el corazón»; fase 3 «glifos de memoria → tócalo con F». Debajo, el contador que importa |
+| Balizas en el mundo | Un haz de luz y una flecha sobre aquello a lo que hay que ir en el paso activo: criaturas ya purificables, glifos dorados de las columnas, la columna que hay que poner en medio, anclas libres, el corazón, el guardián para el contacto |
+| Golpe sin efecto | Cada golpe inútil al guardián deja «Sin efecto» sobre él; cada pocos segundos, además, una frase con qué hacer en su lugar en esa fase, y la guía parpadea |
 | Pista junto al personaje | Qué hace F aquí y con qué forma: despertar la columna, pisar el ancla, golpear el corazón, tocar al guardián |
 | Avisos de una vez | Qué es el Silencio, cómo va la lluvia, la embestida, las anclas, el corazón y el contacto: cada uno la primera vez que hace falta |
 | Brújula | Las anclas mientras está aturdido; el guardián liberado; el cenote cuando ya dio la pista |

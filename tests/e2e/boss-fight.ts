@@ -112,6 +112,11 @@ await waitFor('fin de «El despertar»', async () => (await st(page)).frozen ===
 await waitFor('barra de Silencio', async () => (await st(page)).boss_bar === true, 30_000);
 s = await st(page);
 assert.match(s.ui.objective, /glifos del guardián/);
+// La guía de la fase: los pasos a la vista desde el primer momento
+await waitFor('guía de la fase 1', async () => (await st(page)).guide?.hud?.open === true, 15_000);
+s = await st(page);
+assert.match(s.guide.hud.title, /FASE 1/);
+assert.match(s.guide.hud.key, /purifícala con F cerca del guardián/);
 assert.equal(s.music, 'mus_jefe', 'música propia del guardián');
 assert.ok(heardDespertar, '«El despertar» sonó con su banda sonora');
 await waitFor('el tema del guardián sonando', async () => (await st(page)).snd?.music === 'mus_jefe' && (await st(page)).snd.rms > 0.0005, 30_000);
@@ -132,18 +137,30 @@ await toWatch;
 const p2 = Promise.all(cast.map((a, i) => bossPhase2(a, i, 4, () => phase() >= 3, 600)));
 await waitFor('fase 2 en el navegador', async () => (await st(page)).boss[0] === 2, 60_000);
 await look(page, WATCH, { x: 15.5, z: 0 });
-await waitFor('el guardián llega a la explanada', async () => (await st(page)).boss[1] < 21 && BOSS_STATE[(await st(page)).boss[4]] !== 'transit', 90_000);
+// Sale del santuario de un salto dirigido (aviso, vuelo y caída): se mira mientras ocurre
+const leapSeen = new Set<string>();
+let leapTop = 0;
+const leaving = ['kneel', 'transit', 'leap_w', 'leap'];
+await waitFor('el guardián llega a la explanada', async () => {
+  const q = await st(page);
+  const state = BOSS_STATE[q.boss[4]];
+  leapSeen.add(state);
+  leapTop = Math.max(leapTop, Number(q.boss_y ?? 0));
+  return q.boss[1] < 21 && !leaving.includes(state);
+}, 90_000);
+assert.ok(!leapSeen.has('transit'), 'ya no sale andando del santuario');
 s = await st(page);
 assert.equal(s.music, 'mus_jefe_furia', 'la música cambia con la fase');
 await waitFor('la música de la furia sonando', async () => (await st(page)).snd?.music === 'mus_jefe_furia', 30_000);
 assert.equal(s.boss[15], 2, 'con cuatro hacen falta dos anclas');
 const posBefore = await me();
 await shot(page, '02-fase2-explanada.png');
-const seen2 = { pillar: false, bound: false, objective: new Set<string>() };
+const seen2 = { pillar: false, bound: false, objective: new Set<string>(), steps: new Set<number>(), beacons: 0 };
 const watch2 = setInterval(async () => {
   const q = await st(page).catch(() => null);
   if (!q?.boss) return;
   seen2.objective.add(String(q.ui.objective).replace(/\(\d\/\d\)/, '').trim());
+  if (q.guide?.hud?.open && /FASE 2/.test(q.guide.hud.title)) { seen2.steps.add(q.guide.step); seen2.beacons = Math.max(seen2.beacons, q.guide.beacons); }
   if ((q.boss[16] as number[][]).length && !seen2.pillar) { seen2.pillar = true; void shot(page, '03-fase2-columnas.png'); }
   if (BOSS_STATE[q.boss[4]] === 'bound' && !seen2.bound) { seen2.bound = true; void shot(page, '04-fase2-corazon.png'); }
 }, 700);
@@ -152,7 +169,9 @@ clearInterval(watch2);
 const posAfter = await me();
 assert.ok(Math.hypot(posAfter.x - posBefore.x, posAfter.z - posBefore.z) < 1.5, 'a la jugadora nadie la movió de sitio durante la fase');
 assert.ok(seen2.pillar && seen2.bound, 'el navegador vio columnas despiertas y el corazón expuesto');
-ok(`Fase 2 «Furia»: explanada, columnas, anclas y corazón (objetivos vistos: ${[...seen2.objective].join(' | ')})`);
+assert.ok([0, 1, 3].every((i) => seen2.steps.has(i)), `la guía fue marcando los pasos de la fase (vistos: ${[...seen2.steps].sort().join(', ')})`);
+assert.ok(seen2.beacons >= 1, 'hubo balizas sobre el objetivo activo');
+ok(`Fase 2 «Furia»: salto a la explanada (estados vistos: ${[...leapSeen].join(', ')}; altura máxima vista ${leapTop.toFixed(1)} m), columnas, anclas y corazón · guía con pasos ${[...seen2.steps].sort().map((i) => i + 1).join(', ')} y hasta ${seen2.beacons} balizas (objetivos vistos: ${[...seen2.objective].join(' | ')})`);
 
 // 5) Fase 3: los compañeros encienden los glifos; la jugadora se acerca y lo toca con F
 const freed = () => phase() === 4;
@@ -162,6 +181,7 @@ await waitFor('fase 3 en el navegador', async () => (await st(page)).boss[0] ===
 s = await st(page);
 assert.equal(s.music, 'mus_recuerdo');
 await waitFor('la música del recuerdo sonando', async () => (await st(page)).snd?.music === 'mus_recuerdo', 30_000);
+await waitFor('guía de la fase 3', async () => /FASE 3/.test((await st(page)).guide?.hud?.title ?? ''), 30_000);
 const spot = { x: 15.5 - 4.1, z: 0 };   // el glifo del oeste: fuera del pulso, dentro del contacto
 let arrived = false;
 for (let attempt = 1; attempt <= 5 && !arrived && !freed(); attempt++) {
