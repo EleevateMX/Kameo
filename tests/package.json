@@ -10,6 +10,7 @@
     "test:boss": "tsx e2e/boss-fight.ts",
     "test:cine": "tsx e2e/cine-video.ts",
     "test:audio": "tsx e2e/audio-probe.ts",
+    "test:fullscreen": "tsx e2e/fullscreen.ts",
     "test:cine-coop": "tsx e2e/cine-coop.ts",
     "beta:check": "tsx beta-check.ts",
     "beta:preflight": "tsx beta-preflight.ts",

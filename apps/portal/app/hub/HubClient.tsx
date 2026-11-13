@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ALUX_COLORS, HATS, REWARDS, type PlayerProfile, type RoomInfo } from '@alux/shared-contracts/domain';
 import { AluxPreview } from '@/components/AluxPreview';
 
@@ -78,6 +79,27 @@ export function HubClient({ initialProfile, baseUrl }: { initialProfile: PlayerP
     const t = setInterval(() => refreshRoom(room.code), 3000);
     return () => clearInterval(t);
   }, [room?.code, refreshRoom]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // JUGAR: la pantalla completa sólo se puede pedir dentro del propio clic. Si el navegador la
+  // niega o no la tiene, se entra igual, en ventana.
+  const router = useRouter();
+  const [fullscreen, setFullscreen] = useState(true);
+  const [canFullscreen, setCanFullscreen] = useState(false);
+  useEffect(() => {
+    setCanFullscreen(typeof document.documentElement.requestFullscreen === 'function' && document.fullscreenEnabled !== false);
+    try { setFullscreen(localStorage.getItem('alux_fullscreen') !== '0'); } catch { /* sin almacenamiento */ }
+  }, []);
+  const chooseFullscreen = (on: boolean) => {
+    setFullscreen(on);
+    try { localStorage.setItem('alux_fullscreen', on ? '1' : '0'); } catch { /* sin almacenamiento */ }
+  };
+  const play = async () => {
+    if (!room) return;
+    if (fullscreen && canFullscreen && !document.fullscreenElement) {
+      try { await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch { /* en ventana */ }
+    }
+    router.push(`/play/${room.code}`);
+  };
 
   const inviteUrl = room ? `${baseUrl}/play/${room.code}` : '';
   const copy = async (what: 'link' | 'discord') => {
@@ -188,7 +210,16 @@ export function HubClient({ initialProfile, baseUrl }: { initialProfile: PlayerP
                 })}
               </ul>
               {room.gateOpen && <p className="note">Esta sala ya abrió el santuario.</p>}
-              <a className="btn big enter" href={`/play/${room.code}`}>Entrar al claro</a>
+              <button className="btn big enter" onClick={play}>
+                JUGAR
+                <small>Entrar al claro</small>
+              </button>
+              {canFullscreen && (
+                <label className="fs-pref">
+                  <input type="checkbox" checked={fullscreen} onChange={(e) => chooseFullscreen(e.target.checked)} />
+                  Pantalla completa al jugar
+                </label>
+              )}
               <div className="invite">
                 <input readOnly value={inviteUrl} onFocus={(e) => e.currentTarget.select()} aria-label="Enlace de invitación" />
                 <button className="btn ghost" onClick={() => copy('link')}>{copied === 'link' ? 'Copiado' : 'Copiar enlace'}</button>

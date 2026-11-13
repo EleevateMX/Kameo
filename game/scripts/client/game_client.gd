@@ -83,6 +83,7 @@ var _boss_state: Array = []
 var _arena: BossArena  # anclas, columnas, cadenas y glifos del combate con el guardián
 var _talk_npc := ""    # personaje con el que se puede hablar ahora mismo ("" si ninguno)
 var _touch_sfx := 0.0
+var _fs_poll := 0.0
 var _cine_staged := false
 var _motes_in := 0.0
 var _bolts := {}        # id del servidor -> {node, pos, dir, speed, life}
@@ -433,6 +434,13 @@ func _again_text() -> String:
 	return "Jugar otra ronda" if _connected <= 1 else "Jugar otra ronda  (%d/%d listos)" % [_votes, _connected]
 
 
+## Texto del botón de pantalla completa según lo que diga el navegador ("" si no la ofrece).
+func _fs_text() -> String:
+	if not _is_web or not bool(_js("!!(window.ALUX_FS && ALUX_FS.supported)")):
+		return ""
+	return "Pantalla completa: %s" % ("sí" if bool(_js("ALUX_FS.active()")) else "no")
+
+
 func _open_menu() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_was_captured = false
@@ -441,6 +449,7 @@ func _open_menu() -> void:
 	_hud.hide_result()
 	_hud.show_menu(_settings, QUALITY_NAMES[_quality], _again_text())
 	_hud.set_menu_audio(_audio_status())
+	_hud.set_menu_fullscreen(_fs_text())
 	Audio.play("ui_abrir")
 
 
@@ -462,7 +471,7 @@ func _exit_to_portal() -> void:
 	if _ws:
 		_ws.close()
 	if _is_web:
-		_js("location.href = '/hub'")
+		_js("(function(){var w=window;try{if(window.top&&window.top.document)w=window.top}catch(e){}w.location.href='/hub'})()")
 	else:
 		get_tree().quit()
 
@@ -673,6 +682,11 @@ func _on_action(id: String) -> void:
 			_audio.test()
 			_sound_test_in = 0.9
 			_hud.set_menu_audio("Probando…")
+		"fullscreen":
+			# El navegador decide: si la niega, la partida sigue en ventana
+			if _is_web:
+				_js("window.ALUX_FS && ALUX_FS.toggle()")
+				_fs_poll = 0.0
 		"again":
 			# Voto para otra ronda: el servidor reinicia cuando votan todos los conectados
 			if _encounter == 2 and _ws != null and _net == Net.PLAYING:
@@ -2164,6 +2178,12 @@ func _process(delta: float) -> void:
 		_gate_anim = minf(1.0, _gate_anim + delta * 0.8)
 	_builder.update(_time, delta, _gate_anim)
 
+	# Con el menú abierto, su botón de pantalla completa refleja lo que hizo el navegador
+	if _hud.menu_open():
+		_fs_poll -= delta
+		if _fs_poll <= 0.0:
+			_fs_poll = 0.5
+			_hud.set_menu_fullscreen(_fs_text())
 	_update_cine_flow(delta)
 	if not _cine.process(delta):
 		_update_camera()

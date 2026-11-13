@@ -21,6 +21,12 @@
   #back { position: fixed; top: 12px; right: 12px; z-index: 5; padding: 8px 14px; border-radius: 999px; background: rgba(10, 20, 17, .75);
     color: #fff8ea; text-decoration: none; font-size: 13px; border: 1px solid rgba(255, 255, 255, .2); }
   #back:hover { border-color: #2ec4a6; }
+  /* Botón discreto de pantalla completa (abajo a la izquierda, fuera de la interfaz del juego) */
+  #fs { position: fixed; left: 10px; bottom: 10px; z-index: 4; width: 34px; height: 34px; border-radius: 9px; cursor: pointer;
+    background: rgba(10, 20, 17, .55); color: #fff8ea; border: 1px solid rgba(255, 255, 255, .22); opacity: .45; font-size: 17px; line-height: 1;
+    display: none; align-items: center; justify-content: center; padding: 0; transition: opacity .2s, border-color .2s; }
+  #fs:hover, #fs:focus-visible { opacity: 1; border-color: #2ec4a6; outline: none; }
+  #fs.on { display: flex; }
 </style>
 $GODOT_HEAD_INCLUDE
 </head>
@@ -34,17 +40,87 @@ $GODOT_HEAD_INCLUDE
     <div id="status">Cargando el claro…</div>
   </div>
 </div>
+<button id="fs" type="button" aria-label="Pantalla completa" title="Pantalla completa">&#x26F6;</button>
 <script src="cine-video.js"></script>
 <!-- Mezclador propio (música, ambientes, limitador, aviso de audio bloqueado). Va antes que el motor:
      captura su AudioContext al crearse. Ver docs/AUDIO.md -->
 <script src="alux-audio.js"></script>
 <script src="$GODOT_URL"></script>
 <script>
+// Pantalla completa (Fullscreen API). Una página no puede pulsar F11 por el jugador: sólo puede
+// pedirla dentro de un gesto suyo (clic o tecla), y el navegador puede negarla. Si la niega o el
+// jugador sale con Esc, la partida sigue igual en ventana. La preferencia se recuerda.
+window.ALUX_FS = (() => {
+  // Si el juego va dentro del portal (/play/…), la pantalla completa es la de la página de fuera
+  let host = window;
+  try { if (window.top && window.top !== window && window.top.document) host = window.top; } catch (e) { host = window; }
+  const doc = host.document;
+  const el = doc.documentElement;
+  const request = el.requestFullscreen || el.webkitRequestFullscreen;
+  const exit = doc.exitFullscreen || doc.webkitExitFullscreen;
+  const supported = !!request && (doc.fullscreenEnabled !== false);
+  const KEY = 'alux_fullscreen';
+  const api = {
+    supported,
+    failed: '',
+    active: () => !!(doc.fullscreenElement || doc.webkitFullscreenElement),
+    pref: () => { try { return localStorage.getItem(KEY) !== '0'; } catch (e) { return true; } },
+    setPref: (on) => { try { localStorage.setItem(KEY, on ? '1' : '0'); } catch (e) { /* sin almacenamiento */ } },
+    enter: () => {
+      if (!supported || api.active()) return Promise.resolve(api.active());
+      let p;
+      try { p = request.call(el, { navigationUI: 'hide' }); } catch (e) { p = Promise.reject(e); }
+      return Promise.resolve(p).then(() => true).catch((e) => { api.failed = String((e && e.name) || e); return false; });
+    },
+    leave: () => { if (api.active() && exit) { try { return Promise.resolve(exit.call(doc)).catch(() => {}); } catch (e) { /* nada */ } } return Promise.resolve(); },
+    // El botón y el menú del juego: cambia de modo y recuerda lo elegido
+    toggle: () => { const on = !api.active(); api.setPref(on); return on ? api.enter() : api.leave(); },
+  };
+  const sync = () => {
+    const btn = document.getElementById('fs');
+    if (btn) {
+      btn.classList.toggle('on', supported);
+      btn.title = api.active() ? 'Salir de pantalla completa' : 'Pantalla completa';
+      btn.setAttribute('aria-label', btn.title);
+      btn.setAttribute('aria-pressed', api.active() ? 'true' : 'false');
+    }
+    // En Chrome y Edge, con pantalla completa, Esc llega al juego (abre su menú) en vez de
+    // sacar al jugador; mantenerla pulsada sigue saliendo. Donde no existe, Esc sale: no pasa nada.
+    try {
+      const kb = host.navigator.keyboard;
+      if (kb && kb.lock) { if (api.active()) kb.lock(['Escape']).catch(() => {}); else kb.unlock(); }
+    } catch (e) { /* sin bloqueo de teclado */ }
+    const canvas = document.getElementById('canvas');
+    if (canvas) canvas.focus();
+  };
+  doc.addEventListener('fullscreenchange', sync);
+  doc.addEventListener('webkitfullscreenchange', sync);
+  window.addEventListener('DOMContentLoaded', () => {
+    sync();
+    const btn = document.getElementById('fs');
+    if (btn) btn.addEventListener('click', (ev) => { ev.preventDefault(); api.toggle(); btn.blur(); });
+  });
+  return api;
+})();
+
 // Configuración que lee el juego (game/scripts/client/game_client.gd)
 const params = new URLSearchParams(location.search);
 const room = (params.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 window.ALUX = { room, ticket: '', wsUrl: '', error: '', cine: params.get('cine') !== '0', quality: ['min', 'low', 'high'].includes(params.get('q')) ? params.get('q') : 'auto' };
 window.ALUX_DEBUG = params.get('debug') === '1';
+// Quien llega directo al juego (un enlace, una recarga) entra en pantalla completa con su primer
+// clic o tecla, si así lo prefiere. Desde el portal ya la pidió el botón JUGAR. Una sola vez: si
+// después sale con Esc, no se le vuelve a meter. (En las pruebas automáticas, sólo con ?fs=1.)
+if (ALUX_FS.supported && (params.get('fs') === '1' || (!ALUX_DEBUG && params.get('fs') !== '0'))) {
+  const first = (ev) => {
+    if (ev.target && ev.target.id === 'fs') return;
+    window.removeEventListener('pointerdown', first, true);
+    window.removeEventListener('keydown', first, true);
+    if (ALUX_FS.pref() && !ALUX_FS.active()) ALUX_FS.enter();
+  };
+  window.addEventListener('pointerdown', first, true);
+  window.addEventListener('keydown', first, true);
+}
 const statusEl = document.getElementById('status');
 
 // Pide a la API un ticket de un solo uso para esta sala (usa la cookie de sesión)
@@ -58,7 +134,7 @@ window.aluxRefreshTicket = async () => {
     });
     const data = await res.json().catch(() => ({}));
     if (res.status === 401) {
-      location.href = '/?next=' + encodeURIComponent(location.pathname + location.search);
+      (window.top || window).location.href = '/?next=' + encodeURIComponent('/play/' + room);
       return;
     }
     if (!res.ok) { ALUX.error = data.error || 'ticket_failed'; return; }

@@ -17,7 +17,7 @@ const World := preload("res://scripts/shared/world_def.gd")
 const Kit := preload("res://scripts/client/ui/ui_kit.gd")
 
 ## Nombre de la build, visible en el menú para que quien pruebe pueda citarla al reportar.
-const BUILD := "ALUX Closed Alpha 0.3.1 RC1"
+const BUILD := "ALUX Alpha 0.4 (en desarrollo)"
 const FORM_ACCENT := {"alux": Kit.JADE, "balam": Kit.AMBER}
 const KEY_HINTS := ["Clic · J", "Clic der. · K", "F"]
 
@@ -322,6 +322,7 @@ var _menu: Plaque
 var _menu_again: Button
 var _menu_quality: Button
 var _menu_audio: Label        # estado real del audio (contexto del navegador y nivel de salida)
+var _menu_fs: Button
 var _sliders := {}            # clave -> HSlider
 var _overlay_buttons: HBoxContainer
 var _shade: ColorRect
@@ -735,6 +736,9 @@ func _build_panels(root: Control) -> void:
 	two.add_child(rec)
 	_menu_quality = _button("Calidad gráfica: alta  (F4)", "quality")
 	mv.add_child(_menu_quality)
+	_menu_fs = _button("Pantalla completa", "fullscreen")
+	_menu_fs.visible = false
+	mv.add_child(_menu_fs)
 	mv.add_child(_button("Ver la introducción del capítulo", "replay_intro"))
 	var sg := GridContainer.new()
 	sg.columns = 4   # dos ajustes por fila: el menú cabe también en pantallas bajas
@@ -1503,6 +1507,15 @@ func set_menu_audio(text: String) -> void:
 
 func menu_audio_text() -> String:
 	return _menu_audio.text
+## Texto del botón de pantalla completa del menú ("" lo oculta: el navegador no la ofrece).
+func set_menu_fullscreen(text: String) -> void:
+	if _menu_fs.text == text and _menu_fs.visible == (not text.is_empty()):
+		return
+	_menu_fs.visible = not text.is_empty()
+	_menu_fs.text = text
+	if _menu.visible:
+		_menu.size = Vector2.ZERO
+		_center(_menu)
 
 
 func update_menu(quality_name: String, again := "") -> void:

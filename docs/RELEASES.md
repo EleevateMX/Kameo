@@ -27,7 +27,7 @@ informa el servicio, y `--commit <hash>` exige que sea uno concreto.
 | | |
 | --- | --- |
 | **Estado** | **Candidata, sin publicar.** Nada llega a `beta` sin tu visto bueno |
-| **Código de la versión** | `963630b` en la rama de trabajo `claude/tender-johnson-c2gk0s` (los commits posteriores sólo añaden este registro, la documentación y el paso de audio de `beta:check`; el juego no cambia) |
+| **Código de la versión** | `963630b`; el commit que se publicaría es **`4f47832`**, que sólo le añade este registro, la documentación y el paso de audio de `beta:check` (el juego no cambia). Los commits posteriores de la rama de trabajo ya son de la Alpha 0.4 y **no** forman parte de la candidata |
 | **Rollback** | Publicar en `beta` el commit `93007a0` (0.3). Sin migraciones ni cambios de infraestructura: los datos sirven en los dos sentidos |
 | **Qué cambia respecto a la 0.3** | Cliente del juego (audio), archivos de sonido, pruebas y documentación; en la API, sólo campos nuevos en la telemetría de sesión. **Sin cambios** en el servidor de juego, el protocolo, `render.yaml`, la imagen ni la base de datos |
 

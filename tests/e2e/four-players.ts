@@ -58,7 +58,9 @@ async function main() {
   assert.ok(new URL(anon.url()).searchParams.get('next') === `/play/${code}`, 'sin sesión debe volver a la portada');
   await anon.context().close();
   await pages[1].goto(`${BASE}/play/${code}`);
-  assert.ok(pages[1].url().includes(`/game/index.html?room=${code}`), 'la invitación abre el juego');
+  // (desde la Alpha 0.4 el juego se abre dentro de la propia página de la invitación)
+  await pages[1].waitForSelector('iframe.play-frame');
+  assert.ok((await pages[1].getAttribute('iframe.play-frame', 'src'))!.includes(`/game/index.html?room=${code}`), 'la invitación abre el juego');
 
   // 4) Los cuatro entran a la misma sala
   await Promise.all(pages.map((p) => p.goto(`${BASE}/game/index.html?room=${code}&debug=1&cine=0${QUALITY}`)));
