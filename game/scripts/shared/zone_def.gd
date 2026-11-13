@@ -54,7 +54,10 @@ const BENCHES: Array = [
 	[-7.0, 4.6, 1.3, 0.35], [7.0, 4.6, 1.3, 0.35], [-7.0, -4.6, 1.3, 0.35], [7.0, -4.6, 1.3, 0.35],   # bancos del árbol
 	[-15.0, 17.2, 1.3, 0.35], [-20.4, 12.0, 0.35, 1.3],                                             # bancos de la fuente
 ]
-const BOXES: Array = WALLS + BENCHES + STANDS
+## Puestos del mercado, al noroeste (decorado): frutas, telas, barro y antojitos, en ese orden.
+## Los dos primeros miran al este y los otros dos al sur; quien vende queda dentro del obstáculo.
+const STALLS: Array = [[-26.0, -8.5, 1.1, 1.5], [-26.0, -14.5, 1.1, 1.5], [-12.5, -18.0, 1.5, 1.1], [-6.5, -18.0, 1.5, 1.1]]
+const BOXES: Array = WALLS + BENCHES + STANDS + STALLS
 
 ## Puntos de interés: sitios donde F abre algo. Son decorado del cliente (el servidor sólo conoce
 ## sus obstáculos, arriba). `at`: desde dónde se usa · `r`: alcance · `yaw`: hacia dónde mirar.

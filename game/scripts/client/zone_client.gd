@@ -40,6 +40,13 @@ const PROFILES := [
 const NPCS := [
 	{"poi": "guide", "name": "Nico, el guía", "color": "#ffd23f", "hat": 1, "look": [1, 4, 1, 2, 1], "pos": Vector3(0.0, 0.0, 13.0), "yaw": 0.0, "turns": true},
 	{"poi": "shop", "name": "Doña Chela", "color": "#8f5bd6", "hat": 2, "look": [3, 2, 4, 1, 3], "pos": Vector3(15.3, 0.12, 6.5), "yaw": -PI * 0.5, "turns": false},
+	# De decorado (`ambient`): sólo se dibujan de cerca y nunca en calidad mínima. Cada alux son
+	# unos 8 000 triángulos y una docena de llamadas de dibujo: por eso son tres y están lejos de
+	# la llegada. La antojera y el frutero, tras sus puestos (zone_def.STALLS); la paseante, subida
+	# al brocal de la fuente.
+	{"poi": "", "ambient": true, "name": "Doña Lupe", "color": "#b3372e", "hat": 5, "look": [2, 0, 4, 1, 2], "pos": Vector3(-6.5, 0.1, -18.6), "yaw": 0.0, "turns": false},
+	{"poi": "", "ambient": true, "name": "Don Beto", "color": "#3f7d5c", "hat": 0, "look": [1, 1, 0, 3, 3], "pos": Vector3(-26.6, 0.1, -8.5), "yaw": PI * 0.5, "turns": false},
+	{"poi": "", "ambient": true, "name": "Itzel", "color": "#19b4d6", "hat": 2, "look": [3, 3, 2, 0, 1], "pos": Vector3(-17.25, 0.6, 13.0), "yaw": 1.99, "turns": false},
 ]
 ## Recompensas del capítulo I que enseña el puesto (las otorga el servidor de juego; aquí sólo se leen)
 const SEALS := [["sello_del_claro", "Sello del Claro", "se gana al abrir el santuario"], ["pluma_de_jade", "Pluma de Jade", "la entrega el guardián del Claro"]]
@@ -901,6 +908,8 @@ func _update_npcs(delta: float, at: Vector3) -> void:
 		var home := float(n.def.yaw)
 		var d := Vector2(av.position.x, av.position.z).distance_to(Vector2(at.x, at.z))
 		if check:
+			if bool(n.def.get("ambient", false)):
+				av.visible = _quality < 2 and d < (29.0 if av.visible else 26.0)
 			var lod := 0 if d < (30.0 if int(n.lod) == 0 else 27.0) else 2
 			if lod != int(n.lod):
 				n.lod = lod

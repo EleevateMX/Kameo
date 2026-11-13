@@ -333,6 +333,12 @@ distancia, aspecto, reconexión, capacidad y tope), `npm run test:plaza` (dos na
   `__aluxState` trae `pois`, `npcs`, `ui.panel`, `quality` y `perf` (llamadas, primitivas, escala,
   lienzo, densidad, GPU). Capturas en `tests/e2e/screenshots/plaza-nueva/`.
 
+### La plaza, tercer pase: ciudad modular y mercado
+
+- **Arquitectura modular** (`plaza_modulos.gd`): piezas a la misma escala (muro, zócalo, cornisa, pretil con remates, columna, arco, puerta, ventana con reja, balcón, farol de pared, toldo, tejado, torre) con las que se componen el palacio de arcos con su torre del reloj (norte), portales comerciales (oeste), casonas de colores con callejones (sur) y un templo de piedra caliza con dos torres y rosetón de jade (este, al sur del portal). Vegetación, puestos y mobiliario en `plaza_vida.gd`: ceiba, flamboyán, lluvia de oro, laurel, palmas, buganvilias, macetas con henequén, confidentes, farolas de tres luces y un mercado de cuatro puestos (frutas, telas, barro, antojitos; obstáculos en `Zone.STALLS`). Tres aluxes de decorado (`ambient` en `NPCS`) que sólo se dibujan a menos de ~28 m y nunca en calidad mínima. Humo de cocina y copal y pétalos que caen: un sombreador más (`ambiente`).
+- **Luz**: sol más bajo y del suroeste (palacio y templo de cara al sol; oeste y sur a contraluz, vivos por sus ventanas y faroles), ambiente violáceo, luz pintada también en los muros y sombra pintada en el suelo para la calidad mínima. Sin luces nuevas ni sombras nuevas.
+- **Medido** (1280×720, un alux, llegada): alta 90 → 91 llamadas y ~65 000 → ~89 000 primitivas; mínima 74 → 75 llamadas. Vista más cara (general, alta): 108 llamadas. Herramienta: `npx tsx e2e/plaza-capturas.ts <carpeta>`. El tercio norte del borde este (z < −11, x > 33) queda con el pretil sencillo, reservado para otra salida.
+
 **Para publicarlo falta**: arrancar el segundo proceso en la imagen de Render y encaminar su
 WebSocket por el proxy (`ZONE_WS_URL`), medir la memoria de la imagen con los dos servidores y
 probar con navegadores y personas reales.
