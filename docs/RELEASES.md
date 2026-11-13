@@ -16,6 +16,8 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 
 | **Closed Alpha 0.4** | **Publicada** el 13 nov 2026 en <https://alux-beta.onrender.com> (commit `b27e4c1`). Rollback: `cdf1543` (0.3.1) | Pantalla completa al pulsar JUGAR, personalizador 3D del alux, plaza social de Mérida (prototipo) con portal al Claro, primeros sonidos elegidos de oído |
 
+| Closed Alpha 0.4.1 | **Candidata, sin publicar** (rama de trabajo). Pendiente del visto bueno del dueño | Pulido de la 0.4: plaza más ligera y viva, portal como menú del juego, guía de la pelea con Nojoch y su salida del santuario de un salto |
+
 ## Publicación en la rama `beta`
 
 La rama `beta` es lo único que Render despliega. Cada entrada dice qué commit lleva el código de
@@ -23,6 +25,28 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
+
+## ALUX Closed Alpha 0.4.1 — Pulido de lo publicado (candidata, sin publicar)
+
+Respuesta a la primera prueba del dueño en su ordenador. Nada de esto está en `beta`.
+
+| Qué | Cambio | Comprobado | Sin comprobar |
+| --- | --- | --- | --- |
+| Rendimiento de la plaza | Geometría fundida en 11 mallas, sin luces puntuales, una sombra corta, calidad propia de la plaza y regulador de resolución ([perf_governor.gd](../game/scripts/client/perf_governor.gd)). De 235 llamadas de dibujo a 74–90 con un alux | Llamadas y primitivas en navegador; la prueba de dos navegadores pasó de 608 s a 103 s en la misma máquina | **FPS con tarjeta gráfica real**: aquí se dibuja por software. F3 en la plaza y en la mazmorra da FPS, llamadas, escala del 3D, lienzo y GPU |
+| Rendimiento de la mazmorra | El mismo regulador: en alta y baja el 3D se mueve entre suelo y techo y se acota en pantallas de alta densidad (el lienzo se dibujaba a `devicePixelRatio` completo) | Regresión completa | Lo mismo: falta medir en un navegador real |
+| Portal como menú del juego | Pantalla de título, menú principal con teclado, pantalla de carga hasta que el motor arranca; menú → mundo sin recargar la página | Selectores de las pruebas conservados; flujo, cuatro navegadores, pantalla completa y personalizador en verde | Firefox y Safari |
+| Plaza más viva | Composición nueva; guía, tablón de misiones y puesto de saberes con F (muestra el progreso real; las mejoras, «próximamente»: sin compras, moneda ni cambios de base de datos); banderines, luciérnagas, aves y palomas | Servidor de zonas 7 de 7; plaza con dos navegadores 5 de 5 | Nombres y textos de los personajes son provisionales; la tienda necesita decisiones de diseño |
+| Salida de Nojoch del santuario | Ya no camina: aviso con círculo donde cae, salto en arco sin colisiones y caída con empujón sin daño. Andando se atascaba hasta 5 s en 7 de 121 posiciones de salida simuladas, incluida la de reposo | Protocolo con 1, 2 y 4 jugadores (un aviso, un salto, una caída, duración fija); en navegador se vieron los estados y 7,9 m de altura | No hay captura con el guardián en el aire (el navegador de pruebas dibuja a 1–2 FPS) |
+| Claridad de la pelea | Guía de la fase con pasos numerados y el activo resaltado, balizas sobre el objetivo del paso, «Sin efecto» en cada golpe inútil y qué hacer en su lugar | La prueba del jefe en navegador exige la guía en las tres fases y balizas en la fase 2 | Que un jugador nuevo la entienda: eso sólo lo dice una persona jugando |
+
+**Regresión de la rama con todo integrado (13 nov 2026, una prueba cada vez, a la primera):** API 12 ·
+catálogos 3 · simulación sin violaciones · servidor de mazmorras 17 · servidor de zonas 7 · audio 11 ·
+vídeo 7 · flujo 15 · jefe completo 7 · cuatro navegadores 10 · pantalla completa 7 · personalizador 6 ·
+plaza 5.
+
+**No cambia:** base de datos, API, protocolo de zonas y servicios de Render. El protocolo de la
+mazmorra añade dos estados del jefe al final de la lista (`leap_w`, `leap`) y tres eventos; cliente
+y servidor se despliegan juntos. Rollback de la 0.4.1: `b27e4c1` (0.4).
 
 ## ALUX Closed Alpha 0.4 — El mundo empieza en una plaza
 

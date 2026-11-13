@@ -10,7 +10,7 @@ Pruebas: [PLAYTEST.md](PLAYTEST.md) · Versiones: [RELEASES.md](RELEASES.md).
 
 | Área | Estado real |
 | --- | --- |
-| Versión candidata | Ninguna ahora mismo. |
+| Versión candidata | **Closed Alpha 0.4.1**, en la rama de trabajo, sin publicar: pulido de la 0.4 (plaza más ligera y viva, portal como menú, pelea de Nojoch más clara y su salida de un salto). Espera el visto bueno del dueño. Ver [RELEASES.md](RELEASES.md). |
 | Versión publicada | **Closed Alpha 0.4** (13 nov 2026, commit `b27e4c1`): pantalla completa ([FULLSCREEN.md](FULLSCREEN.md)), personalizador 3D ([PERSONALIZADOR.md](PERSONALIZADOR.md)), plaza social de Mérida con portal al Claro ([OPEN_WORLD.md](OPEN_WORLD.md)), primeros sonidos elegidos de oído. **Desarrollo detenido hasta la evaluación del dueño del proyecto.** Siguiente prioridad acordada: volver del Claro a la plaza conservando identidad, grupo, apariencia y progreso. |
 | Multijugador | Servidor autoritativo, 4 jugadores, reconexión, salas. Verificado con bots, navegadores y contra el servicio desplegado (un jugador). **Cuatro personas reales a la vez: sin probar.** |
 | Combate y formas | Alux y Balam, dos enemigos, emboscada, derrota y otra ronda. Datos modulares (`combat_def.gd`). Equilibrio sin probar con personas. |
