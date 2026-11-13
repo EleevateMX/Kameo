@@ -31,6 +31,11 @@ const SPEED := 1.7
 ## Patio del santuario por dentro (x0, x1, z0, z1): ahí transcurre la fase 1.
 const ARENA := [22.9, 33.1, -5.1, 5.1]
 const RISE_TIME := 4.0          # tarda en ponerse en pie (lo que dura su animación): nadie recibe daño mientras tanto
+## Muros del patio (viajan en el estado del jefe). Se hunden al despertar él y se cierran cuando
+## vuelve a dormirse; mientras se mueven siguen siendo sólidos (tiempos en World.COURT_OPEN_*).
+const WALLS_SHUT := 0
+const WALLS_OPENING := 1
+const WALLS_OPEN := 2
 const REARM_TIME := 6.0         # tras una derrota, lo que tarda en poder despertar otra vez
 
 const SILENCE_MAX := 100.0

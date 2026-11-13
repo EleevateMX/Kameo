@@ -50,7 +50,7 @@ descarga por HTTP. Detalle y motivos: [CINEMATICS.md](CINEMATICS.md).
 Estado de Nojoch Tuunich ([BOSS.md](BOSS.md)); también viaja en `welcome`. Lo decide todo el servidor
 y no existe ningún mensaje del cliente que lo toque:
 
-`[fase, x, z, giro, estado, segundosDelEstado, silencio, glifos, glifosNecesarios, slotObjetivo, golpeX, golpeZ, giroDelBarridoOEmbestida, escombros, anclasActivas, anclasNecesarias, columnas, corazón, corazonesLiberados, glifosDelSuelo, glifosDelSueloNecesarios, contacto, quiénesLoTocan, cuántosDebenTocarlo]`
+`[fase, x, z, giro, estado, segundosDelEstado, silencio, glifos, glifosNecesarios, slotObjetivo, golpeX, golpeZ, giroDelBarridoOEmbestida, escombros, anclasActivas, anclasNecesarias, columnas, corazón, corazonesLiberados, glifosDelSuelo, glifosDelSueloNecesarios, contacto, quiénesLoTocan, cuántosDebenTocarlo, murosDelPatio, segundosParaAbrirse]`
 
 - Fase: 0 dormido · 1 olvido · 2 furia · 3 recuerdo · 4 liberado. Silencio: de 100 a 0.
 - Estado: `sleep`, `rise`, `idle`, `walk`, `slam_w`, `sweep_w`, `summon_w`, `recover`, `kneel`, `freed`,
@@ -59,6 +59,10 @@ y no existe ningún mensaje del cliente que lo toque:
 - Escombros: lista de `[x, z, radio, segundosQueQuedan]`. Columnas: lista de `[zócalo, segundosQueQuedan]`.
 - `anclasActivas` y `quiénesLoTocan` son máscaras de bits (de anclas y de slots de jugador).
   `corazón` y `contacto` van de 0 a 100.
+- `murosDelPatio`: 0 cerrados · 1 abriéndose · 2 abiertos (los dos laterales y el del fondo; la portada
+  no se mueve). Se abren cuando despierta y se cierran cuando vuelve a dormirse (derrota o ronda nueva);
+  liberado, quedan abiertos. **Sólo dejan de ser sólidos en el estado 2**, en el servidor y en la
+  predicción del cliente; `segundosParaAbrirse` es lo que falta (3,6 s en total; 1,8 s tras «El despertar»).
 
 Sus eventos van con los de combate (`["boss", tipo, …]`):
 

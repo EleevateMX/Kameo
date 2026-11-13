@@ -32,7 +32,7 @@ navegador en un `<video>` colocado encima del lienzo, y el juego lo dirige por u
 
 | Pieza | Archivo | Qué hace |
 | --- | --- | --- |
-| Guiones | `game/scripts/shared/story_def.gd` (`CUTSCENES`) | Planos: duración, cámara, texto, sonido y, si lo hay, `video`. En las del jefe, además, la pose y el aspecto del guardián (`boss`), las motas del Silencio (`motes`) y la pluma (`feather`) |
+| Guiones | `game/scripts/shared/story_def.gd` (`CUTSCENES`) | Planos: duración, cámara, texto, sonido y, si lo hay, `video`. En las del jefe, además, la pose y el aspecto del guardián (`boss`), las motas del Silencio (`motes`), la pluma (`feather`) y los muros del patio empezando a hundirse (`walls`) |
 | Reproductor | `game/scripts/client/cinematics/cutscene.gd` | Mueve la cámara plano a plano; si el plano tiene vídeo listo lo pone encima y vigila que avance. Mide la escena con el reloj real: un navegador lento no se retrasa respecto al servidor |
 | Puente (juego) | `game/scripts/client/cinematics/video_bridge.gd` | Órdenes y consultas al navegador; fuera de la web responde «no hay vídeo» |
 | Puente (navegador) | `game/web/static/cine-video.js` | Manifiesto, precarga, `<video>` sobre el juego, subtítulos, registro de fallos |

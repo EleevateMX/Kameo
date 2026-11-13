@@ -49,6 +49,15 @@ var _after_scorch: MeshInstance3D   # marcas magenta donde estaban los barrotes,
 var _after_magenta: Array[CPUParticles3D] = []   # restos del sello: uno se va pronto, otro tarda
 var _after_motes: Array[CPUParticles3D] = []     # partículas de jade y oro que se quedan
 var _quality := 0
+# Muros del patio: los hunde Nojoch Tuunich al despertar (el sólido lo decide el servidor: World.OPEN_COURT)
+var _court_slabs: Array = []        # losas: {node, mb, origin, half (medio largo), along_x, from, to, q, seed}
+var _court_mat: ShaderMaterial      # piedra con vetas que se encienden (todas las losas comparten material)
+var _court_dust: Array[CPUParticles3D] = []
+var _court_marks: MeshInstance3D    # umbral de jade que queda donde estaban los muros
+var _court_k := 0.0                 # 0 cerrados … 1 hundidos del todo
+var _court_veins := 0.0
+var _court_flash := 0.0
+const COURT_SINK := 3.76            # lo que baja cada losa: el muro (3,2 m), sus almenas (0,5 m) y un poco más
 const AFTER_GLYPH_T := 22.0         # lo que tardan los glifos en volver a su brillo normal
 const AFTER_SCORCH_T := 28.0        # lo que tardan en apagarse las marcas del sello
 const AFTER_MAGENTA_T := [7.0, 20.0]   # cuánto siguen saliendo restos magenta (denso, ralo)
@@ -666,7 +675,9 @@ func _sanctuary(root: Node3D) -> void:
 		var cz: float = (b.z0 + b.z1) * 0.5
 		var w: float = b.x1 - b.x0
 		var d: float = b.z1 - b.z0
-		if b.kind == "wall":
+		if b.kind == "wall" and (int(b.opens) & World.OPEN_COURT) != 0:
+			_court_wall(b)   # muros del patio: en losas sueltas, porque se hunden
+		elif b.kind == "wall":
 			var wb: float = b.top - 3.2
 			_stone.prism(Vector2(cx, cz), wb - 2.0, wb + 0.7, Vector2(w + 0.3, d + 0.3), Vector2(w + 0.1, d + 0.1), LIME_DARK)
 			_stone.prism(Vector2(cx, cz), wb + 0.7, b.top - 0.3, Vector2(w, d), Vector2(w - 0.06, d - 0.06), LIME.darkened(0.06))
@@ -687,6 +698,7 @@ func _sanctuary(root: Node3D) -> void:
 		elif b.kind == "seal":
 			_seal(root)
 	if gate.is_empty():
+		_court_commit(root)
 		return
 	var gx: float = (gate.x0 + gate.x1) * 0.5
 	var gz: float = (gate.z0 + gate.z1) * 0.5
@@ -745,6 +757,260 @@ func _sanctuary(root: Node3D) -> void:
 	gate_light.position = Vector3(gx - 1.4, base + 2.0, gz)
 	root.add_child(gate_light)
 	_aftermath(root, gx, gz, base)
+	_court_commit(root)   # (después de las secuelas: las enredaderas y grietas de esos muros van en sus losas)
+
+
+# ───────────────────────── Muros del patio ─────────────────────────
+# Los dos laterales y el del fondo se hunden en el suelo cuando despierta el guardián. Cada muro
+# está cortado en losas que bajan en oleada desde donde él duerme hacia la portada: primero se
+# sueltan con un respingo, luego bajan acelerando, cabeceando, con las vetas del Silencio
+# encendidas. Donde estaban queda un umbral de piedra con glifos de jade. Aquí sólo se dibuja:
+# cuándo se abren y cuándo dejan de ser sólidos lo dice el servidor.
+
+func _court_wall(b: Dictionary) -> void:
+	var along_x: bool = (b.x1 - b.x0) > (b.z1 - b.z0)
+	var base: float = b.top - 3.2
+	var mid: float = (b.z0 + b.z1) * 0.5 if along_x else (b.x0 + b.x1) * 0.5
+	# El metro pegado a la portada es de ella (no se mueve); las esquinas del fondo, de los laterales
+	var a0: float = (b.x0 + 1.0) if along_x else (b.z0 + 1.0)
+	var a1: float = b.x1 if along_x else (b.z1 - 1.0)
+	var n := 5 if along_x else 4
+	var length := (a1 - a0) / float(n)
+	# Zócalo fijo bajo el muro: es lo que queda a la vista cuando se ha hundido
+	var c2 := Vector2((a0 + a1) * 0.5, mid) if along_x else Vector2(mid, (a0 + a1) * 0.5)
+	var plinth := Vector2(a1 - a0 + 0.3, 1.5) if along_x else Vector2(1.5, a1 - a0 + 0.3)
+	_stone.prism(c2, base - 0.5, base + 0.04, plinth, plinth, LIME_DARK, 0.0, LIME_DARK.darkened(0.16))
+	for i in n:
+		var c := a0 + (float(i) + 0.5) * length
+		var origin := Vector3(c, base, mid) if along_x else Vector3(mid, base, c)
+		var mb := MB.new()
+		mb.reseed(9001 + _court_slabs.size() * 37)
+		var cross := func(len: float, thick: float) -> Vector2:
+			return Vector2(len, thick) if along_x else Vector2(thick, len)
+		mb.prism(Vector2.ZERO, -2.0, 0.7, cross.call(length, 1.3), cross.call(length, 1.1), LIME_DARK)
+		mb.prism(Vector2.ZERO, 0.7, 2.9, cross.call(length, 1.0), cross.call(length, 0.94), LIME.darkened(0.06))
+		mb.prism(Vector2.ZERO, 2.9, 3.2, cross.call(length, 1.22), cross.call(length, 1.22), LIME.lightened(0.05), 0.0, LIME.lerp(MOSS, 0.3))
+		for m in [-0.25, 0.25]:
+			var at := Vector2(m * length, 0.0) if along_x else Vector2(0.0, m * length)
+			mb.prism(at, 3.2, 3.7, Vector2(0.7, 0.7), Vector2(0.42, 0.42), LIME)
+		# Por las dos caras: la junta con la losa vecina y las vetas por donde entra el Silencio.
+		# Las vetas llevan alfa 0 en el color: el material las enciende. Apagadas casi no se ven
+		# (un rasguño algo más oscuro que la piedra): el patio en calma sigue siendo un patio liso.
+		var along := Vector3(1, 0, 0) if along_x else Vector3(0, 0, 1)
+		var dark := LIME.darkened(0.24)
+		var faint := LIME.darkened(0.13)
+		var vein := Color(faint.r, faint.g, faint.b, 0.0)
+		for face in [-1.0, 1.0]:
+			var out: Vector3 = (Vector3(0, 0, 1) if along_x else Vector3(1, 0, 0)) * float(face)
+			var skin := out * 0.512
+			for e in [-1.0, 1.0]:
+				var x: Vector3 = along * (float(e) * (length * 0.5 - 0.03))
+				_court_strip(mb, [skin + x + Vector3(0, 0.74, 0), skin + x - out * 0.02 + Vector3(0, 2.88, 0)], along * 0.02, dark)
+			for v in 2:
+				var x0 := (mb.rand() - 0.5) * (length - 0.9)
+				var pts := []
+				var steps := 5 + v
+				for k in steps + 1:
+					var t := float(k) / float(steps)
+					var y := lerpf(0.76, 2.2 + 0.6 * mb.rand(), t)
+					var jog := (0.16 if k % 2 == 0 else -0.14) * (0.5 + mb.rand()) * (1.0 if k > 0 else 0.0)
+					# (el muro se estrecha hacia arriba: la veta se pega a la cara)
+					pts.append(skin - out * (0.03 * (y - 0.7) / 2.2 - 0.004) + along * (x0 + jog) + Vector3(0, y, 0))
+				_court_strip(mb, pts, along * (0.03 - 0.006 * float(v)), vein)
+				# una rama corta a media altura
+				var from: Vector3 = pts[2]
+				_court_strip(mb, [from, from + along * (0.32 if v == 0 else -0.3) + Vector3(0, 0.26, 0)], Vector3(0, 0.022, 0), vein)
+		var dist := Vector2(origin.x - 32.0, origin.z).length()   # (él duerme en x = 32, z = 0)
+		_court_slabs.append({"mb": mb, "origin": origin, "half": length * 0.5, "along_x": along_x, "dist": dist, "q": 0.0,
+			"seed": float(_court_slabs.size()) * 1.7})
+
+
+## Cinta plana (junta o veta) sobre la cara de una losa: por `pts`, de medio ancho `w`.
+func _court_strip(mb: MB, pts: Array, w: Vector3, color: Color) -> void:
+	for i in pts.size() - 1:
+		var a: Vector3 = pts[i]
+		var b: Vector3 = pts[i + 1]
+		mb.quad(a - w, b - w, b + w, a + w, color, color, color, color)
+		mb.quad(a + w, b + w, b - w, a - w, color, color, color, color)
+
+
+## Losa del patio a la que pertenece un punto de su cara (para colgarle enredaderas y grietas, que
+## se hunden con ella). Devuelve [malla, origen de la losa]; si no es de ninguna, la piedra fija.
+func _court_mb(p: Vector3) -> Array:
+	for s in _court_slabs:
+		var o: Vector3 = s.origin
+		var d := Vector2(absf(p.x - o.x), absf(p.z - o.z))
+		var half := Vector2(float(s.half), 0.7) if bool(s.along_x) else Vector2(0.7, float(s.half))
+		if d.x <= half.x and d.y <= half.y:
+			return [s.mb, o]
+	return [_stone, Vector3.ZERO]
+
+
+func _court_commit(root: Node3D) -> void:
+	if _court_slabs.is_empty() or _court_mat != null:
+		return
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+uniform float veins = 0.0;
+uniform vec3 vein_tint : source_color = vec3(0.98, 0.2, 0.6);
+void fragment() {
+	ALBEDO = COLOR.rgb;
+	ROUGHNESS = 0.95;
+	EMISSION = vein_tint * (1.0 - COLOR.a) * veins;
+}
+"""
+	_court_mat = ShaderMaterial.new()
+	_court_mat.shader = sh
+	var near := 1e9
+	var far := 0.0
+	for s in _court_slabs:
+		near = minf(near, float(s.dist))
+		far = maxf(far, float(s.dist))
+	var marks := MB.new()
+	var jade := Color(0.6, 1.0, 0.88)
+	for i in _court_slabs.size():
+		var s: Dictionary = _court_slabs[i]
+		var node := Avatar.part((s.mb as MB).commit(), _court_mat, s.origin)
+		root.add_child(node)
+		s.node = node
+		s.erase("mb")
+		# La oleada: empiezan a bajar antes las losas más cercanas a él; todas llegan abajo casi a la vez
+		var w := (float(s.dist) - near) / maxf(far - near, 0.01)
+		s.from = 0.3 * w
+		s.to = 0.86 + 0.14 * w
+		# Umbral: un glifo por losa y dos líneas a lo largo, a ras del zócalo
+		var o: Vector3 = (s.origin as Vector3) + Vector3(0, 0.075, 0)
+		var right := Vector3(1, 0, 0) if bool(s.along_x) else Vector3(0, 0, 1)
+		var up := Vector3(0, 0, -1) if bool(s.along_x) else Vector3(1, 0, 0)
+		_glyph_on(marks, o - Vector3(0, 0.03, 0), right, up, 0.62, 400 + i * 13, jade)
+		for side in [-1.0, 1.0]:
+			var c: Vector3 = o + up * (0.6 * float(side))
+			var hl: Vector3 = right * (float(s.half) - 0.12)
+			var hw: Vector3 = up * 0.035
+			marks.quad(c - hl - hw, c + hl - hw, c + hl + hw, c - hl + hw, jade, jade, jade, jade)
+	_court_marks = Avatar.part(marks.commit(), _fading_mat(), Vector3.ZERO)
+	_court_marks.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_court_marks.visible = false
+	root.add_child(_court_marks)
+	# Polvo: una nube baja a lo largo de cada muro mientras la piedra se mueve
+	var sx := World.SANCTUARY.x
+	var sz := World.SANCTUARY.y
+	for d in [[Vector3(sx + 0.5, 0.25, sz - 6.0), Vector3(6.0, 0.2, 0.75)], [Vector3(sx + 0.5, 0.25, sz + 6.0), Vector3(6.0, 0.2, 0.75)],
+			[Vector3(sx + 6.0, 0.25, sz), Vector3(0.75, 0.2, 5.5)]]:
+		var p := CPUParticles3D.new()
+		p.amount = 54
+		p.lifetime = 1.7
+		p.emitting = false
+		p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+		p.emission_box_extents = d[1]
+		p.position = d[0]
+		p.direction = Vector3.UP
+		p.spread = 70.0
+		p.gravity = Vector3(0, -0.5, 0)
+		p.initial_velocity_min = 0.5
+		p.initial_velocity_max = 2.1
+		p.damping_min = 0.8
+		p.damping_max = 1.4
+		p.scale_amount_min = 0.6
+		p.scale_amount_max = 1.7
+		var shrink := Curve.new()
+		shrink.add_point(Vector2(0.0, 0.35))
+		shrink.add_point(Vector2(0.25, 1.0))
+		shrink.add_point(Vector2(1.0, 0.0))
+		p.scale_amount_curve = shrink
+		var puff := SphereMesh.new()
+		puff.radius = 0.17
+		puff.height = 0.34
+		puff.radial_segments = 6
+		puff.rings = 3
+		var pm := StandardMaterial3D.new()
+		pm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		pm.albedo_color = Color(0.83, 0.77, 0.63, 0.5)
+		pm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		pm.cull_mode = BaseMaterial3D.CULL_DISABLED   # (igual que los efectos de combate: su shader ya está compilado)
+		puff.material = pm
+		p.mesh = puff
+		p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(p)
+		_court_dust.append(p)
+
+
+## Coloca los muros del patio (lo llama el cliente cada cuadro).
+##   k      0 cerrados … 1 hundidos del todo (sigue al reloj del servidor)
+##   alive  la piedra está viva: abriéndose, aunque el reloj esté detenido un momento
+## Devuelve dónde acaba de asentarse una losa en este cuadro (abajo al abrirse, arriba al
+## cerrarse), para que quien lo usa ponga el golpe, el polvo y la sacudida.
+func update_court(time: float, delta: float, k: float, alive: bool) -> Array:
+	var landed := []
+	if _court_mat == null:
+		return landed
+	var moving := absf(k - _court_k) > 0.000001
+	var closing := k < _court_k
+	_court_k = k
+	for s in _court_slabs:
+		var q := clampf((k - float(s.from)) / (float(s.to) - float(s.from)), 0.0, 1.0)
+		var was: float = s.q
+		s.q = q
+		if (was < 1.0 and q >= 1.0) or (closing and was > 0.0 and q <= 0.0):
+			landed.append(s.origin)
+		_court_place(s, time, alive or moving)
+	# Vetas: se encienden mientras la piedra se mueve y se apagan al asentarse
+	var lit := alive or (moving and k > 0.0 and k < 1.0)
+	_court_veins = move_toward(_court_veins, 1.0 if lit else 0.0, delta * (2.5 if lit else 1.2))
+	_court_mat.set_shader_parameter("veins", _court_veins * (2.0 + 0.5 * sin(time * 11.0) + 0.3 * sin(time * 23.0)))
+	for p in _court_dust:
+		var on := moving and k > 0.01 and k < 0.995
+		if p.emitting != on:
+			p.emitting = on
+	# Umbral de jade: aparece con un destello cuando terminan de hundirse y se queda tenue
+	if k >= 1.0 and moving:
+		_court_flash = 1.0
+	_court_flash = maxf(0.0, _court_flash - delta * 0.35)
+	var glow := (0.7 + 0.3 * _court_flash) if k >= 1.0 else 0.0
+	var mat := _court_marks.material_override as StandardMaterial3D
+	mat.albedo_color.a = move_toward(mat.albedo_color.a, glow, delta * (3.0 if glow > mat.albedo_color.a else 1.5))
+	_court_marks.visible = mat.albedo_color.a > 0.01
+	return landed
+
+
+## Estado ya asentado (al entrar a la sala o reconectarse): sin oleada, sin polvo y sin destello.
+func settle_court(k: float) -> void:
+	if _court_mat == null:
+		return
+	_court_k = k
+	_court_flash = 0.0
+	_court_veins = 0.0
+	_court_mat.set_shader_parameter("veins", 0.0)
+	for s in _court_slabs:
+		s.q = clampf((k - float(s.from)) / (float(s.to) - float(s.from)), 0.0, 1.0)
+		_court_place(s, 0.0, false)
+	for p in _court_dust:
+		p.emitting = false
+	(_court_marks.material_override as StandardMaterial3D).albedo_color.a = 0.7 if k >= 1.0 else 0.0
+	_court_marks.visible = k >= 1.0
+
+
+func _court_place(s: Dictionary, time: float, alive: bool) -> void:
+	var node: MeshInstance3D = s.node
+	var q: float = s.q
+	node.visible = q < 1.0
+	if not node.visible:
+		return
+	# Primero se suelta (un respingo hacia arriba); después baja acelerando, como piedra pesada
+	var lift := sin(clampf(q / 0.14, 0.0, 1.0) * PI) * 0.11
+	var drop := pow(clampf((q - 0.08) / 0.92, 0.0, 1.0), 2.1)
+	var pos: Vector3 = (s.origin as Vector3) + Vector3(0, lift - drop * COURT_SINK, 0)
+	var rot := Vector3.ZERO
+	if alive or (q > 0.0 and q < 1.0):
+		var ph: float = s.seed
+		# cabeceo sobre su base y temblor: más cuanto más suelta está
+		var loose := 0.25 + 0.75 * sin(clampf(q, 0.0, 1.0) * PI)
+		var tilt := 0.016 * loose * sin(time * 7.3 + ph * 2.1)
+		rot = Vector3(tilt, 0, 0) if bool(s.along_x) else Vector3(0, 0, tilt)
+		pos += Vector3(sin(time * 31.0 + ph), 0.0, cos(time * 27.0 + ph * 1.3)) * 0.012 * loose
+	node.position = pos
+	node.rotation = rot
 
 
 ## Lo que el santuario conserva de la cinemática «El sello cede», para que al volver al juego no
@@ -769,15 +1035,17 @@ func _aftermath(root: Node3D, gx: float, gz: float, base: float) -> void:
 		[Vector3(sx - 1.4, base + 3.1, sz - 5.42), 1.7], [Vector3(sx + 2.6, base + 3.1, sz + 5.42), 2.1],
 	]
 	for h in hang:
-		var top: Vector3 = h[0]
+		var on := _court_mb(h[0])   # las de un muro del patio van en su losa: se hunden con ella
+		var mb: MB = on[0]
+		var top: Vector3 = (h[0] as Vector3) - (on[1] as Vector3)
 		var length: float = h[1]
 		var sway := (_stone.rand() - 0.5) * 0.3
 		var pts := [top, top + Vector3(0, -length * 0.35, sway * 0.4), top + Vector3(0, -length * 0.7, sway), top + Vector3(0, -length, sway * 0.6)]
-		_stone.tube(pts, [0.035, 0.03, 0.025, 0.012], 4, vine, leaf)
+		mb.tube(pts, [0.035, 0.03, 0.025, 0.012], 4, vine, leaf)
 		for k in 3:
 			var at: Vector3 = top + Vector3(0, -length * (0.25 + 0.25 * float(k)), sway * (0.3 + 0.3 * float(k)))
 			var out := Vector3(_stone.rand() - 0.5, -0.5, _stone.rand() - 0.5).normalized()
-			_stone.blade(at, out, 0.22, 0.12, 0.3, leaf, leaf.lightened(0.15), 2)
+			mb.blade(at, out, 0.22, 0.12, 0.3, leaf, leaf.lightened(0.15), 2)
 	# Grietas: trazos oscuros en zigzag sobre la portada y los muros (pegados a la piedra)
 	var dark := LIME_DARK.darkened(0.32)
 	var cracks := [
@@ -792,7 +1060,9 @@ func _aftermath(root: Node3D, gx: float, gz: float, base: float) -> void:
 		[Vector3(sx + 0.6, base + 2.4, sz - 5.47), Vector3(0.35, -1, 0), Vector3(1, 0.3, 0), Vector3(0, 0, 1), 1.4],
 	]
 	for c in cracks:
-		var o: Vector3 = (c[0] as Vector3) + (c[3] as Vector3) * 0.025
+		var on := _court_mb(c[0])
+		var mb: MB = on[0]
+		var o: Vector3 = (c[0] as Vector3) + (c[3] as Vector3) * 0.025 - (on[1] as Vector3)
 		var along: Vector3 = (c[1] as Vector3).normalized()
 		var across: Vector3 = (c[2] as Vector3).normalized()
 		var n := 5
@@ -804,8 +1074,8 @@ func _aftermath(root: Node3D, gx: float, gz: float, base: float) -> void:
 			var w := across.cross(along).cross(along).normalized() * (0.022 - 0.003 * float(i))
 			if w.length() < 0.001:
 				w = across * 0.03
-			_stone.quad(prev - w, next - w, next + w, prev + w, dark, dark, dark, dark)
-			_stone.quad(prev + w, next + w, next - w, prev - w, dark, dark, dark, dark)
+			mb.quad(prev - w, next - w, next + w, prev + w, dark, dark, dark, dark)
+			mb.quad(prev + w, next + w, next - w, prev - w, dark, dark, dark, dark)
 			prev = next
 
 	# Glifos de las jambas y sol del frontón, otra vez, en una capa que brilla de más y se asienta

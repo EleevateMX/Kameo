@@ -8,7 +8,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
-import { B, BOSS_STATE, bossPhase1, bossPhase2, bossPhase3, inCourt } from './boss-bots.ts';
+import { B, BOSS_STATE, WALLS, bossPhase1, bossPhase2, bossPhase3, inCourt } from './boss-bots.ts';
 import { ENEMY_STATES, GAME_TICKET_AUDIENCE, signJwt, type CombatEvent, type FormId, type RosterEntry, type ServerMessage, type SnapshotPlayer } from '@alux/shared-contracts';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -930,6 +930,28 @@ async function clearAmbush(bots: Bot[]) {
   assert.equal(bots[0].snap!.w[3], 2, 'el grupo supera la emboscada');
 }
 
+/** Muros del patio según el último estado de cada bot. */
+const walls = (bots: Bot[]) => bots.filter((b) => !b.closed).map((b) => b.snap!.b![B.walls]);
+
+/** Por fuera, pegado a la portada, hasta doblar la esquina del muro norte del patio (y vuelta). */
+const NORTH_CORNER = [20.9, -7.3], NORTH_SPOT = [23.6, -7.3];
+/**
+ * Rodea el santuario por fuera hasta ponerse frente al muro norte del patio y empuja contra él.
+ * Devuelve hasta dónde llegó (z): con el muro cerrado se queda fuera (z < −6.8).
+ */
+async function pushNorthWall(bot: Bot, seconds: number) {
+  await bot.walkTo(19.5, -3, 12);
+  await bot.walkTo(NORTH_CORNER[0], NORTH_CORNER[1], 10);
+  assert.ok(await bot.walkTo(NORTH_SPOT[0], NORTH_SPOT[1], 10), 'llega frente al muro norte por fuera');
+  await bot.walkTo(NORTH_SPOT[0], -3, seconds);
+  return bot.pos().z;
+}
+/** De vuelta delante del portal, que es por donde se entra con los muros cerrados. */
+async function backToPortal(bot: Bot) {
+  await bot.walkTo(NORTH_CORNER[0], NORTH_CORNER[1], 10);
+  await bot.walkTo(19.5, 0, 10);
+}
+
 describe('jefe: Nojoch Tuunich, combate completo', { concurrency: 3 }, () => {
   for (const n of [1, 2, 4]) {
     test(`${n} ${n === 1 ? 'jugador' : 'jugadores'}: tres fases decididas por el servidor, sin teletransportes, con puntos de control y una Pluma de Jade por jugador`, async () => {
@@ -952,6 +974,18 @@ describe('jefe: Nojoch Tuunich, combate completo', { concurrency: 3 }, () => {
       await sleep(400);
       assert.deepEqual([a.snap!.b![B.phase], a.snap!.b![B.glyphs], a.snap!.b![B.silence]], [0, 0, 100], 'los mensajes inventados se ignoran');
 
+      // Muros del patio: mientras duerme están cerrados y no se cruzan (el portal sí está abierto).
+      // Tampoco los abre un mensaje inventado.
+      const crosser = bots[n - 1];
+      assert.deepEqual([a.welcome!.b![B.walls], ...walls(bots)], Array(n + 1).fill(WALLS.shut), 'dormido, todos ven los muros cerrados');
+      for (const fake of [{ t: 'walls', v: 2 }, { t: 'open', id: 'san_n' }, { t: 'boss', walls: 2 }]) crosser.send(fake);
+      const stoppedAt = await pushNorthWall(crosser, 2.5);
+      assert.ok(stoppedAt < -6.8, `con el guardián dormido no se cruza el muro norte (z=${stoppedAt.toFixed(2)})`);
+      assert.ok(!inCourt(crosser.pos().x, crosser.pos().z) && a.snap!.b![B.phase] === 0, 'y empujarlo no despierta a nadie');
+      assert.deepEqual(walls(bots), Array(n).fill(WALLS.shut));
+      // (con un solo jugador, vuelve delante del portal: es por donde se entra)
+      if (n === 1) await backToPortal(crosser);
+
       // ── Fase 1 ── Entra uno: despierta para todos, con los glifos que tocan a este grupo
       const need = [2, 3, 4, 4][n - 1];
       if (n === 1) a.autoSkip = false;   // el jugador solo ve «El despertar» entera
@@ -960,6 +994,8 @@ describe('jefe: Nojoch Tuunich, combate completo', { concurrency: 3 }, () => {
       assert.equal(bossEv(a, 'awake').length, 1);
       assert.deepEqual([a.snap!.b![B.needed], a.snap!.b![B.glyphs], a.snap!.b![B.silence]], [need, 0, 100]);
       assert.equal(BOSS_STATE[a.snap!.b![B.state]], 'rise', 'primero se pone en pie');
+      assert.deepEqual(walls(bots), Array(n).fill(WALLS.opening), 'al despertar, los muros empiezan a abrirse para todos');
+      assert.ok(a.snap!.b![B.wallsLeft] > 3 && a.snap!.b![B.wallsLeft] <= 3.6, `les quedan unos segundos (${a.snap!.b![B.wallsLeft]})`);
       const hpAtRise = a.hp();
       // Su despertar es una cinemática compartida: la sala se pausa y él no pasa de levantarse
       await until('empieza «El despertar»', () => bots.every((b) => b.events.some((e) => e.e === 'cine' && e.id === 'despertar')), 8_000);
@@ -969,9 +1005,24 @@ describe('jefe: Nojoch Tuunich, combate completo', { concurrency: 3 }, () => {
       if (n === 1) assert.ok(cineSecs > 14 && cineSecs < 18, `sin votos dura lo suyo (${cineSecs.toFixed(1)} s)`);
       else assert.ok(cineSecs < 3, `la mayoría la omite (${cineSecs.toFixed(1)} s)`);
       assert.equal(BOSS_STATE[a.snap!.b![B.state]], 'rise', 'durante la escena no avanza el combate');
+      assert.deepEqual(walls(bots), Array(n).fill(WALLS.opening), 'ni terminan de abrirse los muros');
+      await until('tras la escena queda el último tramo de la apertura', () => a.snap!.b![B.wallsLeft] <= 1.8, 1_000);
+      assert.ok(a.snap!.b![B.wallsLeft] > 1.2, `y no menos: aún no ha empezado a correr (${a.snap!.b![B.wallsLeft]} s)`);
       await until('el combate empieza donde acaba la escena', () => BOSS_STATE[a.snap!.b![B.state]] !== 'rise', 2_500);
       assert.ok(a.hp() >= hpAtRise, 'mientras se levanta nadie recibe daño');
       a.autoSkip = true;
+
+      // Muros abiertos: los ven abiertos todos a la vez y ahora sí se cruzan
+      await until('los muros terminan de abrirse', () => walls(bots).every((w) => w === WALLS.open), 6_000);
+      if (n === 1) {
+        // el jugador solo sale del patio por donde estaba el muro norte… y vuelve a entrar
+        assert.ok(await crosser.walkTo(27, -8.5, 6), `sale por el muro norte abierto (z=${crosser.pos().z.toFixed(2)})`);
+        assert.ok(await crosser.walkTo(27, -3, 6), 'y vuelve a entrar por el mismo sitio');
+      } else {
+        // quien se quedó fuera, pegado al muro, entra ahora en línea recta
+        assert.ok(await crosser.walkTo(24.5, -3, 6), `entra por el muro norte abierto (z=${crosser.pos().z.toFixed(2)})`);
+      }
+      assert.ok(inCourt(crosser.pos().x, crosser.pos().z), 'está dentro del patio');
 
       if (n === 1) {
         // Derrota: si cae el único jugador, vuelve a dormirse y se reintenta desde esta fase
@@ -981,8 +1032,29 @@ describe('jefe: Nojoch Tuunich, combate completo', { concurrency: 3 }, () => {
         assert.equal(a.foes().some((f) => inCourt(f.x, f.z)), false, 'sus criaturas se van con él');
         assert.deepEqual(a.snap!.b![B.rubble], [], 'y los escombros');
         assert.equal(a.snap!.w[3], 2, 'la emboscada sigue superada: no hay que volver a abrir');
+        assert.equal(a.snap!.b![B.walls], WALLS.shut, 'y el patio vuelve a cerrar sus muros');
         await a.fight(() => undefined, () => !a.dead(), 15);
         assert.ok(!inCourt(a.pos().x, a.pos().z), 'reaparece fuera del patio');
+        const again = await pushNorthWall(a, 2.5);
+        assert.ok(again < -6.8, `tras la derrota el muro norte vuelve a cerrar el paso (z=${again.toFixed(2)})`);
+        await backToPortal(a);
+        // Al despertarlo de nuevo (ya sin escena) se abren otra vez; mientras bajan siguen siendo
+        // sólidos, y en cuanto terminan se pasa
+        void bossPhase1(a, 0, () => a.snap!.b![B.phase] !== 0, 30);
+        await until('despierta otra vez', () => a.snap!.b![B.phase] === 1, 30_000);
+        assert.equal(a.snap!.b![B.walls], WALLS.opening, 'los muros vuelven a abrirse');
+        assert.equal(a.events.filter((e) => e.e === 'cine_prep' && e.id === 'despertar').length, 1, 'sin repetir la escena');
+        let deepest = 0, crossedAt = -1;
+        const t0 = Date.now();
+        while (Date.now() - t0 < 9_000 && a.pos().z > -7.5) {
+          const m = a.me()!;
+          if (a.snap!.b![B.walls] !== WALLS.open) deepest = Math.min(deepest, m[6]);
+          else if (crossedAt < 0) crossedAt = Date.now() - t0;
+          a.input(Math.sign(26.5 - m[4]) * Math.min(1, Math.abs(26.5 - m[4])), -1);
+          await sleep(33);
+        }
+        assert.ok(deepest > -5.2, `mientras se abren siguen cerrando el paso (llegó a z=${deepest.toFixed(2)})`);
+        assert.ok(a.pos().z <= -7.5 && a.snap!.b![B.walls] === WALLS.open, `abiertos, se cruza (z=${a.pos().z.toFixed(2)}, abiertos a los ${crossedAt} ms)`);
       }
 
       // El grupo completa la fase: tantos glifos como le tocan, ni uno más
@@ -1001,6 +1073,7 @@ describe('jefe: Nojoch Tuunich, combate completo', { concurrency: 3 }, () => {
         assert.equal(b.foes().some((f) => inCourt(f.x, f.z)), false, 'las criaturas que quedaban se deshacen');
       }
       assert.equal(a.snap!.w[5], 2, 'punto de control de la fase: se reaparece en la explanada');
+      assert.deepEqual(walls(bots), Array(n).fill(WALLS.open), 'los muros siguen abiertos para todos');
 
       // ── Fase 2 ── El guardián sale del patio de un salto dirigido; a nadie se le mueve de sitio
       const phaseAt = Date.now();
@@ -1044,6 +1117,7 @@ describe('jefe: Nojoch Tuunich, combate completo', { concurrency: 3 }, () => {
         await a.fight(() => undefined, () => a.snap!.b![B.phase] === 0, 180);
         assert.deepEqual([a.snap!.b![B.phase], BOSS_STATE[a.snap!.b![B.state]], a.snap!.b![B.silence], a.snap!.b![B.releases]], [0, 'sleep', 66, 0],
           'vuelve a dormirse con el Silencio del inicio de la fase 2');
+        assert.equal(a.snap!.b![B.walls], WALLS.shut, 'dormido en la explanada, el patio también se cierra');
         assert.ok(a.snap!.b![B.x] < 21, 'y se queda en la explanada');
         await a.fight(() => undefined, () => !a.dead(), 15);
         assert.ok(a.pos().x < 9, `el jugador reaparece lejos de él (x=${a.pos().x.toFixed(1)})`);
@@ -1079,6 +1153,7 @@ describe('jefe: Nojoch Tuunich, combate completo', { concurrency: 3 }, () => {
       await sleep(3000);
       for (const b of bots.filter((q) => !q.closed)) {
         assert.deepEqual([b.snap!.b![B.phase], b.snap!.b![B.silence], BOSS_STATE[b.snap!.b![B.state]]], [4, 0, 'freed'], 'todos lo ven liberado');
+        assert.equal(b.snap!.b![B.walls], WALLS.open, 'y el santuario abierto: liberado, los muros no vuelven a cerrarse');
         assert.equal(b.events.filter((e) => e.e === 'story' && e.k === 'freed').length, 1, 'la liberación se anuncia una vez');
         assert.equal(b.events.filter((e) => e.e === 'reward' && e.reward === 'pluma_de_jade').length, 1, 'cada jugador recibe una Pluma de Jade');
         assert.equal(b.snap!.w[10] & 2, 2, 'queda anotado en la historia de la sala');
@@ -1115,6 +1190,7 @@ describe('jefe: Nojoch Tuunich, combate completo', { concurrency: 3 }, () => {
         const back = bots[1];
         await back.connect(ticket({ id: back.id, room, name: back.name }));
         assert.deepEqual([back.welcome!.b![B.phase], back.welcome!.w[10] & 6], [4, 6], 'al volver ve al guardián liberado y la historia al día');
+        assert.deepEqual([back.welcome!.b![B.walls], back.welcome!.b![B.wallsLeft]], [WALLS.open, 0], 'y los muros del patio ya abiertos');
       }
       bots.forEach((b) => b.close());
     });

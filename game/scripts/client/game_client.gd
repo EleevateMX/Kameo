@@ -123,6 +123,17 @@ var _cam_dist := 7.0
 var _cam_target := Vector3.ZERO
 var _shake := 0.0
 var _gate_anim := 0.0
+# Muros del patio: el servidor dice si están cerrados, abriéndose o abiertos (estado del jefe)
+var _walls := BossDef.WALLS_SHUT
+var _walls_left := 0.0        # segundos que faltan para que terminen de abrirse (entre estado y estado sigue contando aquí)
+var _walls_k := 0.0           # lo que se ve: 0 cerrados … 1 hundidos del todo
+var _walls_known := false     # ya llegó algún estado (el primero se coloca sin animación)
+var _walls_cue := false       # falta dar la señal de apertura (espera a que no la tape una escena)
+var _walls_grind := 0.0       # cuenta atrás hasta el siguiente roce de piedra
+var _walls_thud := -1.0       # cuándo sonó la última losa al tocar fondo (no se apilan catorce golpes)
+# Sólo en pruebas (?debug=1): cámara fija y muros del patio a medio abrir, para capturas
+var _debug_cam := PackedFloat64Array()
+var _debug_walls := -1.0
 var _debug_in := 0.0
 var _debug_on := false
 var _rejoins := 0
@@ -1050,7 +1061,7 @@ func _on_message(m: Dictionary) -> void:
 			_apply_world(m.w, true)
 			_set_roster(m.players)
 			_apply_enemies(m.get("e", []))
-			_apply_boss(m.get("b", []))
+			_apply_boss(m.get("b", []), true)
 			_hud.set_room(_room)
 			_hud.set_overlay("")
 			_prev_buttons = 0
@@ -1380,13 +1391,19 @@ func _on_snapshot(m: Dictionary) -> void:
 		_on_combat_event(ev)
 
 
+## Sólidos abiertos, para predecir con la misma simulación que el servidor: el portal (estado del
+## mundo) y los muros del patio (estado del jefe; sólo cuando han terminado de hundirse).
+func _open_mask() -> int:
+	return (World.OPEN_GATE if _gate_open else 0) | (World.OPEN_COURT if _walls == BossDef.WALLS_OPEN else 0)
+
+
 func _reconcile(state: Array, ack: int) -> void:
 	var old := _pred.pos
 	_pred.from_array(state)
 	while not _pending.is_empty() and int(_pending[0].s) <= ack:
 		_pending.pop_front()
 	for inp in _pending:
-		Sim.step(_pred, inp, _unlocked, _gate_open)  # sin eventos: los efectos ya se mostraron
+		Sim.step(_pred, inp, _unlocked, _open_mask())  # sin eventos: los efectos ya se mostraron
 	var correction := _pred.pos - old
 	_prev_pos += correction
 	if correction.length() < 2.5:
@@ -1790,11 +1807,13 @@ func _audio_status(tested := false) -> String:
 
 
 ## Estado del jefe que manda el servidor: lo dibuja y actualiza su barra. El cliente no decide nada.
-func _apply_boss(b: Array) -> void:
+func _apply_boss(b: Array, instant := false) -> void:
 	if b.size() < 10:
 		return
 	var before := _boss_phase()
 	_boss_state = b
+	if b.size() >= 26:
+		_apply_walls(int(b[24]), float(b[25]), instant)
 	if _boss == null:
 		_boss = BossView.new()
 		add_child(_boss)
@@ -1847,6 +1866,115 @@ func _apply_boss(b: Array) -> void:
 		key = "nojoch"
 		marks.append(["alux", JADE, Vector2(float(b[1]), float(b[2]))])
 	_hud.set_extra_marks(key, marks)
+
+
+# ───────────────────────── Muros del patio ─────────────────────────
+
+## Estado de los muros del patio según el servidor. Aquí sólo se guarda (de él salen la colisión
+## que predice este cliente y lo que se dibuja); la animación la lleva _update_walls.
+func _apply_walls(state: int, left: float, instant: bool) -> void:
+	var was := _walls
+	_walls = state
+	_walls_left = left
+	if instant or not _walls_known:
+		# Al entrar a la sala o reconectarse: tal y como están, sin oleada, polvo ni sonido
+		_walls_known = true
+		_walls_cue = false
+		_walls_k = _walls_goal()
+		_builder.settle_court(_walls_k)
+		return
+	if state == BossDef.WALLS_OPENING and was == BossDef.WALLS_SHUT:
+		_walls_cue = true
+	elif state == BossDef.WALLS_SHUT and was != BossDef.WALLS_SHUT:
+		_walls_cue = false
+		if _walls_k > 0.05:
+			var at := _court_center()
+			Audio.play("pilar_sube", at, 1.0, 0.0)
+			_bump(0.12 * _court_near())
+
+
+## Dónde deberían estar ahora: 0 cerrados, 1 hundidos; abriéndose, lo que diga el reloj del servidor.
+func _walls_goal() -> float:
+	match _walls:
+		BossDef.WALLS_OPEN:
+			return 1.0
+		BossDef.WALLS_OPENING:
+			return clampf(1.0 - _walls_left / World.COURT_OPEN_TIME, 0.0, 1.0)
+	return 0.0
+
+
+func _court_center() -> Vector3:
+	return Vector3(World.SANCTUARY.x + 1.0, 1.0, World.SANCTUARY.y)
+
+
+## Cuánto se nota desde donde está este jugador (1 en el patio, menos al alejarse).
+func _court_near() -> float:
+	return clampf(1.0 - (Vector2(_pred.pos.x, _pred.pos.z).distance_to(World.SANCTUARY) - 9.0) / 24.0, 0.2, 1.0)
+
+
+## Animación de los muros del patio: siguen al reloj del servidor. Sonido, polvo y sacudida son
+## de este cliente; que dejen de ser sólidos, no (ver _open_mask).
+func _update_walls(delta: float) -> void:
+	# En una escena la sala está en pausa y el reloj del servidor no corre
+	var staged := _cine.active or not _prep.is_empty()
+	if _walls == BossDef.WALLS_OPENING and not _frozen:
+		_walls_left = maxf(0.0, _walls_left - delta)
+	var goal := _walls_goal()
+	# «El despertar»: en su último plano empiezan a hundirse a la vista, justo hasta donde los
+	# retoma el juego al volver (el servidor deja ese último tramo: World.COURT_OPEN_TAIL)
+	if _cine.active and _walls == BossDef.WALLS_OPENING and bool(_cine.current_shot().get("walls", false)):
+		var k := _cine.shot_k()
+		goal = maxf(goal, (1.0 - World.COURT_OPEN_TAIL / World.COURT_OPEN_TIME) * k * k * (3.0 - 2.0 * k))
+	# Abrir: a su ritmo, o más deprisa si hay que alcanzar al servidor (al volver de una escena
+	# omitida). Cerrar: suben de vuelta en segundo y medio.
+	var alive := _walls == BossDef.WALLS_OPENING
+	if _debug_walls >= 0.0:
+		goal = _debug_walls   # (pruebas) sólo cambia lo que se ve; la colisión sigue siendo la del servidor
+		alive = goal > 0.0 and goal < 1.0
+	var before := _walls_k
+	_walls_k = move_toward(_walls_k, goal, delta * (2.6 / World.COURT_OPEN_TIME if goal > _walls_k else 1.0 / 1.5))
+	var landed: Array = _builder.update_court(_time, delta, _walls_k, alive)
+	var near := _court_near()
+	var at := _court_center()
+	# Señal de apertura: cuando se ve el juego (si «El despertar» la tapa, al volver de ella)
+	if _walls_cue and not staged and _walls != BossDef.WALLS_SHUT:
+		_walls_cue = false
+		_walls_grind = 0.0
+		_hud.hint("Los muros del patio se hunden: el santuario queda abierto por los lados", 5.0)
+		Audio.play("santuario_abre", at, 1.0, 0.0)
+		Audio.play("silencio_grieta", at, 0.0)
+		Audio.duck(-4.0, 0.8, 1.0)
+		Fx.ring(self, Vector3(at.x, 0.12, at.z), 9.5, MAGENTA, 0.9)
+		_bump(0.2 * near)
+	if staged:
+		return
+	var opening := _walls_k > before and _walls_k < 1.0
+	if opening:
+		# Piedra contra piedra: un roce cada poco y un temblor sostenido mientras bajan
+		_bump(0.07 * near)
+		_walls_grind -= delta
+		if _walls_grind <= 0.0:
+			_walls_grind = 0.7
+			Audio.play("pilar_sube", at + Vector3(randf_range(-4.0, 4.0), 0.0, randf_range(-5.0, 5.0)), -1.0, 0.12)
+	for spot in landed:
+		var where: Vector3 = spot
+		if _walls_k > before and _time - _walls_thud > 0.09:
+			_walls_thud = _time
+			Audio.play("jefe_paso", where, 1.0, 0.15)   # las losas van tocando fondo
+			_bump(0.12 * near)
+		if _quality < 2:
+			Fx.burst(self, where + Vector3(0, 0.25, 0), Color(0.8, 0.74, 0.62), 9, 3.6, 0.12, 0.8)
+	if _walls_k >= 1.0 and before < 1.0:
+		# La última: el patio queda abierto
+		Audio.play("jefe_losa", at, -3.0, 0.0)
+		Audio.duck(-5.0, 0.3, 0.7)
+		_bump(0.32 * near)
+		Fx.ring(self, Vector3(at.x, 0.12, at.z), 11.0, Color(0.85, 0.78, 0.65), 1.0)
+		Fx.ring(self, Vector3(at.x, 0.14, at.z), 8.0, JADE, 0.8)
+		_tip("muros", "El patio ya no tiene muros a los lados ni al fondo: se puede entrar y salir por ahí", 7.0)
+	elif _walls_k <= 0.0 and before > 0.0:
+		Audio.play("jefe_paso", at, 2.0, 0.0)   # cerrados de nuevo
+		_bump(0.1 * near)
 
 
 ## Lo que una cinemática pide al escenario en el plano en curso: la pose y el aspecto del
@@ -2148,6 +2276,8 @@ func _on_boss_event(ev: Array) -> void:
 			_refresh_music()
 			if int(ev[2]) >= BossDef.FURIA:
 				_hud.hint("Se retoma desde esta fase: acércate a él cuando el grupo esté listo", 6.0)
+			else:
+				_hud.hint("El patio vuelve a cerrar sus muros: se entra otra vez por el portal", 6.0)
 
 
 ## Ayuda de puntería: si hay un enemigo cerca de donde mira la cámara, se apunta a él.
@@ -2215,7 +2345,7 @@ func _physics_process(_delta: float) -> void:
 	_want_form = ""
 	_prev_pos = _pred.pos
 	var actions: Array = []
-	Sim.step(_pred, inp, _unlocked, _gate_open, actions)
+	Sim.step(_pred, inp, _unlocked, _open_mask(), actions)
 	for ev in actions:
 		_on_local_action(ev)
 	_pending.append(inp)
@@ -2318,6 +2448,12 @@ func _process(delta: float) -> void:
 		var forced := str(_js("window.ALUX_CAM_YAW === undefined ? '' : String(window.ALUX_CAM_YAW)"))
 		if forced.is_valid_float():
 			_cam_yaw = forced.to_float()
+		# …ponerla en un sitio fijo ("x,y,z,miraX,miraY,miraZ") y dejar los muros del patio a
+		# medio hundir ("0.4"), para capturar la animación cuadro a cuadro
+		var cam := str(_js("window.ALUX_CAM === undefined ? '' : String(window.ALUX_CAM)"))
+		_debug_cam = cam.split_floats(",") if cam.count(",") == 5 else PackedFloat64Array()
+		var wk := str(_js("window.ALUX_WALLS === undefined ? '' : String(window.ALUX_WALLS)"))
+		_debug_walls = clampf(wk.to_float(), 0.0, 1.0) if wk.is_valid_float() else -1.0
 		var act := str(_js("window.ALUX_ACTION || ''"))
 		if not act.is_empty():
 			_js("window.ALUX_ACTION = ''")
@@ -2425,6 +2561,7 @@ func _process(delta: float) -> void:
 	if _gate_open and _gate_anim < 1.0 and not gate_held:
 		_gate_anim = minf(1.0, _gate_anim + delta * 0.8)
 	_builder.update(_time, delta, _gate_anim)
+	_update_walls(delta)
 
 	# Con el menú abierto, su botón de pantalla completa refleja lo que hizo el navegador
 	if _hud.menu_open():
@@ -2643,6 +2780,9 @@ func _advance_bolt(b: Dictionary, delta: float) -> bool:
 
 
 func _update_camera() -> void:
+	if _debug_cam.size() == 6:
+		_cam.look_at_from_position(Vector3(_debug_cam[0], _debug_cam[1], _debug_cam[2]), Vector3(_debug_cam[3], _debug_cam[4], _debug_cam[5]), Vector3.UP)
+		return
 	var fwd := Vector3(sin(_cam_yaw) * cos(_cam_pitch), -sin(_cam_pitch), cos(_cam_yaw) * cos(_cam_pitch))
 	var pos := _cam_target - fwd * _cam_dist
 	var ground := World.terrain_h(pos.x, pos.z) + 0.5
@@ -2818,7 +2958,7 @@ func _debug_export(delta: float) -> void:
 			"x": snappedf(v.global_position.x, 0.01), "z": snappedf(v.global_position.z, 0.01)})
 	var state := {
 		"net": Net.keys()[_net], "room": _room, "me": _my_id, "slot": _my_slot, "players": players,
-		"gate": _gate_open, "plates": _plates_mask, "need": _need, "form": _pred.form,
+		"gate": _gate_open, "walls": {"state": _walls, "left": snappedf(_walls_left, 0.01), "k": snappedf(_walls_k, 0.001)}, "plates": _plates_mask, "need": _need, "form": _pred.form,
 		"hp": _hp, "energy": _pred.energy, "encounter": _encounter, "wave": _wave_left, "enemies": foes,
 		"frames": Engine.get_process_frames(), "rejoins": _rejoins, "glb": (_avatars.get(_my_slot) as Avatar).uses_glb if _avatars.has(_my_slot) else false,
 		"dmg_enemies": _seen_enemy_dmg, "dmg_players": _seen_player_dmg,

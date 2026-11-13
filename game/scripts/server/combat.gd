@@ -46,7 +46,7 @@ var checkpoint := 0
 var brazier_cd := 0.0
 var _next_id := 1
 var _time := 0.0
-var _gate_open := false
+var _open := 0                   # máscara de sólidos abiertos (World.OPEN_*), la del último tick
 var _respawns: Array = []        # [tiempo, tipo, x, z] de enemigos ambientales por reaparecer
 var _rng := RandomNumberGenerator.new()
 ## Nojoch Tuunich, el jefe del capítulo (server/boss.gd). Duerme hasta que se supera la emboscada.
@@ -66,7 +66,7 @@ func _spawn(kind: String, x: float, z: float, hp_scale: float, wave: bool) -> En
 	e.id = _next_id
 	_next_id += 1
 	e.kind = kind
-	var p := Sim.resolve_xz(Vector2(x, z), World.terrain_h(x, z), def.radius, _gate_open)
+	var p := Sim.resolve_xz(Vector2(x, z), World.terrain_h(x, z), def.radius, _open)
 	e.x = p.x
 	e.z = p.y
 	e.y = World.terrain_h(p.x, p.y)
@@ -214,7 +214,7 @@ func _damage_enemy(e: Enemy, amount: float, by: Variant, kind: String, away: Vec
 		return
 	if knock > 0.0:
 		var push := away * knock * 0.18 * float(def.knock_resist)
-		var p := Sim.move_xz(Vector2(e.x, e.z), push, e.y, def.radius, _gate_open)
+		var p := Sim.move_xz(Vector2(e.x, e.z), push, e.y, def.radius, _open)
 		if World.terrain_h(p.x, p.y) >= World.WATER_LEVEL - 0.45:
 			e.x = p.x
 			e.z = p.y
@@ -267,9 +267,9 @@ func damage_player(p: Variant, amount: float, from: Vector2, knock: float) -> vo
 ## FAILED si todo el grupo conectado cayó a la vez, y NOTHING en cualquier otro caso.
 enum { NOTHING, CLEARED, FAILED }
 
-func tick(players: Array, gate_open: bool) -> int:
+func tick(players: Array, open: int) -> int:
 	_time += DT
-	_gate_open = gate_open
+	_open = open
 	brazier_cd = maxf(0.0, brazier_cd - DT)
 
 	# Jugadores: reaparición, invulnerabilidad y regeneración
@@ -347,7 +347,7 @@ func _fail(players: Array) -> void:
 func restart(players: Array) -> void:
 	encounter = 0
 	checkpoint = 0
-	_gate_open = false
+	_open = 0
 	enemies = enemies.filter(func(e: Enemy) -> bool: return not e.wave)
 	bolts.clear()
 	brazier_cd = 0.0
@@ -368,7 +368,7 @@ func _respawn(p: Variant, announce := true) -> void:
 	var s: Sim.PlayerState = p.state
 	var c: Vector2 = Defs.CHECKPOINTS[checkpoint]
 	var off := Vector2(cos(p.slot * 1.57), sin(p.slot * 1.57)) * 1.4
-	var at := Sim.resolve_xz(c + off, World.terrain_h(c.x, c.y), Sim.BODY_R, _gate_open)
+	var at := Sim.resolve_xz(c + off, World.terrain_h(c.x, c.y), Sim.BODY_R, _open)
 	s.pos = Vector3(at.x, World.terrain_h(at.x, at.y), at.y)
 	s.vy = 0.0
 	s.kx = 0.0
@@ -404,7 +404,7 @@ func _tick_bolts() -> void:
 				_damage_enemy(e, b.dmg, b.owner, "bolt", Vector2(b.dx, b.dz), 0.8, 0.0)
 				hit = true
 				break
-		if not hit and not blocked and Sim.point_blocked(b.x, b.y, b.z, _gate_open):
+		if not hit and not blocked and Sim.point_blocked(b.x, b.y, b.z, _open):
 			blocked = true
 		if hit or blocked:
 			b.life = -1.0
@@ -442,12 +442,12 @@ func _move(e: Enemy, dir: Vector2, speed: float) -> bool:
 	var def: Dictionary = Defs.ENEMIES[e.kind]
 	var before := Vector2(e.x, e.z)
 	var want := dir.normalized() * speed * DT
-	var p := Sim.move_xz(before, want, e.y, def.radius, _gate_open)
+	var p := Sim.move_xz(before, want, e.y, def.radius, _open)
 	if World.terrain_h(p.x, p.y) < World.WATER_LEVEL - 0.45:
 		return false  # no entran al agua
 	e.x = p.x
 	e.z = p.y
-	e.y = Sim.floor_at(p.x, p.y, e.y, _gate_open)
+	e.y = Sim.floor_at(p.x, p.y, e.y, _open)
 	return (p - before).length() > want.length() * 0.35
 
 
@@ -574,8 +574,8 @@ func _separate() -> void:
 			var len := d.length()
 			if len < min_d and len > 0.001:
 				var push := d / len * (min_d - len) * 0.5
-				var pa := Sim.move_xz(Vector2(a.x, a.z), -push, a.y, Defs.ENEMIES[a.kind].radius, _gate_open)
-				var pb := Sim.move_xz(Vector2(b.x, b.z), push, b.y, Defs.ENEMIES[b.kind].radius, _gate_open)
+				var pa := Sim.move_xz(Vector2(a.x, a.z), -push, a.y, Defs.ENEMIES[a.kind].radius, _open)
+				var pb := Sim.move_xz(Vector2(b.x, b.z), push, b.y, Defs.ENEMIES[b.kind].radius, _open)
 				a.x = pa.x
 				a.z = pa.y
 				b.x = pb.x

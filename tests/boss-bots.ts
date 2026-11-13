@@ -16,7 +16,9 @@ type Bot = BossBot;
 
 /** Índices del estado del jefe (campo «b» de cada instantánea). */
 export const B = { phase: 0, x: 1, z: 2, state: 4, silence: 6, glyphs: 7, needed: 8, aimX: 10, aimZ: 11, rubble: 13,
-  anchors: 14, anchorsNeed: 15, pillars: 16, heart: 17, releases: 18, lit: 19, litNeed: 20, ritual: 21, channel: 22, touchNeed: 23 } as const;
+  anchors: 14, anchorsNeed: 15, pillars: 16, heart: 17, releases: 18, lit: 19, litNeed: 20, ritual: 21, channel: 22, touchNeed: 23, walls: 24, wallsLeft: 25 } as const;
+/** Muros del patio (campo `walls`): cerrados, abriéndose (siguen siendo sólidos) o abiertos. */
+export const WALLS = { shut: 0, opening: 1, open: 2 } as const;
 export const BOSS_STATE = [...BOSS_STATES] as string[];
 export const inCourt = (x: number, z: number) => x > 22.9 && x < 33.1 && Math.abs(z) < 5.1;
 

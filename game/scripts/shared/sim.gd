@@ -106,9 +106,10 @@ class PlayerState:
 ## Avanza un tick.
 ##   inp      = {mx, mz, j, f, a, r}  (dirección, salto, forma deseada, botones, giro de puntería)
 ##   unlocked = formas permitidas
+##   open     = máscara de sólidos abiertos (World.OPEN_GATE, World.OPEN_COURT): la dicta el servidor
 ##   events   = si no es null, recibe las acciones emitidas en este tick:
 ##              {"k": tipo, "r": giro, "p": potencia}
-static func step(s: PlayerState, inp: Dictionary, unlocked: Array, gate_open: bool, events: Variant = null) -> void:
+static func step(s: PlayerState, inp: Dictionary, unlocked: Array, open: int, events: Variant = null) -> void:
 	s.form_cd = maxi(0, s.form_cd - 1)
 	s.cd1 = maxi(0, s.cd1 - 1)
 	s.cd2 = maxi(0, s.cd2 - 1)
@@ -244,10 +245,10 @@ static func step(s: PlayerState, inp: Dictionary, unlocked: Array, gate_open: bo
 	var y := s.pos.y + s.vy * DT
 
 	# ── Desplazamiento horizontal en pasos cortos, resolviendo colisiones en cada uno ──
-	var p := move_xz(Vector2(s.pos.x, s.pos.z), vel * DT, y, BODY_R, gate_open)
+	var p := move_xz(Vector2(s.pos.x, s.pos.z), vel * DT, y, BODY_R, open)
 
 	# ── Suelo ──
-	var floor_y := floor_at(p.x, p.y, maxf(y, s.pos.y), gate_open)
+	var floor_y := floor_at(p.x, p.y, maxf(y, s.pos.y), open)
 	if y <= floor_y:
 		y = floor_y
 		s.vy = 0.0
@@ -270,8 +271,8 @@ static func step(s: PlayerState, inp: Dictionary, unlocked: Array, gate_open: bo
 		s.swim = false
 
 	# Al caer puede haber quedado junto a algo que a esta altura sí estorba
-	if not is_free(p, y, BODY_R, gate_open):
-		p = resolve_xz(p, y, BODY_R, gate_open)
+	if not is_free(p, y, BODY_R, open):
+		p = resolve_xz(p, y, BODY_R, open)
 
 	if s.pounce and (s.grounded or s.swim):
 		s.pounce = false
@@ -289,23 +290,23 @@ static func _emit(events: Variant, kind: String, yaw: float, power: float) -> vo
 ## Si tras resolver un paso el círculo sigue solapando algo (p. ej. una esquina
 ## entre dos obstáculos), ese paso se descarta: nunca se acepta una posición inválida.
 ## La usan los jugadores y también los enemigos del servidor.
-static func move_xz(from: Vector2, delta: Vector2, y: float, r: float, gate_open: bool) -> Vector2:
+static func move_xz(from: Vector2, delta: Vector2, y: float, r: float, open: int) -> Vector2:
 	var p := from
 	var steps := maxi(1, int(ceil(delta.length() / MAX_SUBSTEP)))
-	var start_ok := is_free(p, y, r, gate_open)
+	var start_ok := is_free(p, y, r, open)
 	for i in steps:
-		var cand := resolve_xz(p + delta / float(steps), y, r, gate_open)
-		if start_ok and not is_free(cand, y, r, gate_open):
+		var cand := resolve_xz(p + delta / float(steps), y, r, open)
+		if start_ok and not is_free(cand, y, r, open):
 			break  # bloqueado: se queda en la última posición válida
 		p = cand
 	return p
 
 
 ## Saca un círculo de radio `r` (a la altura `y`) de árboles, columnas, cajas y del borde del claro.
-static func resolve_xz(p: Vector2, y: float, r: float, gate_open: bool) -> Vector2:
+static func resolve_xz(p: Vector2, y: float, r: float, open: int) -> Vector2:
 	var q := p
 	for pass_i in 4:
-		var next := _resolve_once(q, y, r, gate_open)
+		var next := _resolve_once(q, y, r, open)
 		if next.is_equal_approx(q):
 			return next
 		q = next
@@ -313,7 +314,7 @@ static func resolve_xz(p: Vector2, y: float, r: float, gate_open: bool) -> Vecto
 
 
 ## ¿Cabe un círculo de radio `r` en `p` sin tocar nada?
-static func is_free(p: Vector2, y: float, r: float, gate_open: bool) -> bool:
+static func is_free(p: Vector2, y: float, r: float, open: int) -> bool:
 	const TOL := 0.0005
 	if p.length() > World.RADIUS + TOL:
 		return false
@@ -325,7 +326,7 @@ static func is_free(p: Vector2, y: float, r: float, gate_open: bool) -> bool:
 		if dx * dx + dz * dz < min_d * min_d:
 			return false
 	for b in near[1]:
-		if gate_open and b.sealed:
+		if (open & b.opens) != 0:
 			continue
 		if y >= b.top - STEP or y + BODY_H <= b.y0:
 			continue
@@ -336,7 +337,7 @@ static func is_free(p: Vector2, y: float, r: float, gate_open: bool) -> bool:
 	return true
 
 
-static func _resolve_once(p: Vector2, y: float, r: float, gate_open: bool) -> Vector2:
+static func _resolve_once(p: Vector2, y: float, r: float, open: int) -> Vector2:
 	var x := p.x
 	var z := p.y
 	var near: Array = World.near(x, z)
@@ -355,7 +356,7 @@ static func _resolve_once(p: Vector2, y: float, r: float, gate_open: bool) -> Ve
 			z = c.z + dz / d * min_d
 
 	for b in near[1]:
-		if gate_open and b.sealed:
+		if (open & b.opens) != 0:
 			continue
 		if y >= b.top - STEP or y + BODY_H <= b.y0:
 			continue
@@ -393,10 +394,10 @@ static func _resolve_once(p: Vector2, y: float, r: float, gate_open: bool) -> Ve
 	return Vector2(x, z)
 
 
-static func floor_at(x: float, z: float, feet: float, gate_open: bool) -> float:
+static func floor_at(x: float, z: float, feet: float, open: int) -> float:
 	var f := World.terrain_h(x, z)
 	for b in World.near(x, z)[1]:
-		if gate_open and b.sealed:
+		if (open & b.opens) != 0:
 			continue
 		if x > b.x0 - 0.15 and x < b.x1 + 0.15 and z > b.z0 - 0.15 and z < b.z1 + 0.15:
 			if b.top <= feet + STEP and b.top > f:
@@ -405,7 +406,7 @@ static func floor_at(x: float, z: float, feet: float, gate_open: bool) -> float:
 
 
 ## ¿El punto (x, y, z) está dentro de algo sólido? (para proyectiles)
-static func point_blocked(x: float, y: float, z: float, gate_open: bool) -> bool:
+static func point_blocked(x: float, y: float, z: float, open: int) -> bool:
 	if y < World.terrain_h(x, z):
 		return true
 	if x * x + z * z > World.RADIUS * World.RADIUS:
@@ -417,7 +418,7 @@ static func point_blocked(x: float, y: float, z: float, gate_open: bool) -> bool
 		if dx * dx + dz * dz < c.r * c.r:
 			return true
 	for b in near[1]:
-		if gate_open and b.sealed:
+		if (open & b.opens) != 0:
 			continue
 		if x > b.x0 and x < b.x1 and z > b.z0 and z < b.z1 and y < b.top and y > b.y0:
 			return true

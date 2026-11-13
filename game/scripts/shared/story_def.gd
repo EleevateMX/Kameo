@@ -95,6 +95,8 @@ const DIALOGUES := {
 ##             plano), glow [de, a] (brillo de las vetas a lo largo del plano)}
 ##   feather   la Pluma de Jade se ve en este plano (true) o todavía no (false)
 ##   motes     color de las motas que se desprenden del guardián (el Silencio que se va)
+##   walls     los muros del patio empiezan a hundirse durante este plano, hasta donde los retoma
+##             el juego al volver de la escena (sólo presentación: abrirlos es cosa del servidor)
 ##   video     id de un vídeo que sustituye al plano si el navegador lo tiene listo (opcional).
 ##             El plano del motor corre igual por debajo: es lo que se ve si el vídeo falta o falla.
 ##             Los archivos y su manifiesto están en game/web/static/video (docs/CINEMATICS.md).
@@ -135,7 +137,7 @@ const CUTSCENES := {
 				"boss": {"anim": "Awaken", "at": 0.2, "speed": 0.325, "look": 0, "look_to": 1, "look_at": 0.5, "glow": [2.4, 1.8]}},
 			# 4. En pie: desde el portal, la cámara del combate; acaba erguido, de cara al grupo
 			{"dur": 4.0, "from": [Vector3(22.7, 1.9, 0.0), Vector3(31.6, 2.3, 0.0)], "to": [Vector3(23.3, 2.0, 0.0), Vector3(31.6, 2.6, 0.0)],
-				"title": "Nojoch Tuunich  ·  El Guardián Dormido", "text": "", "sound": "cine_en_pie", "video": "despertar_4",
+				"title": "Nojoch Tuunich  ·  El Guardián Dormido", "text": "", "sound": "cine_en_pie", "video": "despertar_4", "walls": true,
 				"boss": {"anim": "Awaken", "at": 1.5, "speed": 0.625, "look": 1, "glow": [1.8, 1.7]}},
 		],
 	},

@@ -79,7 +79,12 @@ export const ENEMY_KINDS = ['piedra', 'corrupta'] as const;
  *  silencio(0–100), glifosEncendidos, glifosNecesarios, slotObjetivo, golpeX, golpeZ, giroDelBarrido,
  *  escombros[[x, z, radio, segundos]],
  *  anclasActivas(máscara), anclasNecesarias, columnas[[zócalo, segundos]], corazón(0–100), corazonesLiberados,
- *  glifosDelSuelo, glifosDelSueloNecesarios, contacto(0–100), quiénesLoTocan(máscara de slots), cuántosDebenTocarlo]
+ *  glifosDelSuelo, glifosDelSueloNecesarios, contacto(0–100), quiénesLoTocan(máscara de slots), cuántosDebenTocarlo,
+ *  murosDelPatio(0 cerrados, 1 abriéndose, 2 abiertos), segundosParaQueTerminenDeAbrirse]
+ * Muros del patio (los dos laterales y el del fondo): se hunden cuando el guardián despierta y se cierran
+ * cuando vuelve a dormirse (derrota del grupo o ronda nueva); liberado, se quedan abiertos. Sólo dejan de ser
+ * sólidos en el estado 2: mientras se abren siguen cerrando el paso, igual en el servidor que en la predicción
+ * del cliente, que usa este campo como usa `santuarioAbierto` del estado del mundo para el portal.
  * Eventos de combate propios (['boss', tipo, ...]):
  *  fase 1  awake [fase, glifos] · tele [ataque, segundos, ...] · slam · sweep · summon · glyph · far · phase [fase, silencio] · fail
  *  fase 2  leap_w [x, z, segundos] · leap [x, z] · land [x, z, empujados(máscara)] (salto a la explanada) · transit · arena [fase] · pillar [zócalo, slot] · pillar_max · pillar_down · rain · charge [giro] · charge_end
@@ -88,7 +93,9 @@ export const ENEMY_KINDS = ['piedra', 'corrupta'] as const;
  *  fase 3  ritual [glifos] · lit [n, necesarios, slot] · contact [cuántos] · pulse · freed
  */
 export type BossStateArray = [number, number, number, number, number, number, number, number, number, number, number, number, number, number[][],
-  number, number, number[][], number, number, number, number, number, number, number];
+  number, number, number[][], number, number, number, number, number, number, number, number, number];
+/** Estados de los muros del patio (campo 24 del estado del jefe). */
+export const COURT_WALLS_SHUT = 0, COURT_WALLS_OPENING = 1, COURT_WALLS_OPEN = 2;
 export const BOSS_STATES = ['sleep', 'rise', 'idle', 'walk', 'slam_w', 'sweep_w', 'summon_w', 'recover', 'kneel', 'freed',
   'transit', 'pillars_w', 'rain_w', 'rain', 'charge_w', 'charge', 'stunned', 'bound', 'ritual', 'leap_w', 'leap'] as const;
 export const ENEMY_STATES = ['idle', 'chase', 'windup', 'strike', 'recover', 'stun', 'dead', 'return'] as const;

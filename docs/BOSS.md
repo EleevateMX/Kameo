@@ -9,6 +9,7 @@ la Pluma de Jade como recompensa final.
 | Las tres fases en el servidor | **Hechas y probadas** con bots para 1, 2 y 4 jugadores (combate completo, reintento por fase, desconexiones) |
 | Las tres fases en el cliente | **Hechas**: escenario del combate, barra, objetivos, avisos, sonido y música. Probadas en un navegador real con una jugadora y tres bots; **sin probar con personas** |
 | Modelo del coloso | **Definitivo** (ver «El modelo») |
+| El santuario se abre al despertar | **Hecho** (ver «El santuario se abre»): lo decide el servidor, probado con bots; la animación, vista en navegador sin GPU, **sin probar con personas** |
 | Pluma de Jade | **Hecha**: la entrega el servidor, una por jugador, aparece en el perfil y abre la pista del Cenote |
 | Cinemáticas de despertar y liberación | Versión del motor **hecha** (es el respaldo). Vídeos de Kling: ver «Cinemáticas» |
 
@@ -60,6 +61,9 @@ El guardián se levanta y pelea despacio. Su pecho está apagado y su cara es de
 pecho (y por un instante la cara se le ablanda). Romperlas no cuenta. Con los glifos encendidos
 (2 jugando solo, 3 en pareja, 4 con tres o cuatro) empieza la fase 2.
 
+Al despertar, **los muros del patio se hunden** (ver «El santuario se abre»): la fase se sigue
+librando ahí, pero ya se puede entrar y salir por los lados y por el fondo.
+
 ### 2. Furia — «El corazón de piedra», en la explanada
 
 Recuerda un instante, de rodillas… y el Silencio lo arrastra fuera: **sale del santuario de un
@@ -87,9 +91,8 @@ servidor lo lleva en línea recta; la altura del arco sólo se dibuja.
 Lo que cambió respecto al diseño aprobado, y por qué: las columnas las despiertan los jugadores (así
 es una decisión del grupo y no una espera) y la embestida se corta contra una columna, no contra un
 ancla; las anclas son discos nuevos de la explanada, no los altares de la plaza (quedaban a más de
-20 m); y no hay muros que caigan ni suelo que se hunda: las columnas no son sólidas, sólo dan
-refugio y paran la embestida. Sólidos que aparecen y desaparecen en la simulación compartida quedan
-como mejora posterior (ver «Pendiente»).
+20 m); y en la explanada no hay muros que caigan ni suelo que se hunda: las columnas no son
+sólidas, sólo dan refugio y paran la embestida (ver «Pendiente»).
 
 ### 3. Recuerdo — «La memoria restaurada»
 
@@ -107,6 +110,40 @@ exigirle.
 
 Al completarse: el Silencio llega a 0, las criaturas se deshacen, se anota en la historia de la
 sala, el servidor entrega la Pluma de Jade y empieza «La liberación».
+
+## El santuario se abre
+
+Cuando Nojoch Tuunich despierta, el santuario deja de ser una caja: **los dos muros laterales del
+patio y el del fondo se hunden en el suelo**. La portada (el portal, sus jambas y el sol de jade)
+se queda en pie: es la entrada de siempre y por encima de ella salta él en la fase 2.
+
+| | |
+| --- | --- |
+| Quién lo decide | El servidor. Viaja en el estado del jefe: `murosDelPatio` (0 cerrados · 1 abriéndose · 2 abiertos) y los segundos que faltan |
+| Cuándo se abren | Al despertar, en cualquier fase (también en los reintentos). Tardan 3,6 s, lo que él tarda en ponerse en pie |
+| Colisión mientras se abren | **Siguen siendo sólidos hasta que terminan de hundirse**; entonces dejan de estorbar de golpe, igual en el servidor que en la predicción de cada cliente (misma simulación, misma máscara de sólidos abiertos). La piedra sólo baja en vertical: no barre ni empuja a nadie |
+| Con «El despertar» | La sala está en pausa durante la escena y el reloj de los muros también. La versión del motor los enseña empezando a hundirse en su último plano; al volver al juego (se viera como vídeo o con el motor) queda **el último tramo, 1,8 s**, a la vista |
+| Cuándo se cierran | Cuando él vuelve a dormirse: **derrota del grupo** (en la fase que sea) u **otra ronda**. Se cierran al instante en la simulación y suben a la vista en segundo y medio |
+| Por qué no atrapan a nadie | Sólo se cierran con todo el grupo caído (reaparece fuera, en el punto de control; a los desconectados se les lleva ahí en ese momento) o con todos de vuelta en el brasero. Un cuerpo caído sobre la línea de un muro sale por su lado más cercano, sin daño. El portal sigue abierto: del patio siempre se puede salir |
+| Liberado | Se quedan abiertos: el claro ya no tiene nada que encerrar |
+| Quien llega tarde o se reconecta | Los ve como están (cerrados, a medio bajar o abiertos), sin animación ni sonido |
+
+**Qué cambia en la fase 1.** Nada en sus reglas: él sigue sin salir del patio y sigue prefiriendo
+a quien esté dentro. Antes ya se podía salir por el portal; ahora también por los lados. Quien se
+sale deja de avanzar (los glifos sólo se encienden purificando **junto a él**) pero no atasca nada:
+si no queda nadie dentro, él se acerca al borde y golpea a quien tenga a su alcance (la losa llega
+6,5 m), sus criaturas persiguen hasta su correa y vuelven, y las llamadas siguen saliendo en el
+patio cada 16 s. El salto a la explanada de la fase 2 no cambia.
+
+**Qué se ve.** Cada muro está cortado en losas (catorce en total) que bajan en oleada desde donde
+él duerme hacia la portada: se sueltan con un respingo, cabecean y bajan acelerando, con las vetas
+del Silencio encendidas en magenta, polvo a lo largo de cada muro, roce de piedra, un golpe por losa
+al tocar fondo y la sacudida de cámara de siempre (respeta el ajuste). Donde estaban queda un
+zócalo de piedra con glifos de jade. Las enredaderas y grietas de esos muros se hunden con ellos.
+Sin luces ni audio nuevos: los sonidos son los que ya había (`santuario_abre`, `silencio_grieta`,
+`pilar_sube`, `jefe_paso`, `jefe_losa`).
+
+Prueba en navegador con capturas: `tests/e2e/court-walls.ts`.
 
 ## Reglas generales
 
@@ -205,7 +242,7 @@ exactamente donde empieza el combate** (el servidor salta lo que quedaba de «le
 | 1. El patio en silencio (4 s) | Desde el portal, el coloso sentado al fondo, tras el cristal | «Al fondo del patio, algo duerme desde antes que la selva.» | `cine_patio_silencio` |
 | 2. Las grietas (4 s) | De lado: el Silencio le recorre el pecho; las vetas pasan de tenues a vivas | «El Silencio se le metió en las grietas.» | `cine_grietas` |
 | 3. Los ojos (4 s) | Primer plano: tiembla, alza la cabeza, los ojos se encienden en magenta. Cara triste | «Nojoch Tuunich abre los ojos… y no reconoce a nadie.» | `cine_ojos` |
-| 4. En pie (4 s) | Contrapicado: se empuja con los puños y se yergue | Rótulo «Nojoch Tuunich · El Guardián Dormido» | `cine_en_pie` |
+| 4. En pie (4 s) | Contrapicado: se empuja con los puños y se yergue. En la versión del motor, los muros del patio empiezan a hundirse a su alrededor (el vídeo se produjo antes y no lo enseña: se ve al volver al juego) | Rótulo «Nojoch Tuunich · El Guardián Dormido» | `cine_en_pie` |
 
 ### «La liberación de Nojoch Tuunich»
 
@@ -256,7 +293,8 @@ con pupila y otro en el que levantaba un puño donde tocaba serenidad.
 | Qué | Por qué queda fuera de la 0.3 |
 | --- | --- |
 | Probar el combate con personas | Sólo lo han jugado bots y una jugadora simulada: el ritmo, la dificultad y si las pistas bastan están sin validar |
-| Escenario que cambia de verdad (muros que caen, suelo hundido, columnas sólidas) | Exige sólidos dinámicos en la simulación compartida entre cliente y servidor. Hoy las columnas dan refugio y paran la embestida, pero se pueden atravesar |
+| Columnas sólidas y suelo que se hunde en la explanada | Los muros del patio ya se abren de verdad (la simulación compartida admite sólidos que se abren por máscara). Las columnas siguen dando refugio y parando la embestida, pero se pueden atravesar: hacerlas sólidas es otra regla (aparecen bajo los jugadores) |
+| «El despertar», plano 4, con los muros abriéndose | El vídeo de Kling enseña el patio cerrado. Rehacer ese plano no está en los presupuestos aprobados |
 | El corazón «a 3 m de altura» que pedía salto | Se dejó al alcance de las garras: con un solo Balam y ventanas de 9 s, exigir puntería en salto lo hacía injusto jugando solo |
 | Una pluma en el tocado del alux | Es apariencia de personaje: mejor decidirla con el sistema de personalización |
 | La escalera del cenote y su «Próximamente» | Es escenario del Capítulo II |
@@ -271,4 +309,6 @@ con pupila y otro en el que levantaba un puño donde tocaba serenidad.
 | Reintento por fases | Por fase: una derrota a los seis minutos no debe costar otros seis |
 | Quién despierta las columnas | Los jugadores (alux, F): es una decisión del grupo y nunca hay que esperar al jefe |
 | Pulso de Silencio en la fase 3 | No llega al borde del círculo de contacto: castiga pegarse a él, no tocarlo |
+| Qué muros se abren | Los dos laterales y el del fondo. La portada se queda: es la entrada, lleva el sol y las secuelas del sello, y sin ella el salto «por encima del muro» no tendría muro |
+| Colisión de los muros mientras se mueven | Sólidos hasta que terminan de hundirse y sólo movimiento vertical: es la regla más simple que no puede atrapar ni empujar a nadie |
 | Audio de las cinemáticas | Sonidos propios por plano, puestos por el juego: suenan igual con vídeo que con el respaldo del motor y respetan los volúmenes. No se usó el audio generado por Kling |

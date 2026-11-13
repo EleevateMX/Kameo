@@ -511,6 +511,13 @@ func _world_state(room: Room) -> Array:
 
 # ───────────────────────── Simulación de sala ─────────────────────────
 
+## Sólidos abiertos ahora mismo en la sala, para la simulación (World.OPEN_*): el portal con los
+## altares y los muros del patio con el guardián despierto. Los clientes predicen con la misma
+## máscara, que sacan del estado del mundo y del jefe.
+func _open_mask(room: Room) -> int:
+	return (World.OPEN_GATE if room.gate_open else 0) | room.combat.boss.open_bits()
+
+
 func _tick_room(room: Room) -> void:
 	room.tick += 1
 	var connected := 0
@@ -567,7 +574,7 @@ func _tick_room(room: Room) -> void:
 				inp.a = 0
 				inp.f = ""
 			var actions: Array = []
-			Sim.step(p.state, inp, p.unlocked, room.gate_open, actions)
+			Sim.step(p.state, inp, p.unlocked, _open_mask(room), actions)
 			p.hold_special = (int(inp.a) & Sim.A_SPECIAL) != 0
 			p.last_seq = inp.s
 			p.budget -= 1
@@ -601,7 +608,7 @@ func _tick_room(room: Room) -> void:
 
 	# Combate: enemigos, proyectiles, vida, reaparición y emboscada
 	if not frozen:
-		match room.combat.tick(everyone, room.gate_open):
+		match room.combat.tick(everyone, _open_mask(room)):
 			Combat.CLEARED:
 				_on_encounter_clear(room)
 			Combat.FAILED:

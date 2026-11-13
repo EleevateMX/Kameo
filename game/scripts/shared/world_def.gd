@@ -17,6 +17,19 @@ const CEIBA := Vector2(-28.0, 3.0)
 const PLATE_MARKERS: Array[Vector2] = [Vector2(-3.4, -16.4), Vector2(-12.2, 4.6), Vector2(5.6, 17.0), Vector2(19.7, -5.6)]
 const GATE_ID := "gate"
 
+## Sólidos que se abren. Toda la simulación recibe una máscara con lo que está abierto ahora; cada
+## caja dice (campo "opens") con qué bit deja de estorbar. Lo decide siempre el servidor.
+const OPEN_GATE := 1    # portal y sello del santuario: los abren los altares
+const OPEN_COURT := 2   # muros del patio: los abre Nojoch Tuunich al despertar (docs/BOSS.md)
+## Muros del patio que se hunden cuando el guardián despierta: los dos laterales y el del fondo.
+## La portada (san_w1, san_w2 y el portal) se queda en pie.
+const COURT_WALLS: Array[String] = ["san_n", "san_s", "san_e"]
+## Lo que tardan en hundirse del todo. Mientras se mueven siguen siendo sólidos: la colisión
+## desaparece de golpe al terminar, igual en el servidor que en la predicción del cliente.
+const COURT_OPEN_TIME := 3.6
+## «El despertar» tapa el principio: al volver de la escena queda este último tramo por ver.
+const COURT_OPEN_TAIL := 1.8
+
 const SPAWNS: Array[Vector2] = [
 	Vector2(2.6, 2.6), Vector2(-2.6, 2.6), Vector2(2.6, -2.6), Vector2(-2.6, -2.6),
 ]
@@ -79,7 +92,8 @@ static func _ensure() -> void:
 		_add_box("stair%da" % i, PYRAMID.x, front + 0.6, STAIR_W, 1.2, float(i) + 1.0 / 3.0, "stair")
 		_add_box("stair%db" % i, PYRAMID.x, front + 0.3, STAIR_W, 0.6, float(i) + 2.0 / 3.0, "stair")
 
-	# Santuario: muros + puerta sellada
+	# Santuario: muros + puerta sellada. Los tres muros del patio (COURT_WALLS) se hunden cuando
+	# despierta el guardián; la portada del oeste, no.
 	var sx := SANCTUARY.x
 	var sz := SANCTUARY.y
 	_add_box("san_n", sx, sz - 6.0, 13.0, 1.0, 3.2, "wall")
@@ -175,8 +189,8 @@ static func _add_box(id: String, cx: float, cz: float, sx: float, sz: float, hei
 		"x0": cx - sx * 0.5, "x1": cx + sx * 0.5,
 		"z0": cz - sz * 0.5, "z1": cz + sz * 0.5,
 		"y0": base - 2.5, "top": base + height,
-		# "sealed": desaparece cuando el santuario se abre
-		"sealed": kind == "gate" or kind == "seal",
+		# "opens": bit de la máscara de abiertos con el que deja de ser sólida (0: nunca)
+		"opens": OPEN_GATE if (kind == "gate" or kind == "seal") else (OPEN_COURT if COURT_WALLS.has(id) else 0),
 	})
 
 

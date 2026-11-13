@@ -11,6 +11,9 @@ extends RefCounted
 ##
 ## Nadie se teletransporta al cambiar de fase: es el guardián quien camina. Si cae todo el grupo,
 ## se duerme y el combate se retoma desde la última fase alcanzada.
+##
+## Los muros del patio (World.COURT_WALLS) siguen su sueño: se hunden cuando despierta y vuelven a
+## cerrarse cuando se duerme. Sólo dejan de ser sólidos cuando han terminado de hundirse.
 
 const Sim := preload("res://scripts/shared/sim.gd")
 const World := preload("res://scripts/shared/world_def.gd")
@@ -48,6 +51,9 @@ var ritual := 0.0               # segundos de contacto acumulados
 var ritual_need := 3.0
 var channel := 0                # máscara de slots que lo están tocando
 var touch_need := 1             # cuántos tienen que tocarlo a la vez
+# Muros del patio
+var walls := Boss.WALLS_SHUT    # Boss.WALLS_*: cerrados, abriéndose (siguen siendo sólidos) o abiertos
+var walls_t := 0.0              # segundos que les faltan para terminar de abrirse
 ## Avisos para la sala (los recoge game_server): "awake" al despertar por primera vez, "freed".
 var notices: Array = []
 var awakenings := 0
@@ -90,6 +96,11 @@ func reset(full: bool) -> void:
 	phase = Boss.ASLEEP
 	state = "sleep"
 	t = 0.0
+	# Dormido, el santuario se cierra. Sólo se llega aquí con todo el grupo caído (reaparece
+	# fuera, en el punto de control) o en una ronda nueva (todos vuelven al brasero): no hay nadie
+	# en pie a quien un muro pueda atrapar. El portal sigue abierto.
+	walls = Boss.WALLS_SHUT
+	walls_t = 0.0
 	# A partir de la fase 2 duerme donde se libra el combate: en la explanada
 	var at: Vector2 = Boss.HOME if checkpoint_phase == Boss.OLVIDO else Boss.P2_HOME
 	x = at.x
@@ -116,6 +127,18 @@ func reset(full: bool) -> void:
 
 func active() -> bool:
 	return phase != Boss.ASLEEP and phase != Boss.FREED
+
+
+## Lo que él tiene abierto, como bits de la máscara de sólidos de la simulación (World.OPEN_*):
+## los muros del patio, y sólo cuando han terminado de hundirse.
+func open_bits() -> int:
+	return World.OPEN_COURT if walls == Boss.WALLS_OPEN else 0
+
+
+## Por dónde puede pasar él: el portal siempre (no despierta con el santuario sellado) y los
+## muros del patio cuando ya están abiertos.
+func _open() -> int:
+	return World.OPEN_GATE | open_bits()
 
 
 static func _connected(players: Array) -> int:
@@ -158,6 +181,11 @@ func _dist(p: Variant) -> float:
 func tick(players: Array) -> void:
 	_players = players
 	_rearm = maxf(0.0, _rearm - DT)
+	if walls == Boss.WALLS_OPENING:
+		walls_t -= DT
+		if walls_t <= 0.0:
+			walls = Boss.WALLS_OPEN
+			walls_t = 0.0
 	if phase == Boss.ASLEEP:
 		# Despierta cuando, con la emboscada superada, alguien se le acerca
 		if combat.encounter == 2 and _rearm <= 0.0:
@@ -291,15 +319,23 @@ func _awaken(players: Array) -> void:
 			_setup_recuerdo(n)
 	state = "rise"
 	t = Boss.RISE_TIME
+	# Al despertar se abre el patio: los muros empiezan a hundirse (y siguen cerrando el paso
+	# hasta que terminan)
+	if walls == Boss.WALLS_SHUT:
+		walls = Boss.WALLS_OPENING
+		walls_t = World.COURT_OPEN_TIME
 	combat.events.append(["boss", "awake", phase, needed])
 	if awakenings == 1:
 		notices.append("awake")
 
 
 ## La cinemática del despertar ya lo mostró poniéndose en pie: el combate empieza donde ella acaba.
+## De los muros queda por ver el último tramo de la apertura.
 func skip_rise() -> void:
 	if state == "rise":
 		t = minf(t, 0.4)
+	if walls == Boss.WALLS_OPENING:
+		walls_t = minf(walls_t, World.COURT_OPEN_TAIL)
 
 
 func _after_rise(players: Array) -> void:
@@ -402,7 +438,7 @@ func _walk(players: Array) -> void:
 		return
 	yaw = atan2(to.x, to.y)
 	var speed := Boss.SPEED * (1.35 if phase == Boss.FURIA else 1.0)
-	var next := Sim.move_xz(Vector2(x, z), to / d * speed * DT, World.terrain_h(x, z), Boss.RADIUS, true)
+	var next := Sim.move_xz(Vector2(x, z), to / d * speed * DT, World.terrain_h(x, z), Boss.RADIUS, _open())
 	# No sale de la zona donde se libra la fase
 	var ok := Boss.in_arena(next.x, next.y, -Boss.RADIUS * 0.4) if phase == Boss.OLVIDO else Boss.in_esplanade(next.x, next.y)
 	if ok:
@@ -564,7 +600,7 @@ func _tick_transit(players: Array) -> void:
 	var next := Vector2(x, z) + to / d * step
 	# Si algo le estorba más de la cuenta, pasa igualmente: no puede quedarse atascado a mitad
 	if _leg_t < 1.5:
-		next = Sim.move_xz(Vector2(x, z), to / d * step, World.terrain_h(x, z), Boss.RADIUS, true)
+		next = Sim.move_xz(Vector2(x, z), to / d * step, World.terrain_h(x, z), Boss.RADIUS, _open())
 	x = next.x
 	z = next.y
 
@@ -760,7 +796,7 @@ func _tick_charge_windup(players: Array) -> void:
 func _tick_charge(players: Array) -> void:
 	var step := float(Boss.CHARGE.speed) * DT
 	var from := Vector2(x, z)
-	var next := Sim.move_xz(from, _dir * step, World.terrain_h(x, z), Boss.RADIUS, true)
+	var next := Sim.move_xz(from, _dir * step, World.terrain_h(x, z), Boss.RADIUS, _open())
 	var moved := (next - from).length()
 	var inside := Boss.in_esplanade(next.x, next.y)
 	if inside:
@@ -953,7 +989,8 @@ func _free() -> void:
 ## [fase, x, z, giro, estado, segundos del estado, silencio, glifos, glifosNecesarios, slotObjetivo,
 ##  puntoDelGolpeX, puntoDelGolpeZ, giroDelBarridoOEmbestida, escombros[[x, z, radio, segundos]],
 ##  anclasActivas(máscara), anclasNecesarias, columnas[[zócalo, segundos]], corazón(0–100), corazonesLiberados,
-##  glifosDelSuelo, glifosDelSueloNecesarios, contacto(0–100), quiénesLoTocan(máscara), cuántosDebenTocarlo]
+##  glifosDelSuelo, glifosDelSueloNecesarios, contacto(0–100), quiénesLoTocan(máscara), cuántosDebenTocarlo,
+##  murosDelPatio(0 cerrados, 1 abriéndose, 2 abiertos), segundosParaQueTerminenDeAbrirse]
 func snapshot() -> Array:
 	var rub := []
 	for r in rubble:
@@ -964,4 +1001,5 @@ func snapshot() -> Array:
 	return [phase, snappedf(x, 0.01), snappedf(z, 0.01), snappedf(yaw, 0.01), Boss.STATES.find(state), snappedf(maxf(t, 0.0), 0.01),
 		int(round(silence)), glyphs, needed, target_slot, snappedf(aim.x, 0.01), snappedf(aim.y, 0.01), snappedf(aim_yaw, 0.01), rub,
 		anchors, anchors_need, pil, int(round(heart / maxf(heart_max, 1.0) * 100.0)), releases,
-		lit, lit_need, int(round(clampf(ritual / maxf(ritual_need, 0.1), 0.0, 1.0) * 100.0)), channel, touch_need]
+		lit, lit_need, int(round(clampf(ritual / maxf(ritual_need, 0.1), 0.0, 1.0) * 100.0)), channel, touch_need,
+		walls, snappedf(maxf(walls_t, 0.0), 0.01)]
