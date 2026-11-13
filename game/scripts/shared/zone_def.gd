@@ -42,7 +42,15 @@ const GARDEN_TREES: Array = [[-20.0, -22.0, 0.45], [20.0, -22.0, 0.45], [-20.0, 
 ## El guía, en el centro del corro de llegada (los aluxes aparecen a su alrededor, no encima)
 const GUIDE := Vector2(0.0, 13.0)
 const NPC_PILLARS: Array = [[0.0, 13.0, 0.4]]
-const PILLARS: Array = SOLIDS + ARCADE + PORTAL_JAMBS + LAMPS + GARDEN_TREES + NPC_PILLARS
+# ── Salida hacia Motul (mundo abierto) ──
+## Un arco en el lado este, al norte del portal: Motul queda al este-noreste de Mérida. El arco lo
+## dibuja motul_gate.gd (pieza aparte de plaza_builder.gd); aquí sólo están sus jambas y desde
+## dónde se toma. El paso entre zonas está en zones.gd y lo decide el servidor.
+const GATE_MOTUL := Vector2(31.6, -12.75)
+const GATE_MOTUL_R := 3.2
+const MOTUL_JAMBS: Array = [[32.9, -15.35, 0.65], [32.9, -10.15, 0.65]]
+const ARRIVE_MOTUL := Vector2(28.4, -12.75)   # adonde se llega al volver del camino
+const PILLARS: Array = SOLIDS + ARCADE + PORTAL_JAMBS + LAMPS + GARDEN_TREES + NPC_PILLARS + MOTUL_JAMBS
 
 ## Obstáculos rectangulares, por grupos: [x, z, medio ancho, medio fondo]. BOXES es la suma.
 const WALLS: Array = [

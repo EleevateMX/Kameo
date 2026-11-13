@@ -193,6 +193,9 @@ function suite(label: string, makeStore: () => Promise<Store>) {
       assert.ok(claims.exp - claims.iat <= 120);
       assert.equal(verifyJwt(t.ticket, config.ticketSecret, GAME_TICKET_AUDIENCE), null, 'un ticket de zona no abre una sala');
       assert.equal((await a.call('POST', '/v1/zones/atlantida/ticket')).status, 404);
+      // el Camino a Motul (mundo abierto) también se abre con ticket: reconectar allí vuelve allí
+      const road = await (await a.call('POST', '/v1/zones/camino_motul/ticket')).json();
+      assert.equal(verifyJwt<any>(road.ticket, config.ticketSecret, ZONE_TICKET_AUDIENCE)?.zone, 'camino_motul');
       // sin sesión no hay ticket
       assert.equal((await fetch(base + '/v1/zones/merida/ticket', { method: 'POST', headers: { 'x-alux-csrf': '1' } })).status, 401);
       // el servidor de zonas relee el aspecto con su clave de servicio; sin ella, nada

@@ -253,7 +253,7 @@ Cada fase es pequeña, jugable y se puede publicar o descartar sin tocar las mis
 | **0. Base** *(hecha, Alpha 0.4 sin publicar)* | Pantalla completa. Personalizador 3D con el modelo real, guardado y replicado | Hecho: [FULLSCREEN.md](FULLSCREEN.md) y [PERSONALIZADOR.md](PERSONALIZADOR.md). El aspecto elegido se ve igual en otro navegador |
 | **1. Prototipo del lobby** *(hecho; sale con la Alpha 0.4; ver §13)* | Una plaza inspirada en Mérida en el servidor de zonas: movimiento autoritativo, aluxes visibles por proximidad, capacidad configurable, portal al Claro de los Aluxes | Hecho: dos navegadores se ven moverse; el portal lleva a una sala del Claro y la sala funciona como siempre; medidas con 8, 16, 32 y 64 simulados (§9). Desplegado con la Alpha 0.4 (segundo proceso en la imagen, `wss://DOMINIO/zone`). Falta medir con navegadores reales |
 | **2. Lobby social** | Grupos por proximidad, gestos y frases hechas, personaje de bienvenida, acceso al personalizador desde la plaza, volver a la plaza al terminar una misión | Un grupo formado en la plaza entra junto a la misión y vuelve junto |
-| **3. Primer camino** | Mérida → Motul: una región abierta pequeña con puntos de interés y criaturas por zona | Viaje de ida y vuelta recuperable; criaturas sólo donde hay jugadores; medidas de servidor con 16 |
+| **3. Primer camino** *(prototipo hecho, sin publicar; ver §14)* | Mérida → Motul: una región abierta pequeña con puntos de interés y criaturas por zona | Viaje de ida y vuelta recuperable; criaturas sólo donde hay jugadores; medidas de servidor con 16 |
 | **4. Amigos y persistencia del mundo** | Amigos, última zona, puntos descubiertos, viaje rápido | Reconectar devuelve al mismo sitio; migraciones sólo aditivas |
 | **5. Más regiones** | Progreso, Izamal y el resto, de una en una | Cada una con su prueba de carga y su revisión de contenido cultural |
 
@@ -342,3 +342,82 @@ distancia, aspecto, reconexión, capacidad y tope), `npm run test:plaza` (dos na
 **Para publicarlo falta**: arrancar el segundo proceso en la imagen de Render y encaminar su
 WebSocket por el proxy (`ZONE_WS_URL`), medir la memoria de la imagen con los dos servidores y
 probar con navegadores y personas reales.
+
+## 14. Lo construido: el Camino a Motul (fase 3, prototipo)
+
+Primera ruta del mundo abierto. Motul como ciudad **no** existe todavía: se llega a su cartel de
+bienvenida y a una tranca. Izamal y Valladolid sólo aparecen en el mapa, como «próximamente».
+
+| Pieza | Dónde | Qué hace |
+| --- | --- | --- |
+| Registro de zonas | `game/scripts/shared/zones.gd` | Zonas del proceso (`merida`, `camino_motul`), sus pasos y su función de movimiento |
+| El camino (datos) | `shared/camino_def.gd` | 222 m de camino blanco hacia el ENE entre albarradas (pasillo de 18 m y cinco claros), dos zonas seguras de 26 m (salida de Mérida y cartel de Motul), obstáculos, 4 lugares, 10 criaturas fijas |
+| Combate mínimo (números) | `shared/wild_def.gd` | Chispa (12 de daño, 6,5 m, cono de 69°, 0,45 s), dos criaturas, vida, caída, purificar, la misión |
+| Servidor | `server/zone_wild.gd` + `zone_server.gd` | Criaturas, combate, caída y reaparición, lugares, misión y recompensas; sólo simula con alguien en la zona |
+| Cliente | `client/open_world.gd` (lo monta `zone_client.gd`), `camino_builder.gd`, `creature_view.gd`, `world_map.gd`, `motul_gate.gd`, `scene_batch.gd` | Escenario, criaturas, HUD de vida y misión, avisos, diálogo, mapa (M) y el arco de salida en la plaza |
+
+**Paso entre zonas: misma conexión.** Un solo proceso sirve todas las zonas; cada una tiene sus
+vecinos y su simulación. El cliente pide `{t:"travel", to}` estando junto a un paso; el servidor
+comprueba la distancia, decide dónde se llega y contesta `{t:"zone", zone, e, pos, yaw, …}`. Es lo
+más simple y robusto: no hay segundo ticket ni reconexión, y si el viaje falla el jugador sigue
+donde estaba. `e` (época) sube en cada viaje o reaparición y las entradas viejas (`in.e`) se
+descartan. El ticket sigue diciendo por qué zona se entra: reconectar estando en el camino vuelve al
+camino (`POST /v1/zones/camino_motul/ticket`). Cuando haya varios procesos, el paso a otra
+máquina será un ticket de destino (§7); el mensaje `zone` no cambia.
+
+**El arco hacia Motul** está en el lado este de la plaza, al norte del portal del Claro
+(`zone_def.GATE_MOTUL` = (31,6, −12,75), jambas en `MOTUL_JAMBS`). Lo dibuja `motul_gate.gd`, aparte
+de `plaza_builder.gd`; `zone_client.gd` construye la plaza dentro de un nodo propio para poder
+quitarla al salir al camino.
+
+**Combate mínimo, ampliable.** El cliente sólo manda `atk {r}` (hacia dónde apunta) y `purify`;
+el servidor pone alcance, arco, enfriamiento y daño (`rpg.dmg.all × rpg.dmg.chispa` del ticket) y
+lo rechaza desde una zona segura (`atk_no`). Las criaturas rondan su sitio, persiguen dentro de un
+radio (correa de 20 m), avisan (`windup`, «!» y círculo en el suelo) y golpean en área; nunca pisan
+una zona segura. Por debajo del 40 % de vida quedan débiles 6 s: F las purifica (cura 15). Vida del
+jugador = `rpg.hp` (100 si falta); a 0 cae 3,5 s y vuelve a la zona segura más cercana con todo.
+Reaparición de criaturas: 45 s (`ALUX_WILD_RESPAWN`), no con un alux encima. Para crecer: tipos en
+`CREATURES`, habilidades como `ATTACK`, tablas por celda en vez de puntos fijos.
+
+**Recompensas** (`POST /internal/rpg/grant`, docs/RPG.md). `purify`/`enemy` con clave
+`camino_motul:<arranque>-<reaparición>:<criatura>` para todos los que la golpearon en los últimos
+20 s y siguen a 30 m; `discovery` con el id del lugar (`camino_motul:milpa`…); `mission` con
+`camino_motul:recado`. Se reintenta tres veces si la API falla (las claves son únicas) y, si no
+contesta, el juego sigue. Lo aplicado se reenvía al cliente (`reward`: XP, semillas, nivel).
+
+**Lo que se pierde al reconectar.** La posición, la vida y el avance de la misión viven en memoria
+del servidor por jugador: sobreviven a cerrar y abrir la pestaña (30 min) pero **no a un reinicio
+del servidor**. Una misión a medias vuelve a empezar; una cumplida no se vuelve a pagar (la API
+tiene la clave), pero se podría volver a ofrecer. Los lugares descubiertos no se pagan dos veces
+(la API) y el mapa los recuerda en el navegador. Para persistirlo de verdad: que la API devuelva en
+el ticket `rpg.done` (claves de `discovery` y `mission` ya pagadas; el servidor ya lo lee) y,
+para misiones a medias, una tabla de progreso por jugador y misión.
+
+**Mapa (M).** Esquema con las coordenadas de [FUENTES_YUCATAN.md](mundo/FUENTES_YUCATAN.md):
+Motul al ENE de Mérida, Izamal al E, Valladolid más al E-SE. Iconos propios dibujados por código
+(un arco blanco, una mata de henequén, tres arcos dorados, un ojo de agua); ningún escudo oficial.
+No se usa ninguna palabra maya en los textos nuevos.
+
+**Medidas (13 nov 2026).** Llamadas de dibujo en el navegador de pruebas (calidad alta,
+1280×720, render por software, con la interfaz; `e2e/camino.ts`): plaza 63–116 según hacia dónde se
+mire; camino 67–126 (salida 110, milpa 106, cenote con dos criaturas 126, tramo abierto 119,
+cartel de Motul 102); con el mapa abierto 336 (es dibujo 2D por código: si molesta, se cachea en
+una textura). El camino va troceado en seis tramos con rango de visibilidad y su escenario sólo se
+construye al pisarlo. Sin tarjeta gráfica: los FPS de aquí no valen.
+
+Servidor con criaturas (`npx tsx zone-load.ts 8 16 32 --secs 20 --zone camino_motul`, misma
+máquina de 4 núcleos, bots que pasean y lanzan chispas; «juntos» = todos en el primer tramo con
+criaturas):
+
+| Aluxes | Reparto | CPU | Memoria | Paso medio / máx. | Recibe cada alux |
+| --- | --- | --- | --- | --- | --- |
+| 8 | juntos | 2,5 % | 99 MB | 0,66 / 2,0 ms | 3,6 KB/s |
+| 16 | juntos | 4,1 % | 99 MB | 1,4 / 5,1 ms | 5,7 KB/s |
+| 16 | repartidos | 3,5 % | 99 MB | 1,1 / 4,0 ms | 4,7 KB/s |
+| 32 | juntos | 11 % | 99 MB | 3,7 / 14,9 ms | 9,0 KB/s |
+
+Las criaturas añaden poco (con 16 en la plaza el paso medio era 1,0 ms); lo que crece es la
+salida, porque cada estado lleva las criaturas cercanas. Ninguna desconexión ni error.
+
+Pruebas: `npm run test:zone` (plaza y camino, con bots y API simulada), `npx tsx e2e/camino.ts`
+(navegador) y `npx tsx zone-load.ts 8 16 --zone camino_motul` (carga).

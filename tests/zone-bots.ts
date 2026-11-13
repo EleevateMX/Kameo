@@ -10,7 +10,10 @@ export async function until(what: string, fn: () => boolean, timeoutMs = 5000) {
   }
 }
 
-interface Neighbour { profile: { n: string; c: string; h: number; l: number[] }; x: number; y: number; z: number; r: number }
+interface Neighbour { profile: { n: string; c: string; h: number; l: number[] }; x: number; y: number; z: number; r: number; down?: boolean }
+/** Criatura del mundo abierto tal como llega en los estados. `st`: idle, chase, windup, recover, weak, return. */
+export interface Creature { id: number; x: number; z: number; r: number; hp: number; st: string; target: number; seen: number }
+const CREATURE_STATES = ['idle', 'chase', 'windup', 'recover', 'weak', 'return'];
 
 export class ZBot {
   ws!: WebSocket;
@@ -29,6 +32,18 @@ export class ZBot {
   bytesIn = 0;
   statesIn = 0;
   stats: any = null;
+  // ── Mundo abierto ──
+  /** Zona en la que está según el servidor, y cuántas veces lo ha movido de sitio (viaje o reaparición). */
+  zone = '';
+  epoch = 0;
+  zoneMsgs: any[] = [];
+  hp = 0;
+  maxHp = 0;
+  known: string[] = [];
+  quest: { st: string; n: number; need: number } | null = null;
+  creatures = new Map<number, Creature>();
+  /** Todo lo demás que manda el servidor, por tipo: ev, disc, reward, atk_no, travel_no, quest. */
+  events: any[] = [];
   private near = new Map<number, Neighbour>();
   private counts = new Map<string, number>();
   private s = { x: 0, y: 0, z: 0, vy: 0 };
@@ -58,6 +73,7 @@ export class ZBot {
             this.welcome = m;
             this.me = m.me;
             this.s = { x: m.pos[0], y: m.pos[1], z: m.pos[2], vy: 0 };
+            this.enterZone(m);
             clearTimeout(timer);
             this.keepalive = setInterval(() => this.send({ t: 'ping', c: 0 }), 5000);
             done();
@@ -71,10 +87,14 @@ export class ZBot {
             this.total = m.n;
             this.s = { x: m.m[0], y: m.m[1], z: m.m[2], vy: m.m[3] };
             this.maxPerState = Math.max(this.maxPerState, m.p.length);
-            for (const [num, x, y, z, r] of m.p) {
+            if (typeof m.h === 'number') this.hp = m.h;
+            for (const [id, x, z, r, hp, st, target] of m.c ?? []) {
+              this.creatures.set(id, { id, x, z, r, hp, st: CREATURE_STATES[st], target, seen: Date.now() });
+            }
+            for (const [num, x, y, z, r, down] of m.p) {
               const nb = this.near.get(num);
               if (!nb) continue;
-              Object.assign(nb, { x, y, z, r });
+              Object.assign(nb, { x, y, z, r, down: down === 1 });
               this.counts.set(nb.profile.n, (this.counts.get(nb.profile.n) ?? 0) + 1);
             }
             break;
@@ -93,9 +113,40 @@ export class ZBot {
           case 'stats':
             this.stats = m;
             break;
+          case 'zone':
+            this.zoneMsgs.push(m);
+            this.s = { x: m.pos[0], y: m.pos[1], z: m.pos[2], vy: 0 };
+            this.near.clear();
+            this.enterZone(m);
+            break;
+          case 'quest':
+            this.quest = { st: m.st, n: m.n, need: m.need };
+            this.events.push(m);
+            break;
+          case 'ev':
+            if (m.e === 'die') this.creatures.delete(m.c);
+            this.events.push(m);
+            break;
+          case 'disc':
+            if (!this.known.includes(m.id)) this.known.push(m.id);
+            this.events.push(m);
+            break;
+          case 'reward': case 'atk_no': case 'travel_no':
+            this.events.push(m);
+            break;
         }
       };
     });
+  }
+
+  private enterZone(m: any) {
+    if (m.zone !== this.zone) this.creatures.clear();
+    this.zone = m.zone;
+    this.epoch = m.e ?? 0;
+    if (typeof m.hp === 'number') this.hp = m.hp;
+    if (typeof m.maxhp === 'number') this.maxHp = m.maxhp;
+    if (Array.isArray(m.known)) this.known = [...m.known];
+    if (m.quest) this.quest = { st: m.quest.st, n: m.quest.n, need: m.quest.need };
   }
 
   connect(token: string) { return this.open({ t: 'hello', ticket: token }); }
@@ -113,7 +164,29 @@ export class ZBot {
 
   private input(mx: number, mz: number, jump = false) {
     this.seq++;
-    this.send({ t: 'in', s: this.seq, x: mx, z: mz, j: jump ? 1 : 0, r: Math.atan2(mx, mz) });
+    this.send({ t: 'in', s: this.seq, x: mx, z: mz, j: jump ? 1 : 0, r: Math.atan2(mx, mz), e: this.epoch });
+  }
+
+  // ── Mundo abierto ──
+  /** Sucesos recibidos de un tipo (y, si se dice, de una clase: ev.e). */
+  got(t: string, e?: string) { return this.events.filter((m) => m.t === t && (e === undefined || m.e === e)); }
+  /** Criatura con ese id si ha llegado en un estado hace poco (las lejanas o muertas dejan de llegar). */
+  creature(id: number) { const c = this.creatures.get(id); return c && Date.now() - c.seen < 1500 ? c : undefined; }
+  /** Pide pasar a otra zona y espera la respuesta: el mensaje `zone` si se pudo, o null si el servidor dijo que no. */
+  async travel(to: string) {
+    const before = this.zoneMsgs.length, refused = this.got('travel_no').length;
+    this.send({ t: 'travel', to });
+    const end = Date.now() + 4000;
+    while (Date.now() < end && this.zoneMsgs.length === before && this.got('travel_no').length === refused) await sleep(30);
+    return this.zoneMsgs.length > before ? this.zoneMsgs[this.zoneMsgs.length - 1] : null;
+  }
+  /** Ataque básico apuntando a un punto. */
+  attackAt(x: number, z: number, extra: object = {}) { this.send({ t: 'atk', r: Math.atan2(x - this.s.x, z - this.s.z), ...extra }); }
+  purify() { this.send({ t: 'purify' }); }
+  /** Anda por una lista de puntos (para seguir un camino con curvas). */
+  async walkPath(points: [number, number][], timeoutMs = 90_000) {
+    for (const [x, z] of points) await this.walkTo(x, z, timeoutMs, false);
+    await this.settle();
   }
 
   /** Mantiene una dirección `ms` milisegundos. `rate`: veces el ritmo normal (20 entradas por segundo). */
@@ -138,7 +211,7 @@ export class ZBot {
   }
 
   /** Anda en línea recta hacia un punto (resbalando por los obstáculos). */
-  async walkTo(x: number, z: number, timeoutMs = 40_000) {
+  async walkTo(x: number, z: number, timeoutMs = 40_000, settle = true) {
     const end = Date.now() + timeoutMs;
     let next = Date.now();
     while (Date.now() < end) {
@@ -149,7 +222,7 @@ export class ZBot {
       next += 50;
       await sleep(Math.max(0, next - Date.now()));
     }
-    await this.settle();
+    if (settle) await this.settle();
   }
 
   /** Salta en el sitio y devuelve la altura máxima que dijo el servidor. */

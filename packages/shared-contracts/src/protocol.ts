@@ -6,8 +6,13 @@ export const MAX_PLAYERS_PER_ROOM = 4;
 export const GAME_TICKET_AUDIENCE = 'alux-game';
 /** Tickets del servidor de zonas sociales (otro proceso): no valen en las salas, ni los de sala aquí. */
 export const ZONE_TICKET_AUDIENCE = 'alux-zone';
-/** Zonas sociales que existen. */
-export const ZONES = ['merida'] as const;
+/**
+ * Zonas del servidor de zonas (un solo proceso las sirve todas; game/scripts/shared/zones.gd).
+ * `merida`: la plaza (lugar social). `camino_motul`: primera región abierta, con criaturas,
+ * descubrimientos y una misión. El ticket dice por cuál se entra; después se pasa de una a otra
+ * por sus pasos sin ticket nuevo (mensaje `travel`, ver docs/OPEN_WORLD.md §14).
+ */
+export const ZONES = ['merida', 'camino_motul'] as const;
 export const SESSION_AUDIENCE = 'alux-session';
 export const GAME_TICKET_TTL_SECONDS = 90;
 

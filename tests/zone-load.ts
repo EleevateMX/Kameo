@@ -1,6 +1,10 @@
 // Carga del servidor de zonas: N aluxes simulados paseando por la plaza, y lo que cuesta.
 //
-//   npx tsx zone-load.ts [8 16 32 …] [--secs 30] [--out archivo.json]
+//   npx tsx zone-load.ts [8 16 32 …] [--secs 30] [--out archivo.json] [--zone camino_motul]
+//
+// Con `--zone camino_motul` los aluxes pasean por el Camino a Motul (222 m, con criaturas que
+// el servidor simula) y lanzan su chispa de vez en cuando: «juntos» es todos en el primer tramo
+// abierto, junto a las criaturas; «repartidos», a lo largo de todo el camino.
 //
 // Por cada N se hacen dos pasadas: «juntos» (todos alrededor del árbol: el peor caso, todos se
 // ven) y «repartidos» (por toda la plaza). Se mide, ya con todos dentro y moviéndose:
@@ -22,7 +26,17 @@ const args = process.argv.slice(2);
 const flag = (name: string, fallback: string) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : fallback; };
 const SECS = Number(flag('secs', '30'));
 const OUT = flag('out', '');
-const sizes = args.filter((a, i) => /^\d+$/.test(a) && args[i - 1] !== '--secs').map(Number);
+const ZONE = flag('zone', 'merida');
+const ROAD: [number, number][] = [[0, 0], [26, -4], [52, -16], [78, -20], [104, -34], [128, -52], [154, -58], [180, -72], [204, -80]];
+/** Un punto del camino a `t` (0–1) de su largo, desplazado `side` metros a un lado. */
+function roadAt(t: number, side: number) {
+  const seg = Math.min(ROAD.length - 2, Math.floor(t * (ROAD.length - 1)));
+  const k = t * (ROAD.length - 1) - seg;
+  const [x0, z0] = ROAD[seg], [x1, z1] = ROAD[seg + 1];
+  const len = Math.hypot(x1 - x0, z1 - z0);
+  return { x: x0 + (x1 - x0) * k - (z1 - z0) / len * side, z: z0 + (z1 - z0) * k + (x1 - x0) / len * side };
+}
+const sizes = args.filter((a, i) => /^\d+$/.test(a) && !['--secs', '--out', '--zone'].includes(args[i - 1])).map(Number);
 const SIZES = sizes.length ? sizes : [8, 16, 32];
 const CLOCK = 100;   // jiffies por segundo en Linux
 
@@ -41,7 +55,7 @@ async function run(n: number, together: boolean) {
   const bots: ZBot[] = [];
   for (let i = 0; i < n; i++) {
     const bot = new ZBot(randomUUID(), `Alux ${i + 1}`, `ws://127.0.0.1:${port}`);
-    await bot.connect(signJwt({ aud: ZONE_TICKET_AUDIENCE, sub: bot.id, jti: randomUUID(), zone: 'merida', name: bot.name, color: '#2ec4a6', hat: i % 7, look: [i % 4, i % 5, i % 5, i % 10, i % 5] }, SECRET, 60));
+    await bot.connect(signJwt({ aud: ZONE_TICKET_AUDIENCE, sub: bot.id, jti: randomUUID(), zone: ZONE, name: bot.name, color: '#2ec4a6', hat: i % 7, look: [i % 4, i % 5, i % 5, i % 10, i % 5] }, SECRET, 60));
     if (!bot.welcome) throw new Error(`el alux ${i + 1} no pudo entrar: ${bot.error?.code}`);
     bots.push(bot);
   }
@@ -51,14 +65,16 @@ async function run(n: number, together: boolean) {
     while (walking) {
       const a = Math.random() * Math.PI * 2;
       const r = together ? 4 + Math.random() * 6 : 6 + Math.random() * 26;
-      const target = together ? { x: Math.sin(a) * r, z: 13 + Math.cos(a) * r * 0.6 } : { x: Math.sin(a) * r, z: Math.cos(a) * r };
+      let target = together ? { x: Math.sin(a) * r, z: 13 + Math.cos(a) * r * 0.6 } : { x: Math.sin(a) * r, z: Math.cos(a) * r };
+      if (ZONE === 'camino_motul') target = roadAt(together ? 0.15 + Math.random() * 0.15 : Math.random(), (Math.random() - 0.5) * 12);
       const end = Date.now() + 2500 + Math.random() * 2500;
       let next = Date.now();
       while (walking && Date.now() < end) {
         const p = bot.pos();
         const dx = target.x - p.x, dz = target.z - p.z, d = Math.hypot(dx, dz);
         bot.seq++;
-        bot.send({ t: 'in', s: bot.seq, x: d > 0.6 ? dx / d : 0, z: d > 0.6 ? dz / d : 0, j: Math.random() < 0.01 ? 1 : 0, r: Math.atan2(dx, dz) });
+        bot.send({ t: 'in', s: bot.seq, x: d > 0.6 ? dx / d : 0, z: d > 0.6 ? dz / d : 0, j: Math.random() < 0.01 ? 1 : 0, r: Math.atan2(dx, dz), e: bot.epoch });
+        if (ZONE === 'camino_motul' && Math.random() < 0.05) bot.send({ t: 'atk', r: Math.random() * 6.28 - 3.14 });
         next += 50;
         await sleep(Math.max(0, next - Date.now()));
       }
@@ -80,7 +96,7 @@ async function run(n: number, together: boolean) {
   }
   const secs = (Date.now() - t0) / 1000;
   const result = {
-    aluxes: n, reparto: together ? 'juntos' : 'repartidos', segundos: Math.round(secs),
+    aluxes: n, zona: ZONE, reparto: together ? 'juntos' : 'repartidos', segundos: Math.round(secs),
     cpu_pct: +(100 * (cpuTicks(pid) - cpu0) / CLOCK / secs).toFixed(1),
     memoria_mb: +rssMb(pid).toFixed(0),
     paso_ms: +(tickAvg / Math.max(statsN, 1)).toFixed(3), paso_max_ms: +tickMax.toFixed(2),

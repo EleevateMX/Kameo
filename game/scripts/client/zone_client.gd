@@ -26,6 +26,9 @@ const Hud := preload("res://scripts/client/hud.gd")
 const Combat := preload("res://scripts/shared/combat_def.gd")
 const PerfGovernor := preload("res://scripts/client/perf_governor.gd")
 const ShopPanel := preload("res://scripts/client/shop_panel.gd")
+# ── Mundo abierto (Camino a Motul): ver open_world.gd ──
+const Zones := preload("res://scripts/shared/zones.gd")
+const OpenWorld := preload("res://scripts/client/open_world.gd")
 
 ## Perfil de calidad de la plaza (0 alta · 1 baja · 2 mínima). El regulador mueve la resolución del
 ## 3D entre `min_scale` y `max_scale`; `max_pixels` acota las pantallas de alta densidad.
@@ -129,6 +132,14 @@ var _account: Dictionary = {}               # perfil del jugador (/api/v1/me): r
 var _account_poll := 0.0
 var _account_state := ""                    # "" sin pedir · "wait" · "ok" · "error"
 
+# Mundo abierto: la zona en la que se está, el escenario de la plaza como nodo aparte (para
+# quitarlo al salir al camino) y el módulo que lleva criaturas, misión, mapa y pasos entre zonas
+var _zone := "merida"
+var _epoch := 0                             # lo sube el servidor en cada viaje o reaparición
+var _plaza_root: Node3D
+var _world: OpenWorld
+var _zone_title: Label
+
 
 func _ready() -> void:
 	_is_web = OS.has_feature("web")
@@ -142,7 +153,10 @@ func _ready() -> void:
 	_gov = PerfGovernor.new()
 	add_child(_gov)
 	_gov.struggling.connect(_on_struggling)
-	_plaza.build(self, _quality)
+	_plaza_root = Node3D.new()
+	_plaza_root.name = "Plaza"
+	add_child(_plaza_root)
+	_plaza.build(_plaza_root, _quality)
 	_blob = _plaza.make_blob()
 	_blob.visible = false
 	add_child(_blob)
@@ -160,6 +174,9 @@ func _ready() -> void:
 	_custom.saved.connect(_on_look_saved)
 	_custom.closed.connect(_on_custom_closed)
 	_build_ui()
+	_world = OpenWorld.new()
+	add_child(_world)
+	_world.setup(self, _ui.get_child(0), _plaza_root)
 	if _is_web:
 		_debug_on = int(_js("window.ALUX_DEBUG === true ? 1 : 0")) == 1
 		_load_volumes()
@@ -190,7 +207,7 @@ func _load_volumes() -> void:
 func _request_ticket() -> void:
 	_net = Net.TICKET
 	_ticket_poll = 0.2
-	_js("(function(){window.ALUX_ZONE='';fetch('/api/v1/zones/%s/ticket',{method:'POST',credentials:'same-origin',headers:{'x-alux-csrf':'1'}})" % Zone.ID +
+	_js("(function(){window.ALUX_ZONE='';fetch('/api/v1/zones/%s/ticket',{method:'POST',credentials:'same-origin',headers:{'x-alux-csrf':'1'}})" % _zone +
 		".then(function(r){if(r.status===401){var w=window;try{if(window.top&&window.top.document)w=window.top}catch(e){}w.location.href='/?next=%2Fplaza';return ''}" +
 		"return r.ok?r.text():Promise.reject(r.status)}).then(function(t){if(t)window.ALUX_ZONE=t}).catch(function(e){window.ALUX_ZONE='error:'+e})})()")
 
@@ -265,22 +282,43 @@ func _on_message(m: Dictionary) -> void:
 			_seq = 0
 			_fix = Vector3.ZERO
 			_face = float(m.get("yaw", PI))
+			_epoch = int(m.get("e", 0))
+			_set_zone(str(m.get("zone", Zone.ID)))
 			# Se llega mirando al guía, que espera en el centro del corro
 			var to_guide := Zone.GUIDE - Vector2(float(pos[0]), float(pos[2]))
-			if to_guide.length() > 1.0:
+			if _zone == Zone.ID and to_guide.length() > 1.0:
 				_face = atan2(to_guide.x, to_guide.y)
 			_cam_yaw = _face
 			_spawn_me()
 			_tries = 0
 			_net = Net.PLAYING
 			_set_overlay("")
-			_hint_default = "Clic para mirar  ·  WASD para andar  ·  Espacio para saltar  ·  F: hablar y usar  ·  Esc: menú"
+			_hint_default = "Clic para mirar  ·  WASD para andar  ·  Espacio para saltar  ·  F: hablar y usar  ·  M: mapa  ·  Esc: menú"
 			_hint.text = _hint_default
-			_audio.set_music("mus_lobby")
+			if _zone == Zone.ID:
+				_audio.set_music("mus_lobby")
+			_world.enter(m)
 			_request_account()
+		"zone":
+			# El servidor me pasó a otra zona (o me hizo reaparecer): mismo socket, sitio nuevo
+			var pos: Array = m.get("pos", [0.0, 0.0, 0.0])
+			_clear_others()
+			_pred = [float(pos[0]), float(pos[1]), float(pos[2]), 0.0]
+			_prev = _pred.duplicate()
+			_pending.clear()
+			_fix = Vector3.ZERO
+			_face = float(m.get("yaw", _face))
+			_cam_yaw = _face
+			_epoch = int(m.get("e", _epoch + 1))
+			_set_zone(str(m.get("zone", _zone)))
+			_set_overlay("")
+			_world.enter(m)
+			if _me != null:
+				_me.global_position = Vector3(_pred[0], _pred[1], _pred[2])
 		"s":
 			_total = int(m.get("n", 0))
 			_reconcile(m.get("m", []), int(m.get("a", 0)))
+			_world.on_state(m)
 			for e in m.get("p", []):
 				var o: Dictionary = _others.get(int(e[0]), {})
 				if o.is_empty():
@@ -306,6 +344,8 @@ func _on_message(m: Dictionary) -> void:
 				_retry("El pase a la plaza caducó.")
 			else:
 				_fatal("La plaza cerró la conexión (%s)." % code)
+		_:
+			_world.on_message(m)
 
 
 func _spawn_me() -> void:
@@ -360,7 +400,7 @@ func _reconcile(state: Array, ack: int) -> void:
 		_pending.pop_front()
 	var s: Array = [float(state[0]), float(state[1]), float(state[2]), float(state[3])]
 	for inp in _pending:
-		s = Zone.step(s, float(inp[1]), float(inp[2]), bool(inp[3]))
+		s = Zones.step(_zone, s, float(inp[1]), float(inp[2]), bool(inp[3]))
 	var gap := Vector3(float(_pred[0]) - float(s[0]), float(_pred[1]) - float(s[1]), float(_pred[2]) - float(s[2]))
 	if gap.length() > 0.001:
 		# La diferencia no se salta de golpe: se absorbe en unas décimas (o de una vez si es enorme)
@@ -398,7 +438,9 @@ func _process(delta: float) -> void:
 	_audio.listener = at
 	if _blob.visible:
 		_blob.position = Vector3(at.x, 0.03, at.z)
-	_plaza.update(delta, at)
+	if _zone == Zone.ID:
+		_plaza.update(delta, at)
+	_world.process(delta, at)
 	_update_others(delta)
 	_update_npcs(delta, at)
 	_poll_account(delta)
@@ -407,7 +449,10 @@ func _process(delta: float) -> void:
 	else:
 		_update_camera(at)
 	_update_ui(at)
-	_update_soundscape(delta, at)
+	if _zone == Zone.ID:
+		_update_soundscape(delta, at)
+	else:
+		_world.soundscape(delta, at)
 	_poll_room(delta)
 	_debug_export(delta)
 
@@ -416,7 +461,7 @@ func _tick() -> void:
 	var mx := 0.0
 	var mz := 0.0
 	var jump := false
-	if not _custom.active and not _menu.visible and _panel_id.is_empty():
+	if not _custom.active and not _menu.visible and _panel_id.is_empty() and not _world.blocks_input():
 		var fwd := Vector2(sin(_cam_yaw), cos(_cam_yaw))
 		var right := Vector2(-fwd.y, fwd.x)
 		var f := float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)) - float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN))
@@ -437,13 +482,13 @@ func _tick() -> void:
 	if absf(mx) + absf(mz) > 0.01:
 		_face = atan2(mx, mz)
 	_prev = _pred.duplicate()
-	_pred = Zone.step(_pred, mx, mz, jump)
+	_pred = Zones.step(_zone, _pred, mx, mz, jump)
 	_seq += 1
 	_pending.append([_seq, mx, mz, jump])
 	if _pending.size() > 40:
 		_pending.pop_front()
 	if _ws != null and _ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
-		_ws.send_text(JSON.stringify({"t": "in", "s": _seq, "x": snappedf(mx, 0.001), "z": snappedf(mz, 0.001), "j": 1 if jump else 0, "r": snappedf(_face, 0.01)}))
+		_ws.send_text(JSON.stringify({"t": "in", "s": _seq, "x": snappedf(mx, 0.001), "z": snappedf(mz, 0.001), "j": 1 if jump else 0, "r": snappedf(_face, 0.01), "e": _epoch}))
 
 
 ## Los demás aluxes se dibujan un poco en el pasado, interpolando entre los estados recibidos.
@@ -496,8 +541,12 @@ func _update_camera(target: Vector3) -> void:
 	var pos := look - fwd * _cam_dist
 	pos.y = maxf(pos.y, 0.4)
 	# La cámara no sale del recinto (ni atraviesa el edificio de los arcos)
-	pos.x = clampf(pos.x, -Zone.HALF + 0.4, Zone.HALF - 0.4)
-	pos.z = clampf(pos.z, -28.4, Zone.HALF - 0.4)
+	if _zone == Zone.ID:
+		pos.x = clampf(pos.x, -Zone.HALF + 0.4, Zone.HALF - 0.4)
+		pos.z = clampf(pos.z, -28.4, Zone.HALF - 0.4)
+		# ni se mete en el arco hacia Motul (detrás de su vano pintado está el pretil)
+		if absf(pos.z - Zone.GATE_MOTUL.y) < 3.6:
+			pos.x = minf(pos.x, float(Zone.MOTUL_JAMBS[0][0]) - 0.7)
 	_cam.global_position = pos
 	_cam.look_at(look, Vector3.UP)
 
@@ -515,6 +564,9 @@ func _update_soundscape(delta: float, at: Vector3) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _custom.active or _net != Net.PLAYING:
+		return
+	# El mundo abierto primero: mapa, diálogo de la misión, chispa, purificar y pasos entre zonas
+	if not _menu.visible and _panel_id.is_empty() and not (event is InputEventMouseMotion) and _world.input(event):
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var mm := event as InputEventMouseMotion
@@ -539,7 +591,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_close_panel(key != KEY_ESCAPE)
 		elif key == KEY_ESCAPE:
 			_toggle_menu(not _menu.visible)
-		elif key == KEY_F and not _menu.visible:
+		elif key == KEY_F and not _menu.visible and _zone == Zone.ID:
 			if Zone.at_portal(float(_pred[0]), float(_pred[2])):
 				_enter_claro()
 			elif not _poi.is_empty():
@@ -643,7 +695,8 @@ func _build_ui() -> void:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 2)
 	panel.add_child(col)
-	col.add_child(Kit.label("%s  ·  %s" % [Zone.NAME.to_upper(), Zone.ALIAS], 15, Kit.GOLD, Kit.bold_font()))
+	_zone_title = Kit.label("%s  ·  %s" % [Zone.NAME.to_upper(), Zone.ALIAS], 15, Kit.GOLD, Kit.bold_font())
+	col.add_child(_zone_title)
 	_info = Kit.label("", 13, Kit.LIME)
 	col.add_child(_info)
 	_hint = Kit.label("", 13, Color(1, 1, 1, 0.75))
@@ -677,6 +730,9 @@ func _build_ui() -> void:
 	mv.add_child(title)
 	mv.add_child(_button("Seguir paseando", func() -> void: _toggle_menu(false), true))
 	mv.add_child(_button("Personalizar mi alux", _open_customizer))
+	mv.add_child(_button("Mapa  ·  M", func() -> void:
+		_toggle_menu(false)
+		_world.open_map()))
 	_menu_fs = _button("Pantalla completa", func() -> void: _js("window.ALUX_FS && ALUX_FS.toggle()"))
 	_menu_fs.visible = _is_web and bool(_js("!!(window.ALUX_FS && ALUX_FS.supported)"))
 	mv.add_child(_menu_fs)
@@ -745,10 +801,13 @@ func _set_overlay(text: String) -> void:
 
 
 func _update_ui(at: Vector3) -> void:
-	_info.text = "%d %s en la plaza  ·  ves a %d" % [_total, "alux" if _total == 1 else "aluxes", _others.size()]
-	_poi = Zone.poi_at(at.x, at.z)
+	_info.text = "%d %s %s  ·  ves a %d" % [_total, "alux" if _total == 1 else "aluxes", "en la plaza" if _zone == Zone.ID else "en el camino", _others.size()]
+	_poi = Zone.poi_at(at.x, at.z) if _zone == Zone.ID else ""
 	var free := not _menu.visible and _room_poll <= 0.0 and _panel_id.is_empty()
-	if free and Zone.at_portal(at.x, at.z):
+	var world_prompt: String = _world.prompt() if free else ""
+	if not world_prompt.is_empty():
+		_prompt.text = world_prompt
+	elif free and _zone == Zone.ID and Zone.at_portal(at.x, at.z):
 		_prompt.text = "F  ·  Entrar al Claro de los Aluxes"
 	elif free and not _poi.is_empty():
 		_prompt.text = "F  ·  %s" % _poi_def(_poi).verb
@@ -795,6 +854,8 @@ func _set_quality(level: int) -> void:
 	_gov.configure({"min_scale": p.min_scale, "max_scale": p.max_scale, "max_pixels": p.max_pixels})
 	_gov.set_scale(1.0)   # cada perfil empieza en su techo; el regulador baja desde ahí si hace falta
 	_plaza.set_quality(_quality)
+	if _world != null:
+		_world.set_quality(_quality)
 	_blob.visible = _quality == 2
 	if _me != null:
 		_me.set_lod(0, _quality < 2)
@@ -909,7 +970,7 @@ func _update_npcs(delta: float, at: Vector3) -> void:
 		var d := Vector2(av.position.x, av.position.z).distance_to(Vector2(at.x, at.z))
 		if check:
 			if bool(n.def.get("ambient", false)):
-				av.visible = _quality < 2 and d < (29.0 if av.visible else 26.0)
+				av.visible = _zone == Zone.ID and _quality < 2 and d < (29.0 if av.visible else 26.0)
 			var lod := 0 if d < (30.0 if int(n.lod) == 0 else 27.0) else 2
 			if lod != int(n.lod):
 				n.lod = lod
@@ -1146,7 +1207,7 @@ func _debug_export(delta: float) -> void:
 			"customize":
 				_open_customizer()
 			"portal":
-				if Zone.at_portal(float(_pred[0]), float(_pred[2])):
+				if _zone == Zone.ID and Zone.at_portal(float(_pred[0]), float(_pred[2])):
 					_enter_claro()
 			"menu":
 				_toggle_menu(not _menu.visible)
@@ -1171,6 +1232,8 @@ func _debug_export(delta: float) -> void:
 				# (pruebas) órdenes al puesto: shop:buy:skill:chispa, shop:gacha, shop:equip:0…
 				if act.begins_with("shop:"):
 					_shop.command(act.trim_prefix("shop:"))
+				else:
+					_world.debug_action(act)
 	var cmd := str(_js("window.ALUX_CUSTOM || ''"))
 	if not cmd.is_empty():
 		_js("window.ALUX_CUSTOM = ''")
@@ -1196,13 +1259,39 @@ func _debug_export(delta: float) -> void:
 	for n in _npcs:
 		npcs.append({"name": n.def.name, "poi": n.def.poi, "x": (n.av as Avatar).position.x, "z": (n.av as Avatar).position.z, "lod": n.lod})
 	var state := {
-		"net": Net.keys()[_net], "zone": Zone.ID, "total": _total, "cap": _cap, "players": players,
+		"net": Net.keys()[_net], "zone": _zone, "world": _world.debug_state(), "epoch": _epoch, "total": _total, "cap": _cap, "players": players,
 		"me": {"name": _profile.get("n", ""), "color": _profile.get("c", ""), "hat": _profile.get("h", 0), "look": _profile.get("l", []),
 			"x": snappedf(float(_pred[0]), 0.01), "y": snappedf(float(_pred[1]), 0.01), "z": snappedf(float(_pred[2]), 0.01)},
-		"portal": Zone.at_portal(float(_pred[0]), float(_pred[2])), "prompt": _prompt.text, "overlay": _overlay.text,
+		"portal": _zone == Zone.ID and Zone.at_portal(float(_pred[0]), float(_pred[2])), "prompt": _prompt.text, "overlay": _overlay.text,
 		"custom": _custom.info(), "shop": _shop.info(), "snd": _audio.info(),
 		"ui": {"menu": _menu.visible, "captured": Input.mouse_mode == Input.MOUSE_MODE_CAPTURED, "panel": _panel_id, "perf": _perf_box.visible},
 		"pois": pois, "npcs": npcs, "poi": _poi, "account": {"state": _account_state, "rewards": _account.get("rewards", []), "unlocks": _account.get("unlocks", [])},
 		"quality": ["high", "low", "min"][_quality], "perf": _perf_stats(), "scene": _plaza.info(),
 	}
 	_js("window.__aluxState = %s" % JSON.stringify(state))
+
+
+# ───────────────────────── Zonas (mundo abierto) ─────────────────────────
+
+## Pone el escenario de la zona: la plaza (con sus personajes) o el camino (open_world.gd).
+func _set_zone(z: String) -> void:
+	if not Zones.has(z):
+		z = Zone.ID
+	var changed := z != _zone
+	_zone = z
+	var plaza := z == Zone.ID
+	if plaza and _plaza_root.get_parent() == null:
+		add_child(_plaza_root)
+	elif not plaza and _plaza_root.get_parent() != null:
+		remove_child(_plaza_root)
+	for n in _npcs:
+		(n.av as Avatar).visible = plaza
+	_world.show_zone(z)
+	_zone_title.text = "%s  ·  %s" % [str(Zones.NAMES[z]).to_upper(), str(Zones.ALIASES[z])]
+	if changed and plaza:
+		_audio.set_music("mus_lobby")
+		Audio.ground_override = "piedra"
+	elif changed:
+		Audio.ground_override = "hierba"
+	if changed:
+		_close_panel(false)
