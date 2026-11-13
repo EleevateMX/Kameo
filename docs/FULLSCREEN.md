@@ -38,9 +38,35 @@ En Chromium (el mismo motor que Chrome y Edge), automatizado:
 6. Si el navegador niega la petición, se entra igual, en ventana.
 7. Abriendo el juego directamente, el primer clic la pide, una sola vez.
 
-Desde la plaza (`/plaza`) y el personalizador (`/alux`) el juego se abre en el mismo marco. La plaza
-pide la pantalla completa con el primer clic o tecla dentro del juego, si esa es la preferencia; el
-personalizador no la pide.
+Desde la plaza (`/plaza`) y el personalizador (`/alux`) el juego se abre en el mismo marco. Quien
+llega a la plaza por un enlace directo entra en pantalla completa con el primer clic o tecla dentro
+del juego, si esa es la preferencia; el personalizador no la pide.
+
+## Desde el menú principal
+
+El menú del portal (`/hub`) es la entrada al juego y trata la pantalla completa igual en todos sus
+caminos:
+
+- **«Entrar al mundo»** (la plaza) la pide dentro del propio clic o Enter, como JUGAR, si la
+  preferencia está activa. **«Personalizar mi alux»** no la pide.
+- **Del menú al juego no se recarga la página** (plaza, personalizador y sala): si ya había
+  pantalla completa, sigue puesta mientras carga. Encima del juego va la pantalla de carga del
+  portal, que es sólo imagen (no recibe clics ni teclas) y se retira cuando el motor arranca.
+- **La casilla «Pantalla completa al jugar»** está siempre al pie del menú, no sólo con una sala
+  abierta.
+- **Con la pantalla completa puesta, los saltos que pide el juego** (de la plaza a una sala al
+  cruzar el portal, y «Salir al portal») **tampoco recargan la página**, donde el navegador tiene
+  la Navigation API (Chrome y Edge; en los demás se recarga como siempre y la pantalla completa se
+  pierde en ese salto). En ventana no cambia nada: el juego recarga la página como antes.
+- **El menú puede quedar en pantalla completa** al volver del juego. Ahí Esc vuelve a ser del
+  navegador (se suelta el bloqueo de teclado del juego) y al pie hay un «Salir de pantalla
+  completa».
+
+Comprobado en Chromium con un guion propio (no forma parte de `test:fullscreen`): «Entrar al
+mundo» deja la plaza en pantalla completa sin recargar; el personalizador no la pide; con la
+preferencia desactivada se entra en ventana; con pantalla completa, plaza → sala y juego → menú no
+recargan y la conservan (el salto lo provoca el guion con la misma orden que usa el juego, no una
+partida real); en ventana, juego → menú recarga como siempre.
 
 Nota de las pruebas: el botón del juego se pulsa con el ratón de verdad (mover, pulsar, soltar). La
 orden de clic de alto nivel del arnés se queda esperando cuando el propio clic cambia el modo de

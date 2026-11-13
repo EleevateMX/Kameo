@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 // Enlace de invitación y destino del botón JUGAR: /play/ABC123. Si no hay sesión, primero se
 // inicia y luego se vuelve aquí. El juego se muestra dentro de esta página para conservar la
-// pantalla completa que pidió el botón.
+// pantalla completa que pidió el botón, con la pantalla de carga del portal encima hasta que arranca.
 export default async function PlayPage({ params, searchParams }: {
   params: Promise<{ code: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -21,5 +21,5 @@ export default async function PlayPage({ params, searchParams }: {
     const value = given[key];
     if (typeof value === 'string' && /^[a-z0-9]{1,8}$/i.test(value)) query += `&${key}=${value}`;
   }
-  return <PlayFrame src={`/game/index.html?room=${code}${query}`} />;
+  return <PlayFrame src={`/game/index.html?room=${code}${query}`} destino="sala" sala={code} />;
 }
