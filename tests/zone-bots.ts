@@ -130,10 +130,10 @@ export class ZBot {
   /** Espera a que el servidor haya aplicado todo lo enviado y el alux esté quieto. */
   async settle() {
     const end = Date.now() + 3000;
-    while (Date.now() < end && this.ack < this.seq) {
-      await sleep(50);
-      if (this.ack < this.seq - 8) break;   // el servidor descartó entradas viejas: no van a llegar
-    }
+    // El servidor conserva siempre las entradas más recientes (descarta las viejas si se le mandan
+    // más de las que caben), así que acaba confirmando la última enviada: se espera a eso. Salir
+    // antes dejaba la cola a medio vaciar y el alux todavía andando.
+    while (Date.now() < end && this.ack < this.seq) await sleep(50);
     await sleep(350);
   }
 

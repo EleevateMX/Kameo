@@ -50,6 +50,14 @@ la máquina y pasaron al repetirlas en calma; tres (flujo, cuatro jugadores y pa
 fallaban de verdad porque seguían probando el portal de la 0.3 o usaban una orden de clic que se
 cuelga al cambiar de modo de pantalla, y se corrigieron las pruebas.
 
+**Repetida entera con los sonidos elegidos y su mezcla** (commit `bd140aa`, misma fecha, máquina en
+calma, una prueba cada vez): mismos resultados, todo en verde salvo una prueba del servidor de zonas
+(«nadie se teletransporta») que falló una vez. Era una carrera de la propia prueba: el bot daba por
+asentado al alux con la cola de entradas del servidor a medio vaciar. Corregida la espera del bot,
+no el servidor ni la comprobación; 7 de 7 en siete pasadas seguidas. Estas pruebas miden que hay
+señal y que la partida funciona: **no dicen si la mezcla nueva suena bien**, eso sigue pendiente de
+oído dentro del juego.
+
 **Antes de publicar la 0.4 falta:** arrancar el servidor de zonas en la imagen y encaminar su
 WebSocket, construir y medir esa imagen, repetir la regresión sobre el commit exacto y tu visto
 bueno.
