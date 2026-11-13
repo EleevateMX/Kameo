@@ -69,6 +69,8 @@ export interface PlayerProfile {
   unlocks: FormId[];
   rewards: string[];
   quests: Record<string, string>;
+  /** Progresión RPG (nivel, experiencia, semillas, inventario). Sólo la trae `GET /v1/me`. */
+  rpg?: import('./rpg.ts').RpgView;
 }
 
 export type RoomVisibility = 'private' | 'public';

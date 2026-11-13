@@ -61,7 +61,7 @@ export function HubClient({ initialProfile, baseUrl }: { initialProfile: PlayerP
     setError('');
     try {
       const p = await api<PlayerProfile>('/me/character', { method: 'PUT', body: JSON.stringify({ name, color, hat }) });
-      setProfile(p);
+      setProfile((prev) => ({ ...p, rpg: p.rpg ?? prev.rpg }));
       setName(p.character.name);
       setSavedMsg('Guardado');
       setTimeout(() => setSavedMsg(''), 2000);
@@ -349,6 +349,15 @@ export function HubClient({ initialProfile, baseUrl }: { initialProfile: PlayerP
 
           <h3>Tu progreso</h3>
           <ul className="progress">
+            {profile.rpg ? (
+              <li>
+                <span className="tag relic">Nivel {profile.rpg.level}</span>
+                <span>
+                  {profile.rpg.xpToNext > 0 ? `${profile.rpg.xpInLevel} / ${profile.rpg.xpToNext} de experiencia` : 'nivel máximo'}
+                  {' · '}{profile.rpg.seeds} {profile.rpg.seeds === 1 ? 'semilla' : 'semillas'} de jade
+                </span>
+              </li>
+            ) : null}
             {profile.unlocks.map((f) => (
               <li key={f}><span className="tag form">Forma</span><span>{FORM_NAMES[f] ?? f}</span></li>
             ))}
