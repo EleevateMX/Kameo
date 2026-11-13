@@ -12,6 +12,8 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 
 | **Closed Alpha 0.3** | **Publicada** el 12 nov 2026 en <https://alux-beta.onrender.com> | Jefe Nojoch Tuunich completo (tres fases, modelo definitivo, cinemáticas de despertar y liberación con Kling), Pluma de Jade y pista del Cenote |
 
+| Closed Alpha 0.3.1 | **Candidata, sin publicar**: espera tu visto bueno | La 0.3 con el audio arreglado (no sonaba nada), mezclador propio, música original, ambientes por zona, bandas sonoras de las cinemáticas, 50 efectos nuevos y prueba de sonido en el menú |
+
 ## Publicación en la rama `beta`
 
 La rama `beta` es lo único que Render despliega. Cada entrada dice qué commit lleva el código de
@@ -19,6 +21,68 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
+
+## ALUX Closed Alpha 0.3.1 — El claro vuelve a oírse (candidata)
+
+| | |
+| --- | --- |
+| **Estado** | **Candidata, sin publicar.** Nada llega a `beta` sin tu visto bueno |
+| **Código de la versión** | `963630b` en la rama de trabajo `claude/tender-johnson-c2gk0s` (los commits posteriores sólo añaden este registro, la documentación y el paso de audio de `beta:check`; el juego no cambia) |
+| **Rollback** | Publicar en `beta` el commit `93007a0` (0.3). Sin migraciones ni cambios de infraestructura: los datos sirven en los dos sentidos |
+| **Qué cambia respecto a la 0.3** | Cliente del juego (audio), archivos de sonido, pruebas y documentación; en la API, sólo campos nuevos en la telemetría de sesión. **Sin cambios** en el servidor de juego, el protocolo, `render.yaml`, la imagen ni la base de datos |
+
+### El defecto que corrige
+
+Un jugador entró a la 0.3 y no oyó nada. Era cierto y venía desde la 0.1: en la exportación web el
+bus maestro del motor quedaba desconectado de la salida del navegador porque los buses se creaban
+en ejecución. Las pruebas no lo veían porque sólo comprobaban que el juego «reproducía». Causa,
+evidencia y corrección: [AUDIO.md](AUDIO.md).
+
+### Novedades
+
+| Novedad | Detalle |
+| --- | --- |
+| El juego suena | Buses definidos en `default_bus_layout.tres`. Medido en la salida del navegador: de silencio absoluto a ambiente y música a unos −27 dBFS con picos de −6 dBFS en las habilidades |
+| Mezclador propio | `alux-audio.js`: bucles sin corte, fundidos de música, capas de ambiente, atenuación de la música bajo los golpes grandes y en las cinemáticas, limitador y medidor de la salida. Buses: Master, Music, Ambience, SFX, UI, Cinematics y Voice |
+| Activación y diagnóstico | El audio arranca con el primer gesto; aviso en pantalla si el navegador lo bloquea o si el volumen está a cero; **Menú → Probar sonido** mide la señal y lo dice; la telemetría guarda si la sesión llegó a sonar |
+| Música original | Diez piezas en estéreo: claro, exploración, peligro, emboscada, las tres fases de Nojoch Tuunich, liberación, victoria y el primer tema del lobby |
+| Paisaje sonoro | Diez capas de ambiente que cambian con la zona: selva, aves, insectos, viento, agua y cenote, ruinas y energía del santuario, brasero |
+| Cinemáticas con sonido | «El llamado», «El sello cede», «El despertar» y «La liberación» tienen banda sonora propia (efectos y música por separado), la misma con vídeo o con el motor; al omitir se funde |
+| Banco de efectos | 50 efectos nuevos: pasos por material, variantes de chispa y garras, Balam, criaturas, guardián, interfaz y avisos de compañeros |
+| Ajustes | Volúmenes de interfaz y cinemáticas; el menú cabe en pantallas bajas |
+| Playtest | Métricas del combate por jugador y hoja de observación ([PLAYTEST.md](PLAYTEST.md)) |
+
+Todo el audio es síntesis propia; no se usa material de terceros ([ASSETS_AUDIO.md](ASSETS_AUDIO.md)).
+
+### Comprobado (en local, sobre una copia limpia de `963630b`)
+
+| Comprobación | Resultado |
+| --- | --- |
+| API | 11 de 11 |
+| Simulación compartida | 427 840 comprobaciones, sin violaciones |
+| Servidor con bots | 17 de 17 |
+| **Audio en navegador** (`npm run test:audio`, midiendo y grabando la salida real) | 11 de 11: suena al entrar, la habilidad se oye por encima sin recortar, «Probar sonido» confirma señal, silenciado es silencio absoluto con aviso, música a cero deja el ambiente, pestaña oculta calla y vuelve, bucles exactos sin reinicios, bloqueo de autoplay (simulado) con aviso y arranque al primer clic, banda sonora de la introducción y su omisión |
+| Cinemáticas en vídeo (`npm run test:cine`) | Pasa (7 comprobaciones) |
+| Combate completo en navegador (`npm run test:boss`) | Pasa a la segunda: cada fase suena con su música y las dos cinemáticas de Kling llevan su banda sonora. La primera vez falló donde ya había fallado alguna vez antes de esta versión: la jugadora del navegador, a 1–2 FPS por software, no llegó andando hasta el guardián en la fase 3 |
+| Flujo de playtest (`npm run test:flow`) | 15 pasos, con el audio medido |
+| Cuatro navegadores (`npm run test:e2e`) | 10 de 10 (sincronía del combate, reconexión, quinto jugador rechazado, identidad tras recargar) |
+| Manifiesto de audio (`python3 art/audio/manifiesto.py --check`) | 147 archivos declarados, ninguno sin declarar |
+| Revisión previa de publicación (`npm run beta:preflight`) | Superada sobre `963630b`: sin secretos, migraciones sin cambios, vídeos completos |
+| Archivos de audio servidos (`npm run beta:check`, paso nuevo «Audio del juego») | En local: mezclador y 28 pistas con su tamaño y tipo `audio/mpeg`. Contra producción dice, como debe, que la 0.3 no trae mezclador |
+
+### Peso
+
+Descarga inicial: 10,58 MB con Brotli (11,25 MB en la 0.3: la música y los ambientes ya no van
+dentro del juego). Audio bajo demanda: 2,8 MB al entrar y hasta 12,3 MB si se oye todo. Detalle y
+memoria en [AUDIO.md](AUDIO.md).
+
+### Sin comprobar
+
+- **Nadie ha escuchado esta versión.** Las pruebas miden que hay señal, su nivel y que no recorta;
+  no dicen si suena bien. Las grabaciones de la salida del navegador quedan para oírlas.
+- Chrome, Edge, Firefox y Safari reales, con tarjeta gráfica y con cuatro personas.
+- La imagen de despliegue de esta versión **no se ha construido** (la de la 0.3 sí); `beta:preflight`
+  y la comprobación contra el servicio se harán al publicar.
 
 ## ALUX Closed Alpha 0.3 — El Guardián Dormido
 

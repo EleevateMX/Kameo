@@ -10,9 +10,9 @@ Pruebas: [PLAYTEST.md](PLAYTEST.md) · Versiones: [RELEASES.md](RELEASES.md).
 
 | Área | Estado real |
 | --- | --- |
-| Versión publicada | **Closed Alpha 0.2.1** en <https://alux-beta.onrender.com> (rama `beta`, commit `94bb9c8`), desde el 12 nov 2026: la 0.2 con «El sello cede» producida en Kling. Rollback a la 0.2: commit `c28e32c` ([RELEASES.md](RELEASES.md)). |
-| Versión candidata | **Alpha 0.3 RC1** (`release/alpha-0.3-rc1`): el jefe completo, sus dos cinemáticas y la Pluma de Jade. **Sin publicar**: espera tu visto bueno ([RELEASES.md](RELEASES.md)). |
-| Versión en desarrollo | Lo que siga a la 0.3, en la rama de trabajo. |
+| Versión publicada | **Closed Alpha 0.3** en <https://alux-beta.onrender.com> (rama `beta`, commit `93007a0`), desde el 12 nov 2026: el jefe Nojoch Tuunich completo. **No suena** (defecto de audio en web, corregido en la candidata). Rollback a la 0.2.1: commit `94bb9c8` ([RELEASES.md](RELEASES.md)). |
+| Versión candidata | **Alpha 0.3.1**: el audio arreglado y medido en la salida real, mezclador propio, música original, ambientes, bandas sonoras de las cinemáticas y 50 efectos nuevos. **Sin publicar**: espera tu visto bueno y, mejor, que alguien la escuche antes ([AUDIO.md](AUDIO.md)). |
+| Versión en desarrollo | Alpha 0.4 (pantalla completa, personalizador 3D, lobby social): **en pausa hasta que el audio esté validado de oído**. Hay trabajo de pantalla completa a medias, sin integrar. |
 | Multijugador | Servidor autoritativo, 4 jugadores, reconexión, salas. Verificado con bots, navegadores y contra el servicio desplegado (un jugador). **Cuatro personas reales a la vez: sin probar.** |
 | Combate y formas | Alux y Balam, dos enemigos, emboscada, derrota y otra ronda. Datos modulares (`combat_def.gd`). Equilibrio sin probar con personas. |
 | Historia | Introducción, un personaje con diálogo, primer objetivo narrativo, **jefe con tres fases y cierre del capítulo** con la Pluma de Jade y la pista del Cenote (candidata 0.3). Falta «El vínculo de Balam». |
@@ -144,4 +144,5 @@ Historia, jefe y cierre de Los Secretos del Cenote, con la misma estructura que 
 
 | Decisión | Opciones | Recomendación |
 | --- | --- | --- |
-| Publicar la Alpha 0.3 | Publicar la candidata `release/alpha-0.3-rc1` en `beta` · probarla antes con el grupo en local · esperar | Publicarla: lleva regresión completa y rollback a la 0.2.1 sin tocar datos |
+| Publicar la Alpha 0.3.1 | Publicarla ya en `beta` · escucharla antes en local y publicarla después · esperar | Publicarla: la versión publicada no suena nada y esta lleva regresión completa y rollback a la 0.3 sin tocar datos. La escucha humana puede hacerse sobre la propia beta |
+| Audio con material de terceros | Seguir con síntesis propia · contratar una biblioteca con licencia para videojuegos (Motion Array sólo con su plan Business) · generar efectos con ElevenLabs (consume créditos) | Decidir después de escuchar la 0.3.1: si los timbres sintéticos no convencen, pedir presupuesto para una biblioteca con licencia explícita |

@@ -139,6 +139,33 @@ await step('Descarga del juego', async () => {
   return `${parts.join(', ')} · total transferido ${(total / 1048576).toFixed(1)} MB`;
 });
 
+// Desde la Alpha 0.3.1 la música, los ambientes y las bandas sonoras de las cinemáticas se sirven
+// aparte: tienen que estar todos los archivos que declaran los manifiestos, con su tamaño.
+await step('Audio del juego', async () => {
+  const mixer = await fetch(`${base}/game/alux-audio.js`);
+  if (mixer.status === 404) return 'esta versión no trae mezclador de audio (anterior a la 0.3.1)';
+  assert.equal(mixer.status, 200, `/game/alux-audio.js respondió ${mixer.status}`);
+  let files = 0, bytes = 0;
+  const groups: string[] = [];
+  for (const name of ['musica', 'ambiente', 'cine']) {
+    const res = await fetch(`${base}/game/audio/${name}.json`);
+    assert.equal(res.status, 200, `/game/audio/${name}.json respondió ${res.status}`);
+    const tracks = Object.values(((await res.json()) as { tracks: Record<string, { file: string; bytes: number }> }).tracks);
+    assert.ok(tracks.length > 0, `${name}.json no declara ninguna pista`);
+    for (const tr of tracks) {
+      const head = await fetch(`${base}/game/audio/${tr.file}`, { method: 'HEAD' });
+      assert.equal(head.status, 200, `/game/audio/${tr.file} respondió ${head.status}`);
+      const size = Number(head.headers.get('content-length') ?? tr.bytes);
+      assert.equal(size, tr.bytes, `${tr.file}: ${size} bytes servidos, ${tr.bytes} declarados`);
+      assert.match(head.headers.get('content-type') ?? '', /audio\/mpeg/, `${tr.file} se sirve como ${head.headers.get('content-type')}`);
+      files++;
+      bytes += tr.bytes;
+    }
+    groups.push(`${tracks.length} de ${name}`);
+  }
+  return `mezclador y ${files} pistas (${groups.join(', ')}) · ${(bytes / 1048576).toFixed(1)} MB bajo demanda`;
+});
+
 await step('WebSocket seguro al servidor de juego', async () => {
   const { msg, ws } = await hello(`${wsBase}/ws`, 'ticket-inventado');
   ws.close();

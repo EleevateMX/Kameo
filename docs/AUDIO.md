@@ -136,3 +136,56 @@ ambiente suenan y que la música cambia con cada fase.
 
 **Lo que estas pruebas no pueden decir:** si suena *bien*. Miden que hay señal, a qué nivel y que no
 recorta; nadie ha escuchado todavía el resultado. Ver «Validación pendiente».
+
+## Contenido (Alpha 0.3.1)
+
+Todo es síntesis propia, renderizada a archivos; no hay audio generado en tiempo de ejecución.
+Procedencia de cada archivo: [ASSETS_AUDIO.md](ASSETS_AUDIO.md).
+
+| Grupo | Archivos | Dónde | Detalle |
+| --- | --- | --- | --- |
+| Música | 10 piezas en estéreo (7,8 MB): claro, exploración, peligro, emboscada, las tres fases del guardián, liberación, victoria y el primer tema del lobby | `game/web/static/audio/mus_*.mp3` | [art/audio/MUSICA.md](../art/audio/MUSICA.md) |
+| Ambientes | 10 capas en bucle (2,7 MB): selva, aves, insectos, viento, agua, cenote, ruinas, tormenta, energía y brasero | `game/web/static/audio/amb_*.mp3` | [art/audio/AMBIENTE_Y_CINE.md](../art/audio/AMBIENTE_Y_CINE.md) |
+| Cinemáticas | 4 bandas sonoras en dos pistas cada una (1,8 MB): «El llamado», «El sello cede», «El despertar», «La liberación» | `game/web/static/audio/cine_*.mp3` | mismo documento, con el guion plano a plano |
+| Efectos e interfaz | 112 efectos (50 nuevos en esta versión; 7 son los efectos por plano de respaldo de las cinemáticas): personaje, alux, Balam, enemigos, Nojoch Tuunich e interfaz | `game/assets/audio/*.wav` | [art/audio/README.md](../art/audio/README.md) |
+
+**Qué suena ya en el juego y qué está en el banco esperando su momento:**
+
+- Conectados: todo lo de arriba salvo lo que sigue.
+- `amb_tormenta`: no hay clima en el Claro; queda para las regiones nuevas.
+- `mus_lobby`: para el lobby social (Alpha 0.4).
+- `luz_alux`, `escudo_alux`, `escudo_golpe`, `apoyo_alux`, `recoger`: el alux todavía no tiene esas
+  habilidades ni objetos que recoger.
+- `enemigo_paso`, `ui_error`, `ui_cancelar`, `ui_invitacion`, `ui_sala_creada`: sin evento en el
+  juego (las invitaciones y la creación de sala ocurren en el portal, que no tiene sonido).
+
+## Peso y memoria
+
+| | Alpha 0.3 | Alpha 0.3.1 |
+| --- | --- | --- |
+| Descarga inicial del juego (motor, datos y código, con Brotli) | 11,25 MB | 10,58 MB |
+| Paquete de datos del juego (`index.pck`) | 3,95 MB | 3,29 MB (la música y los ambientes ya no van dentro) |
+| Audio pedido al entrar, en segundo plano | — | 2,8 MB (música del claro, cinco capas de ambiente e introducción) |
+| Audio total si se oye todo en una sesión | — | 12,3 MB |
+| Audio decodificado en memoria | — | unos 20 MB por música (dos como mucho) y 5 MB por capa de ambiente |
+
+(Brotli de calidad 9 en las dos columnas, medido sobre los mismos archivos de cada compilación.)
+El juego no espera al audio para empezar: cada pista entra con un fundido cuando termina de cargar.
+
+## Validación pendiente
+
+- **Escucha humana.** Ninguna persona ha oído esta versión. Las grabaciones de la salida del
+  navegador que deja `npm run test:audio` permiten oír exactamente lo que salió en la prueba, pero
+  eso es una escucha de la grabación, no una validación. Falta que alguien juegue con altavoces y
+  con auriculares y diga si la mezcla, los timbres y los bucles convencen. Los propios generadores
+  señalan sus puntos débiles (rugido de Balam, voz de árbol de «El llamado», cantos de ave, exceso
+  de graves en cenote y ruinas, instrumentos de pocos parciales): ver sus documentos.
+- **Chrome, Edge, Firefox y Safari reales, con tarjeta gráfica.** Las pruebas usan Chromium con
+  render por software. En Firefox y Safari el audio debería necesitar un clic en el juego (se ve el
+  aviso); no se ha comprobado en ellos, ni la costura de los bucles con sus decodificadores de MP3.
+- **Bloqueo de autoplay real.** El escenario `bloqueado` simula la política del navegador.
+- **Cuatro jugadores oyéndose.** La prueba de cuatro navegadores comprueba la partida, no la mezcla
+  de cuatro personas a la vez.
+- **Pantalla completa y reconexión con audio:** la reconexión conserva el contexto y la música
+  (misma página); la pantalla completa llega con la Alpha 0.4.
+- **Móvil:** el juego no tiene controles táctiles; el audio no se ha probado ahí.

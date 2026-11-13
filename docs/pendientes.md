@@ -10,8 +10,10 @@ como pendiente debe darse por hecho.
   <https://alux-beta.onrender.com> y comprobada desde fuera con un jugador; falta jugarla con cuatro
   personas a la vez. Las invitaciones ya están generadas.
 - **Aviso de pago en Render.** Seguía activo en la última captura; puede suspender el servicio.
-- **Nadie ha escuchado el audio.** Está generado por código y sólo se ha medido (niveles, espectro,
-  bucles sin corte). Hay que oírlo en el juego y ajustar la mezcla o sustituir lo que suene mal.
+- **Nadie ha escuchado el audio.** Hasta la 0.3 el juego ni siquiera sonaba en el navegador (el
+  maestro quedaba desconectado de la salida; corregido en la candidata 0.3.1 y medido en la salida
+  real, ver [AUDIO.md](AUDIO.md)). La música, los ambientes, las cinemáticas y los efectos nuevos
+  están generados por código y comprobados con mediciones, no de oído: falta la escucha humana.
 - **Nadie ha jugado la build con GPU ni por Internet.** Todo se ha probado con render por software
   (2–8 FPS), con bots y en una sola máquina. Las métricas de cada sesión real quedarán registradas.
 - **Equilibrio sin probar con personas**: daño, vida, energía, duración de la emboscada y dificultad
