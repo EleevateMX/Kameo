@@ -14,9 +14,9 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 
 | Closed Alpha 0.3.1 | Publicada el 13 nov 2026 (commit `cdf1543`): **es el punto de rollback de la 0.4** | La 0.3 con el audio arreglado (no sonaba nada), mezclador propio, música original, ambientes por zona, bandas sonoras de las cinemáticas, 50 efectos nuevos y prueba de sonido en el menú |
 
-| **Closed Alpha 0.4** | **Publicada** el 13 nov 2026 en <https://alux-beta.onrender.com> (commit `b27e4c1`). Rollback: `cdf1543` (0.3.1) | Pantalla completa al pulsar JUGAR, personalizador 3D del alux, plaza social de Mérida (prototipo) con portal al Claro, primeros sonidos elegidos de oído |
+| Closed Alpha 0.4 | Publicada el 13 nov 2026 (commit `b27e4c1`): **es el punto de rollback de la 0.4.1** | Pantalla completa al pulsar JUGAR, personalizador 3D del alux, plaza social de Mérida (prototipo) con portal al Claro, primeros sonidos elegidos de oído |
 
-| Closed Alpha 0.4.1 | **Candidata, sin publicar** (rama de trabajo). Pendiente del visto bueno del dueño | Pulido de la 0.4: plaza más ligera y viva, portal como menú del juego, guía de la pelea con Nojoch y su salida del santuario de un salto |
+| **Closed Alpha 0.4.1** | **Publicada** el 13 nov 2026 en <https://alux-beta.onrender.com> (commit `7e8fc5b`). Rollback: `b27e4c1` (0.4) | Pulido de la 0.4: plaza más ligera y viva, portal como menú del juego, guía de la pelea con Nojoch y su salida del santuario de un salto |
 
 ## Publicación en la rama `beta`
 
@@ -26,9 +26,23 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
 
-## ALUX Closed Alpha 0.4.1 — Pulido de lo publicado (candidata, sin publicar)
+## ALUX Closed Alpha 0.4.1 — Pulido de lo publicado
 
-Respuesta a la primera prueba del dueño en su ordenador. Nada de esto está en `beta`.
+Respuesta a la primera prueba del dueño en su ordenador. **Publicada el 13 nov 2026** con su visto
+bueno: en `beta` está el commit `7e8fc5b`, el mismo sobre el que se hicieron todas las pruebas.
+Rollback: en Render → `alux-beta` → Events → el despliegue de `b27e4c1` → Rollback.
+
+**Antes de publicar, sobre `7e8fc5b` (copia limpia):** imagen de despliegue 25 comprobaciones más el
+personalizador (6 de 6) y el camino completo (4 de 4) con navegadores contra la imagen; 247 MB como
+máximo de 512 con 16 aluxes en la plaza y una partida del jefe a la vez (358 MB contando los binarios
+cargados), 17 % de un núcleo; regresión completa a la primera (los trece bloques de abajo).
+
+**En producción, tras desplegar (unos 4 minutos):** `beta:check` 13 de 13 con la versión `7e8fc5b` y
+el perfil conservado; camino completo en navegador portal → personalizador → plaza → sala del Claro;
+audio 8 de 8 y «El llamado» con su banda sonora; «El sello cede» como vídeo, omitida y con respaldo
+del motor; jefe por protocolo con las tres fases (salto incluido: cae en x = 15,5) en 83 s.
+**Sin comprobar:** FPS con tarjeta gráfica real, registros y memoria del servicio en Render, dos
+personas a la vez en la plaza de producción, Firefox y Safari.
 
 | Qué | Cambio | Comprobado | Sin comprobar |
 | --- | --- | --- | --- |
