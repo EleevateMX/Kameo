@@ -1,0 +1,1537 @@
+{
+ "balam_rugido": {
+  "archivos": [
+   "balam_rugido__actual",
+   "balam_rugido__A_glotal",
+   "balam_rugido__B_rugoso",
+   "balam_rugido__C_bufido"
+  ],
+  "canales": 1,
+  "cortes": [
+   0,
+   150,
+   600,
+   1000,
+   3000,
+   1000000000.0
+  ],
+  "frente": "balam",
+  "medidas": {
+   "balam_rugido__actual": {
+    "seg": 1.0,
+    "pico": -5.0,
+    "rms": -17.2,
+    "rms50": -12.9,
+    "lufs_m": -15.5,
+    "lufs_m_200": -16.2,
+    "dc": 2.2024321592932057e-06,
+    "bandas": [
+     12.9,
+     71.5,
+     11.4,
+     4.0,
+     0.1
+    ],
+    "t_pico": 0.324,
+    "seg_20db": 0.84,
+    "centroide": 386,
+    "tramas_periodicas": 80,
+    "bytes": 9358
+   },
+   "balam_rugido__A_glotal": {
+    "seg": 1.0,
+    "pico": -4.9,
+    "rms": -17.5,
+    "rms50": -13.8,
+    "lufs_m": -15.5,
+    "lufs_m_200": -16.3,
+    "dc": 2.4256124068141384e-05,
+    "bandas": [
+     19.1,
+     54.1,
+     11.7,
+     14.8,
+     0.3
+    ],
+    "t_pico": 0.34,
+    "seg_20db": 0.83,
+    "centroide": 589,
+    "tramas_periodicas": 59,
+    "bytes": 9621
+   },
+   "balam_rugido__B_rugoso": {
+    "seg": 1.0,
+    "pico": -3.4,
+    "rms": -17.7,
+    "rms50": -13.1,
+    "lufs_m": -15.5,
+    "lufs_m_200": -16.1,
+    "dc": 4.901829127528673e-06,
+    "bandas": [
+     17.7,
+     49.4,
+     7.2,
+     24.8,
+     0.9
+    ],
+    "t_pico": 0.518,
+    "seg_20db": 0.82,
+    "centroide": 712,
+    "tramas_periodicas": 20,
+    "bytes": 10794
+   },
+   "balam_rugido__C_bufido": {
+    "seg": 1.0,
+    "pico": -4.8,
+    "rms": -18.3,
+    "rms50": -13.9,
+    "lufs_m": -15.5,
+    "lufs_m_200": -15.7,
+    "dc": 1.5217794273109915e-06,
+    "bandas": [
+     5.8,
+     50.7,
+     6.0,
+     35.6,
+     1.9
+    ],
+    "t_pico": 0.34,
+    "seg_20db": 0.75,
+    "centroide": 954,
+    "tramas_periodicas": 0,
+    "bytes": 9250
+   }
+  }
+ },
+ "balam_grunido": {
+  "archivos": [
+   "balam_grunido__actual",
+   "balam_grunido__A_glotal",
+   "balam_grunido__B_rugoso"
+  ],
+  "canales": 1,
+  "cortes": [
+   0,
+   150,
+   600,
+   1000,
+   3000,
+   1000000000.0
+  ],
+  "frente": "balam",
+  "medidas": {
+   "balam_grunido__actual": {
+    "seg": 0.45,
+    "pico": -5.0,
+    "rms": -17.4,
+    "rms50": -12.8,
+    "lufs_m": -18.1,
+    "lufs_m_200": -19.6,
+    "dc": 4.743047910616092e-06,
+    "bandas": [
+     23.0,
+     70.8,
+     4.7,
+     1.5,
+     0.0
+    ],
+    "t_pico": 0.132,
+    "seg_20db": 0.38,
+    "centroide": 275,
+    "tramas_periodicas": 56,
+    "bytes": 4168
+   },
+   "balam_grunido__A_glotal": {
+    "seg": 0.45,
+    "pico": -4.5,
+    "rms": -17.8,
+    "rms50": -12.9,
+    "lufs_m": -18.1,
+    "lufs_m_200": -19.0,
+    "dc": 2.4310337582032918e-05,
+    "bandas": [
+     16.1,
+     72.0,
+     7.8,
+     4.1,
+     0.0
+    ],
+    "t_pico": 0.096,
+    "seg_20db": 0.35,
+    "centroide": 403,
+    "tramas_periodicas": 39,
+    "bytes": 4403
+   },
+   "balam_grunido__B_rugoso": {
+    "seg": 0.45,
+    "pico": -1.6,
+    "rms": -17.8,
+    "rms50": -12.6,
+    "lufs_m": -18.1,
+    "lufs_m_200": -19.1,
+    "dc": 7.101838762203588e-06,
+    "bandas": [
+     20.2,
+     63.0,
+     8.5,
+     8.1,
+     0.2
+    ],
+    "t_pico": 0.02,
+    "seg_20db": 0.29,
+    "centroide": 433,
+    "tramas_periodicas": 22,
+    "bytes": 4744
+   }
+  }
+ },
+ "balam_especial": {
+  "archivos": [
+   "balam_especial__actual",
+   "balam_especial__A_glotal",
+   "balam_especial__B_rugoso"
+  ],
+  "canales": 1,
+  "cortes": [
+   0,
+   150,
+   600,
+   1000,
+   3000,
+   1000000000.0
+  ],
+  "frente": "balam",
+  "medidas": {
+   "balam_especial__actual": {
+    "seg": 0.9,
+    "pico": -4.1,
+    "rms": -15.9,
+    "rms50": -10.7,
+    "lufs_m": -14.2,
+    "lufs_m_200": -15.5,
+    "dc": 2.4640999295843598e-05,
+    "bandas": [
+     31.3,
+     49.6,
+     8.9,
+     9.3,
+     0.8
+    ],
+    "t_pico": 0.396,
+    "seg_20db": 0.74,
+    "centroide": 438,
+    "tramas_periodicas": 36,
+    "bytes": 7761
+   },
+   "balam_especial__A_glotal": {
+    "seg": 0.9,
+    "pico": -4.1,
+    "rms": -16.0,
+    "rms50": -10.5,
+    "lufs_m": -14.2,
+    "lufs_m_200": -15.4,
+    "dc": 0.00016784551174256875,
+    "bandas": [
+     31.2,
+     41.6,
+     11.4,
+     14.7,
+     1.2
+    ],
+    "t_pico": 0.403,
+    "seg_20db": 0.73,
+    "centroide": 577,
+    "tramas_periodicas": 18,
+    "bytes": 7788
+   },
+   "balam_especial__B_rugoso": {
+    "seg": 0.9,
+    "pico": -2.0,
+    "rms": -16.6,
+    "rms50": -10.7,
+    "lufs_m": -14.2,
+    "lufs_m_200": -15.3,
+    "dc": 3.551208069563879e-05,
+    "bandas": [
+     31.2,
+     38.2,
+     7.8,
+     21.1,
+     1.7
+    ],
+    "t_pico": 0.394,
+    "seg_20db": 0.7,
+    "centroide": 656,
+    "tramas_periodicas": 3,
+    "bytes": 8207
+   }
+  }
+ },
+ "chiich_voz": {
+  "archivos": [
+   "chiich_voz__actual",
+   "chiich_voz__A_murmullo",
+   "chiich_voz__B_tronco",
+   "chiich_voz__C_susurro"
+  ],
+  "canales": 2,
+  "cortes": [
+   0,
+   150,
+   400,
+   1000,
+   3000,
+   1000000000.0
+  ],
+  "frente": "chiich",
+  "medidas": {
+   "chiich_voz__actual": {
+    "seg": 5.0,
+    "pico": -1.7,
+    "rms": -23.4,
+    "rms50": -13.4,
+    "lufs_m": -15.3,
+    "lufs_m_200": -15.3,
+    "dc": 4.534491225009972e-06,
+    "bandas": [
+     2.4,
+     51.4,
+     36.4,
+     9.8,
+     0.1
+    ],
+    "lufs_i": -20.0,
+    "t_pico": 0.751,
+    "seg_20db": 3.26,
+    "centroide": 541,
+    "tramas_periodicas": 64,
+    "bytes": 69577
+   },
+   "chiich_voz__A_murmullo": {
+    "seg": 5.0,
+    "pico": -5.6,
+    "rms": -23.3,
+    "rms50": -13.5,
+    "lufs_m": -14.6,
+    "lufs_m_200": -14.7,
+    "dc": 1.4859415942970718e-06,
+    "bandas": [
+     0.6,
+     23.2,
+     68.6,
+     7.5,
+     0.1
+    ],
+    "lufs_i": -20.0,
+    "t_pico": 1.649,
+    "seg_20db": 3.45,
+    "centroide": 568,
+    "tramas_periodicas": 76,
+    "bytes": 64391
+   },
+   "chiich_voz__B_tronco": {
+    "seg": 5.0,
+    "pico": -6.5,
+    "rms": -23.2,
+    "rms50": -16.4,
+    "lufs_m": -16.1,
+    "lufs_m_200": -16.4,
+    "dc": 1.9273359342733463e-06,
+    "bandas": [
+     3.8,
+     34.8,
+     56.2,
+     5.3,
+     0.0
+    ],
+    "lufs_i": -20.0,
+    "t_pico": 0.749,
+    "seg_20db": 3.74,
+    "centroide": 519,
+    "tramas_periodicas": 57,
+    "bytes": 66196
+   },
+   "chiich_voz__C_susurro": {
+    "seg": 5.0,
+    "pico": -3.6,
+    "rms": -23.6,
+    "rms50": -15.1,
+    "lufs_m": -14.8,
+    "lufs_m_200": -14.9,
+    "dc": 1.3532315826912736e-06,
+    "bandas": [
+     0.4,
+     15.2,
+     67.7,
+     16.2,
+     0.5
+    ],
+    "lufs_i": -20.0,
+    "t_pico": 1.937,
+    "seg_20db": 3.51,
+    "centroide": 751,
+    "tramas_periodicas": 10,
+    "bytes": 67493
+   }
+  }
+ },
+ "cine_llamado_fx": {
+  "archivos": [
+   "cine_llamado_fx__actual",
+   "cine_llamado_fx__A_murmullo",
+   "cine_llamado_fx__B_tronco",
+   "cine_llamado_fx__C_susurro"
+  ],
+  "canales": 2,
+  "cortes": [
+   0,
+   150,
+   400,
+   1000,
+   3000,
+   1000000000.0
+  ],
+  "extra": {
+   "cine_llamado_fx__actual": {
+    "fallos": [],
+    "sello_sobre_plano4_db": 8.1,
+    "voz_sobre_plano3_db": 8.2
+   },
+   "cine_llamado_fx__A_murmullo": {
+    "fallos": [],
+    "sello_sobre_plano4_db": 6.5,
+    "voz_sobre_plano3_db": 9.0
+   },
+   "cine_llamado_fx__B_tronco": {
+    "fallos": [],
+    "sello_sobre_plano4_db": 6.3,
+    "voz_sobre_plano3_db": 9.0
+   },
+   "cine_llamado_fx__C_susurro": {
+    "fallos": [],
+    "sello_sobre_plano4_db": 8.9,
+    "voz_sobre_plano3_db": 8.4
+   }
+  },
+  "frente": "chiich",
+  "medidas": {
+   "cine_llamado_fx__actual": {
+    "seg": 20.5,
+    "pico": -3.5,
+    "rms": -20.3,
+    "rms50": -12.6,
+    "lufs_m": -13.7,
+    "lufs_m_200": -13.8,
+    "dc": 3.5859649355760667e-06,
+    "bandas": [
+     29.6,
+     29.7,
+     32.5,
+     7.0,
+     1.2
+    ],
+    "lufs_i": -18.0,
+    "t_pico": 18.581,
+    "seg_20db": 18.85,
+    "centroide": 478,
+    "bytes": 289470
+   },
+   "cine_llamado_fx__A_murmullo": {
+    "seg": 20.5,
+    "pico": -3.3,
+    "rms": -20.3,
+    "rms50": -12.2,
+    "lufs_m": -12.1,
+    "lufs_m_200": -12.3,
+    "dc": 6.263993047132506e-06,
+    "bandas": [
+     28.0,
+     25.2,
+     38.9,
+     6.7,
+     1.2
+    ],
+    "lufs_i": -18.0,
+    "t_pico": 16.149,
+    "seg_20db": 18.77,
+    "centroide": 488,
+    "bytes": 346999
+   },
+   "cine_llamado_fx__B_tronco": {
+    "seg": 20.5,
+    "pico": -3.8,
+    "rms": -20.3,
+    "rms50": -12.5,
+    "lufs_m": -13.4,
+    "lufs_m_200": -13.7,
+    "dc": 3.758974290312748e-06,
+    "bandas": [
+     28.6,
+     27.5,
+     36.6,
+     6.1,
+     1.1
+    ],
+    "lufs_i": -18.0,
+    "t_pico": 18.352,
+    "seg_20db": 18.72,
+    "centroide": 476,
+    "bytes": 346818
+   },
+   "cine_llamado_fx__C_susurro": {
+    "seg": 20.5,
+    "pico": -3.6,
+    "rms": -20.3,
+    "rms50": -12.6,
+    "lufs_m": -13.3,
+    "lufs_m_200": -13.4,
+    "dc": 8.509186540230624e-06,
+    "bandas": [
+     29.0,
+     24.5,
+     37.6,
+     7.8,
+     1.2
+    ],
+    "lufs_i": -18.0,
+    "t_pico": 18.352,
+    "seg_20db": 18.79,
+    "centroide": 505,
+    "bytes": 348021
+   }
+  }
+ },
+ "amb_aves": {
+  "archivos": [
+   "amb_aves__actual",
+   "amb_aves__A_lejanas",
+   "amb_aves__B_timbre",
+   "amb_aves__C_bandada"
+  ],
+  "canales": 2,
+  "cortes": [
+   0,
+   200,
+   1000,
+   4000,
+   8000,
+   1000000000.0
+  ],
+  "extra": {
+   "amb_aves__A_lejanas": {
+    "bucle_s": 27.429,
+    "cuadros": 1050,
+    "lufs_ffmpeg": -28.0,
+    "costura_corr": 1.0,
+    "costura_salto": 0.00027,
+    "salto_tipico": 0.032,
+    "corr_canales": 0.31,
+    "cantos": [
+     "caida",
+     "dos_notas",
+     "burbujeo",
+     "pios",
+     "silbo_sube",
+     "tamborileo",
+     "zumbon",
+     "pregunta",
+     "ululo"
+    ]
+   },
+   "amb_aves__B_timbre": {
+    "bucle_s": 27.429,
+    "cuadros": 1050,
+    "lufs_ffmpeg": -28.0,
+    "costura_corr": 0.9987,
+    "costura_salto": 3e-05,
+    "salto_tipico": 0.03551,
+    "corr_canales": 0.32,
+    "cantos": [
+     "silbo_sube",
+     "eco",
+     "trino",
+     "gorjeo",
+     "graznido",
+     "arrullo",
+     "zumbon",
+     "carraca",
+     "pregunta",
+     "caida",
+     "chasquidos"
+    ]
+   },
+   "amb_aves__C_bandada": {
+    "bucle_s": 27.429,
+    "cuadros": 1050,
+    "lufs_ffmpeg": -28.0,
+    "costura_corr": 0.9992,
+    "costura_salto": 0.00029,
+    "salto_tipico": 0.03411,
+    "corr_canales": 0.19,
+    "cantos": [
+     "silbo_largo",
+     "pios",
+     "trino",
+     "ululo",
+     "pregunta"
+    ]
+   }
+  },
+  "frente": "aves",
+  "medidas": {
+   "amb_aves__actual": {
+    "seg": 28.43,
+    "pico": -12.9,
+    "rms": -36.1,
+    "rms50": -22.2,
+    "lufs_m": -21.2,
+    "lufs_m_200": -21.2,
+    "dc": 2.8846746102410603e-08,
+    "bandas": [
+     0.0,
+     11.3,
+     87.2,
+     1.5,
+     0.0
+    ],
+    "lufs_i": -28.4,
+    "t_pico": 15.065,
+    "seg_20db": 7.52,
+    "centroide": 1678,
+    "bytes": 163601
+   },
+   "amb_aves__A_lejanas": {
+    "seg": 28.43,
+    "pico": -11.9,
+    "rms": -36.2,
+    "rms50": -22.2,
+    "lufs_m": -21.9,
+    "lufs_m_200": -21.9,
+    "dc": 8.171190214852137e-09,
+    "bandas": [
+     0.0,
+     4.4,
+     95.4,
+     0.3,
+     0.0
+    ],
+    "lufs_i": -28.5,
+    "t_pico": 26.071,
+    "seg_20db": 7.3,
+    "centroide": 1648,
+    "bytes": 281075
+   },
+   "amb_aves__B_timbre": {
+    "seg": 28.43,
+    "pico": -12.6,
+    "rms": -36.1,
+    "rms50": -21.7,
+    "lufs_m": -21.4,
+    "lufs_m_200": -21.4,
+    "dc": 1.359359130000694e-07,
+    "bandas": [
+     0.0,
+     17.5,
+     81.9,
+     0.6,
+     0.0
+    ],
+    "lufs_i": -28.3,
+    "t_pico": 3.181,
+    "seg_20db": 7.53,
+    "centroide": 1801,
+    "bytes": 292293
+   },
+   "amb_aves__C_bandada": {
+    "seg": 28.43,
+    "pico": -11.2,
+    "rms": -34.3,
+    "rms50": -20.5,
+    "lufs_m": -19.6,
+    "lufs_m_200": -19.6,
+    "dc": 8.8937539590072e-09,
+    "bandas": [
+     0.0,
+     0.3,
+     95.7,
+     4.0,
+     0.0
+    ],
+    "lufs_i": -28.3,
+    "t_pico": 1.43,
+    "seg_20db": 17.02,
+    "centroide": 2218,
+    "bytes": 316547
+   }
+  }
+ },
+ "amb_aves_en_selva": {
+  "archivos": [
+   "amb_aves_en_selva__actual",
+   "amb_aves_en_selva__A_lejanas",
+   "amb_aves_en_selva__B_timbre",
+   "amb_aves_en_selva__C_bandada"
+  ],
+  "canales": 2,
+  "cortes": [
+   0,
+   200,
+   1000,
+   4000,
+   8000,
+   1000000000.0
+  ],
+  "frente": "aves",
+  "medidas": {
+   "amb_aves_en_selva__actual": {
+    "seg": 30.0,
+    "pico": -6.8,
+    "rms": -24.0,
+    "rms50": -18.4,
+    "lufs_m": -16.9,
+    "lufs_m_200": -17.7,
+    "dc": 1.9938954717854566e-05,
+    "bandas": [
+     26.0,
+     50.7,
+     19.3,
+     3.8,
+     0.3
+    ],
+    "lufs_i": -21.0,
+    "t_pico": 14.598,
+    "seg_20db": 29.79,
+    "centroide": 864,
+    "bytes": 455834
+   },
+   "amb_aves_en_selva__A_lejanas": {
+    "seg": 30.0,
+    "pico": -4.2,
+    "rms": -23.9,
+    "rms50": -16.9,
+    "lufs_m": -14.7,
+    "lufs_m_200": -15.2,
+    "dc": 2.0334389434295798e-05,
+    "bandas": [
+     25.6,
+     49.2,
+     21.3,
+     3.6,
+     0.3
+    ],
+    "lufs_i": -20.9,
+    "t_pico": 25.496,
+    "seg_20db": 29.77,
+    "centroide": 872,
+    "bytes": 456507
+   },
+   "amb_aves_en_selva__B_timbre": {
+    "seg": 30.0,
+    "pico": -6.9,
+    "rms": -23.9,
+    "rms50": -18.3,
+    "lufs_m": -16.3,
+    "lufs_m_200": -16.4,
+    "dc": 2.3641111383991514e-05,
+    "bandas": [
+     25.7,
+     51.0,
+     19.4,
+     3.6,
+     0.3
+    ],
+    "lufs_i": -20.9,
+    "t_pico": 2.678,
+    "seg_20db": 29.78,
+    "centroide": 890,
+    "bytes": 458883
+   },
+   "amb_aves_en_selva__C_bandada": {
+    "seg": 30.0,
+    "pico": -5.4,
+    "rms": -23.5,
+    "rms50": -16.5,
+    "lufs_m": -15.2,
+    "lufs_m_200": -15.5,
+    "dc": 1.9485211739833506e-05,
+    "bandas": [
+     23.4,
+     44.6,
+     27.9,
+     3.9,
+     0.2
+    ],
+    "lufs_i": -20.3,
+    "t_pico": 0.932,
+    "seg_20db": 29.76,
+    "centroide": 1024,
+    "bytes": 467626
+   }
+  }
+ },
+ "jefe_paso": {
+  "archivos": [
+   "jefe_paso__actual",
+   "jefe_paso__A_seco",
+   "jefe_paso__B_grande"
+  ],
+  "canales": 1,
+  "cortes": [
+   0,
+   100,
+   300,
+   1000,
+   4000,
+   1000000000.0
+  ],
+  "frente": "jefe",
+  "medidas": {
+   "jefe_paso__actual": {
+    "seg": 0.5,
+    "pico": -8.0,
+    "rms": -24.0,
+    "rms50": -15.6,
+    "lufs_m": -24.7,
+    "lufs_m_200": -28.7,
+    "dc": 2.1385472345420795e-06,
+    "bandas": [
+     56.5,
+     26.2,
+     11.8,
+     5.4,
+     0.1
+    ],
+    "t_pico": 0.019,
+    "seg_20db": 0.2,
+    "centroide": 250,
+    "tramas_periodicas": 67,
+    "bytes": 3699
+   },
+   "jefe_paso__A_seco": {
+    "seg": 0.5,
+    "pico": -8.3,
+    "rms": -24.8,
+    "rms50": -15.7,
+    "lufs_m": -24.7,
+    "lufs_m_200": -27.3,
+    "dc": 8.00603844673081e-06,
+    "bandas": [
+     5.5,
+     64.3,
+     22.0,
+     7.8,
+     0.4
+    ],
+    "t_pico": 0.01,
+    "seg_20db": 0.14,
+    "centroide": 384,
+    "tramas_periodicas": 0,
+    "bytes": 4118
+   },
+   "jefe_paso__B_grande": {
+    "seg": 0.65,
+    "pico": -8.7,
+    "rms": -25.8,
+    "rms50": -16.7,
+    "lufs_m": -24.7,
+    "lufs_m_200": -27.3,
+    "dc": 4.5020667844743173e-07,
+    "bandas": [
+     3.8,
+     69.5,
+     21.0,
+     5.6,
+     0.1
+    ],
+    "t_pico": 0.004,
+    "seg_20db": 0.24,
+    "centroide": 329,
+    "tramas_periodicas": 0,
+    "bytes": 4609
+   }
+  }
+ },
+ "jefe_losa": {
+  "archivos": [
+   "jefe_losa__actual",
+   "jefe_losa__A_seco",
+   "jefe_losa__B_grande"
+  ],
+  "canales": 1,
+  "cortes": [
+   0,
+   100,
+   300,
+   1000,
+   4000,
+   1000000000.0
+  ],
+  "frente": "jefe",
+  "medidas": {
+   "jefe_losa__actual": {
+    "seg": 1.2,
+    "pico": -2.9,
+    "rms": -17.7,
+    "rms50": -8.9,
+    "lufs_m": -14.8,
+    "lufs_m_200": -18.2,
+    "dc": 2.8019121571950143e-06,
+    "bandas": [
+     40.6,
+     34.5,
+     11.6,
+     11.2,
+     2.2
+    ],
+    "t_pico": 0.011,
+    "seg_20db": 0.65,
+    "centroide": 492,
+    "tramas_periodicas": 23,
+    "bytes": 11021
+   },
+   "jefe_losa__A_seco": {
+    "seg": 1.2,
+    "pico": -2.5,
+    "rms": -18.8,
+    "rms50": -8.5,
+    "lufs_m": -14.8,
+    "lufs_m_200": -16.6,
+    "dc": 3.489546149347749e-05,
+    "bandas": [
+     7.4,
+     47.5,
+     30.5,
+     12.2,
+     2.4
+    ],
+    "t_pico": 0.012,
+    "seg_20db": 0.51,
+    "centroide": 609,
+    "tramas_periodicas": 0,
+    "bytes": 11835
+   },
+   "jefe_losa__B_grande": {
+    "seg": 1.6,
+    "pico": -6.4,
+    "rms": -19.5,
+    "rms50": -11.2,
+    "lufs_m": -14.8,
+    "lufs_m_200": -16.9,
+    "dc": 1.1542651826150815e-06,
+    "bandas": [
+     9.2,
+     49.5,
+     30.8,
+     9.2,
+     1.2
+    ],
+    "t_pico": 0.057,
+    "seg_20db": 0.8,
+    "centroide": 476,
+    "tramas_periodicas": 0,
+    "bytes": 14066
+   }
+  }
+ },
+ "jefe_barrido": {
+  "archivos": [
+   "jefe_barrido__actual",
+   "jefe_barrido__A_seco",
+   "jefe_barrido__B_grande"
+  ],
+  "canales": 1,
+  "cortes": [
+   0,
+   100,
+   300,
+   1000,
+   4000,
+   1000000000.0
+  ],
+  "frente": "jefe",
+  "medidas": {
+   "jefe_barrido__actual": {
+    "seg": 0.9,
+    "pico": -6.0,
+    "rms": -19.9,
+    "rms50": -15.4,
+    "lufs_m": -17.7,
+    "lufs_m_200": -18.4,
+    "dc": 9.353106968125848e-06,
+    "bandas": [
+     8.0,
+     21.8,
+     58.6,
+     11.2,
+     0.4
+    ],
+    "t_pico": 0.303,
+    "seg_20db": 0.75,
+    "centroide": 579,
+    "tramas_periodicas": 0,
+    "bytes": 9826
+   },
+   "jefe_barrido__A_seco": {
+    "seg": 0.9,
+    "pico": -5.5,
+    "rms": -20.1,
+    "rms50": -14.6,
+    "lufs_m": -17.7,
+    "lufs_m_200": -18.7,
+    "dc": 1.4793617449088532e-05,
+    "bandas": [
+     7.3,
+     29.0,
+     38.1,
+     25.4,
+     0.2
+    ],
+    "t_pico": 0.263,
+    "seg_20db": 0.67,
+    "centroide": 683,
+    "tramas_periodicas": 0,
+    "bytes": 7343
+   },
+   "jefe_barrido__B_grande": {
+    "seg": 1.25,
+    "pico": -6.0,
+    "rms": -20.3,
+    "rms50": -15.2,
+    "lufs_m": -17.7,
+    "lufs_m_200": -18.7,
+    "dc": 3.160101911551765e-06,
+    "bandas": [
+     11.7,
+     28.1,
+     35.1,
+     25.0,
+     0.1
+    ],
+    "t_pico": 0.38,
+    "seg_20db": 0.98,
+    "centroide": 637,
+    "tramas_periodicas": 0,
+    "bytes": 9915
+   }
+  }
+ },
+ "jefe_embestida": {
+  "archivos": [
+   "jefe_embestida__actual",
+   "jefe_embestida__A_seco",
+   "jefe_embestida__B_grande"
+  ],
+  "canales": 1,
+  "cortes": [
+   0,
+   100,
+   300,
+   1000,
+   4000,
+   1000000000.0
+  ],
+  "frente": "jefe",
+  "medidas": {
+   "jefe_embestida__actual": {
+    "seg": 1.4,
+    "pico": -5.0,
+    "rms": -22.6,
+    "rms50": -17.1,
+    "lufs_m": -21.1,
+    "lufs_m_200": -22.3,
+    "dc": 4.084445823165141e-06,
+    "bandas": [
+     24.7,
+     23.0,
+     46.2,
+     6.1,
+     0.0
+    ],
+    "t_pico": 1.056,
+    "seg_20db": 1.11,
+    "centroide": 400,
+    "tramas_periodicas": 3,
+    "bytes": 11009
+   },
+   "jefe_embestida__A_seco": {
+    "seg": 1.4,
+    "pico": -6.3,
+    "rms": -23.4,
+    "rms50": -16.9,
+    "lufs_m": -21.1,
+    "lufs_m_200": -22.4,
+    "dc": 5.5439961658854715e-06,
+    "bandas": [
+     6.8,
+     35.0,
+     45.9,
+     12.2,
+     0.1
+    ],
+    "t_pico": 1.161,
+    "seg_20db": 1.12,
+    "centroide": 510,
+    "tramas_periodicas": 0,
+    "bytes": 13469
+   },
+   "jefe_embestida__B_grande": {
+    "seg": 1.4,
+    "pico": -5.0,
+    "rms": -23.3,
+    "rms50": -17.3,
+    "lufs_m": -21.1,
+    "lufs_m_200": -23.1,
+    "dc": 1.2432551789006604e-05,
+    "bandas": [
+     17.6,
+     38.9,
+     37.2,
+     6.2,
+     0.0
+    ],
+    "t_pico": 1.321,
+    "seg_20db": 1.24,
+    "centroide": 382,
+    "tramas_periodicas": 0,
+    "bytes": 12266
+   }
+  }
+ },
+ "jefe_choque": {
+  "archivos": [
+   "jefe_choque__actual",
+   "jefe_choque__A_seco",
+   "jefe_choque__B_grande"
+  ],
+  "canales": 1,
+  "cortes": [
+   0,
+   100,
+   300,
+   1000,
+   4000,
+   1000000000.0
+  ],
+  "frente": "jefe",
+  "medidas": {
+   "jefe_choque__actual": {
+    "seg": 1.3,
+    "pico": -2.8,
+    "rms": -19.0,
+    "rms50": -10.2,
+    "lufs_m": -14.9,
+    "lufs_m_200": -16.9,
+    "dc": 0.00018024211990450546,
+    "bandas": [
+     14.5,
+     46.4,
+     14.0,
+     20.1,
+     5.0
+    ],
+    "t_pico": 0.002,
+    "seg_20db": 0.75,
+    "centroide": 853,
+    "tramas_periodicas": 6,
+    "bytes": 13030
+   },
+   "jefe_choque__A_seco": {
+    "seg": 1.3,
+    "pico": -2.7,
+    "rms": -18.9,
+    "rms50": -9.2,
+    "lufs_m": -14.8,
+    "lufs_m_200": -16.5,
+    "dc": 7.81917137783906e-05,
+    "bandas": [
+     4.5,
+     55.3,
+     19.6,
+     16.2,
+     4.4
+    ],
+    "t_pico": 0.006,
+    "seg_20db": 0.65,
+    "centroide": 771,
+    "tramas_periodicas": 2,
+    "bytes": 12119
+   },
+   "jefe_choque__B_grande": {
+    "seg": 1.8,
+    "pico": -5.2,
+    "rms": -19.9,
+    "rms50": -10.6,
+    "lufs_m": -14.8,
+    "lufs_m_200": -16.6,
+    "dc": 6.0324791520967415e-05,
+    "bandas": [
+     14.3,
+     52.1,
+     16.6,
+     13.4,
+     3.5
+    ],
+    "t_pico": 0.014,
+    "seg_20db": 1.02,
+    "centroide": 673,
+    "tramas_periodicas": 11,
+    "bytes": 15785
+   }
+  }
+ },
+ "jefe_cae": {
+  "archivos": [
+   "jefe_cae__actual",
+   "jefe_cae__A_seco",
+   "jefe_cae__B_grande"
+  ],
+  "canales": 1,
+  "cortes": [
+   0,
+   100,
+   300,
+   1000,
+   4000,
+   1000000000.0
+  ],
+  "frente": "jefe",
+  "medidas": {
+   "jefe_cae__actual": {
+    "seg": 1.4,
+    "pico": -2.7,
+    "rms": -15.9,
+    "rms50": -8.9,
+    "lufs_m": -13.3,
+    "lufs_m_200": -17.2,
+    "dc": 0.00010536408417398808,
+    "bandas": [
+     51.0,
+     31.4,
+     10.8,
+     5.7,
+     1.1
+    ],
+    "t_pico": 0.287,
+    "seg_20db": 0.94,
+    "centroide": 320,
+    "tramas_periodicas": 36,
+    "bytes": 12713
+   },
+   "jefe_cae__A_seco": {
+    "seg": 1.4,
+    "pico": -3.1,
+    "rms": -16.9,
+    "rms50": -8.9,
+    "lufs_m": -13.3,
+    "lufs_m_200": -15.3,
+    "dc": 0.00013948742704695088,
+    "bandas": [
+     9.3,
+     61.1,
+     20.8,
+     7.4,
+     1.4
+    ],
+    "t_pico": 0.25,
+    "seg_20db": 0.93,
+    "centroide": 443,
+    "tramas_periodicas": 45,
+    "bytes": 13083
+   },
+   "jefe_cae__B_grande": {
+    "seg": 1.9,
+    "pico": -5.6,
+    "rms": -17.6,
+    "rms50": -10.0,
+    "lufs_m": -13.3,
+    "lufs_m_200": -15.7,
+    "dc": 1.2611947303375623e-05,
+    "bandas": [
+     10.2,
+     62.8,
+     20.6,
+     5.6,
+     0.7
+    ],
+    "t_pico": 0.034,
+    "seg_20db": 1.07,
+    "centroide": 368,
+    "tramas_periodicas": 12,
+    "bytes": 16616
+   }
+  }
+ },
+ "jefe_despierta": {
+  "archivos": [
+   "jefe_despierta__actual",
+   "jefe_despierta__A_seco",
+   "jefe_despierta__B_grande"
+  ],
+  "canales": 1,
+  "cortes": [
+   0,
+   100,
+   300,
+   1000,
+   4000,
+   1000000000.0
+  ],
+  "frente": "jefe",
+  "medidas": {
+   "jefe_despierta__actual": {
+    "seg": 3.5,
+    "pico": -3.0,
+    "rms": -22.5,
+    "rms50": -15.2,
+    "lufs_m": -19.0,
+    "lufs_m_200": -22.3,
+    "dc": 1.4664455023797725e-05,
+    "bandas": [
+     14.1,
+     55.7,
+     19.1,
+     9.2,
+     1.9
+    ],
+    "lufs_i": -22.7,
+    "t_pico": 2.142,
+    "seg_20db": 2.27,
+    "centroide": 490,
+    "tramas_periodicas": 14,
+    "bytes": 30942
+   },
+   "jefe_despierta__A_seco": {
+    "seg": 3.5,
+    "pico": -6.1,
+    "rms": -22.4,
+    "rms50": -14.9,
+    "lufs_m": -19.0,
+    "lufs_m_200": -20.1,
+    "dc": 8.000575838997028e-06,
+    "bandas": [
+     7.6,
+     49.8,
+     29.4,
+     10.9,
+     2.3
+    ],
+    "lufs_i": -22.4,
+    "t_pico": 2.051,
+    "seg_20db": 2.29,
+    "centroide": 593,
+    "tramas_periodicas": 22,
+    "bytes": 32748
+   },
+   "jefe_despierta__B_grande": {
+    "seg": 3.9,
+    "pico": -7.6,
+    "rms": -23.5,
+    "rms50": -16.0,
+    "lufs_m": -19.0,
+    "lufs_m_200": -20.0,
+    "dc": 6.435372863781979e-06,
+    "bandas": [
+     11.2,
+     47.6,
+     30.1,
+     9.2,
+     1.9
+    ],
+    "lufs_i": -23.2,
+    "t_pico": 2.366,
+    "seg_20db": 2.6,
+    "centroide": 537,
+    "tramas_periodicas": 11,
+    "bytes": 32004
+   }
+  }
+ },
+ "amb_cenote": {
+  "archivos": [
+   "amb_cenote__actual",
+   "amb_cenote__A_armonicos",
+   "amb_cenote__B_espacio"
+  ],
+  "canales": 2,
+  "cortes": [
+   0,
+   200,
+   1200,
+   1000000000.0
+  ],
+  "extra": {
+   "amb_cenote__A_armonicos": {
+    "bucle_s": 32.0,
+    "cuadros": 1225,
+    "lufs_ffmpeg": -28.0,
+    "costura_corr": 1.0,
+    "costura_salto": 0.00169,
+    "salto_tipico": 0.01068,
+    "corr_canales": 0.69
+   },
+   "amb_cenote__B_espacio": {
+    "bucle_s": 32.0,
+    "cuadros": 1225,
+    "lufs_ffmpeg": -27.8,
+    "costura_corr": 1.0,
+    "costura_salto": 0.0049,
+    "salto_tipico": 0.01378,
+    "corr_canales": 0.33
+   }
+  },
+  "frente": "graves",
+  "medidas": {
+   "amb_cenote__actual": {
+    "seg": 33.0,
+    "pico": -11.4,
+    "rms": -29.4,
+    "rms50": -22.1,
+    "lufs_m": -23.5,
+    "lufs_m_200": -29.3,
+    "dc": 2.8209852184426985e-06,
+    "bandas": [
+     73.1,
+     26.4,
+     0.5
+    ],
+    "lufs_i": -28.1,
+    "t_pico": 3.186,
+    "seg_20db": 32.01,
+    "centroide": 175,
+    "bytes": 290891
+   },
+   "amb_cenote__A_armonicos": {
+    "seg": 33.0,
+    "pico": -14.9,
+    "rms": -30.3,
+    "rms50": -26.5,
+    "lufs_m": -25.2,
+    "lufs_m_200": -25.8,
+    "dc": 9.981387303843782e-07,
+    "bandas": [
+     20.9,
+     76.3,
+     2.8
+    ],
+    "lufs_i": -28.0,
+    "t_pico": 24.845,
+    "seg_20db": 32.99,
+    "centroide": 413,
+    "bytes": 428246
+   },
+   "amb_cenote__B_espacio": {
+    "seg": 33.0,
+    "pico": -12.9,
+    "rms": -30.4,
+    "rms50": -24.9,
+    "lufs_m": -23.5,
+    "lufs_m_200": -23.8,
+    "dc": 1.5319193218555558e-06,
+    "bandas": [
+     4.0,
+     89.3,
+     6.7
+    ],
+    "lufs_i": -28.0,
+    "t_pico": 1.008,
+    "seg_20db": 32.99,
+    "centroide": 600,
+    "bytes": 457951
+   }
+  }
+ },
+ "amb_ruinas": {
+  "archivos": [
+   "amb_ruinas__actual",
+   "amb_ruinas__A_armonicos",
+   "amb_ruinas__B_espacio"
+  ],
+  "canales": 2,
+  "cortes": [
+   0,
+   200,
+   1200,
+   1000000000.0
+  ],
+  "extra": {
+   "amb_ruinas__A_armonicos": {
+    "bucle_s": 28.212,
+    "cuadros": 1080,
+    "lufs_ffmpeg": -28.0,
+    "costura_corr": 1.0,
+    "costura_salto": 0.00294,
+    "salto_tipico": 0.00857,
+    "corr_canales": 0.85
+   },
+   "amb_ruinas__B_espacio": {
+    "bucle_s": 28.212,
+    "cuadros": 1080,
+    "lufs_ffmpeg": -28.0,
+    "costura_corr": 1.0,
+    "costura_salto": 0.00246,
+    "salto_tipico": 0.01617,
+    "corr_canales": 0.48
+   }
+  },
+  "frente": "graves",
+  "medidas": {
+   "amb_ruinas__actual": {
+    "seg": 29.21,
+    "pico": -14.9,
+    "rms": -29.5,
+    "rms50": -23.6,
+    "lufs_m": -23.6,
+    "lufs_m_200": -26.3,
+    "dc": 8.959238170078569e-06,
+    "bandas": [
+     73.0,
+     26.7,
+     0.3
+    ],
+    "lufs_i": -28.1,
+    "t_pico": 25.236,
+    "seg_20db": 29.14,
+    "centroide": 167,
+    "bytes": 246576
+   },
+   "amb_ruinas__A_armonicos": {
+    "seg": 29.21,
+    "pico": -15.3,
+    "rms": -30.2,
+    "rms50": -24.6,
+    "lufs_m": -24.1,
+    "lufs_m_200": -24.6,
+    "dc": 3.184856462031381e-06,
+    "bandas": [
+     25.4,
+     73.1,
+     1.5
+    ],
+    "lufs_i": -28.1,
+    "t_pico": 18.891,
+    "seg_20db": 29.18,
+    "centroide": 364,
+    "bytes": 361127
+   },
+   "amb_ruinas__B_espacio": {
+    "seg": 29.21,
+    "pico": -10.5,
+    "rms": -30.6,
+    "rms50": -22.2,
+    "lufs_m": -21.6,
+    "lufs_m_200": -21.7,
+    "dc": 1.4332349797670815e-06,
+    "bandas": [
+     3.4,
+     92.2,
+     4.4
+    ],
+    "lufs_i": -28.1,
+    "t_pico": 21.042,
+    "seg_20db": 28.11,
+    "centroide": 601,
+    "bytes": 368505
+   }
+  }
+ }
+}
