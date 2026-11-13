@@ -205,7 +205,42 @@ contra la base nueva (es lo que permite el rollback).
 | 4 | 64 | Sólo si el paso 3 deja margen claro | — |
 
 La capacidad que se configure para cada tipo de zona será **la última que pasó su prueba**, con
-margen. Las cifras, cuando existan, irán en una tabla aquí.
+margen.
+
+**Primera medición (13 nov 2026, prototipo de la plaza).** `npm run zone:load -w @alux/tests -- 8 16 32 64`:
+aluxes simulados paseando durante 30 s contra el servidor de zonas real, en la máquina de
+desarrollo (4 núcleos), sin navegador. «Juntos» es el peor caso (todos alrededor del árbol).
+
+| Aluxes | Reparto | CPU del servidor | Memoria | Paso medio / máx. | Salida total | Recibe cada alux | Estados/s | Vecinos (media / máx.) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 8 | juntos | 1,9 % de un núcleo | 93 MB | 0,37 / 1,2 ms | 18,5 KB/s | 2,3 KB/s | 10 | 7 / 7 |
+| 8 | repartidos | 1,9 % | 93 MB | 0,37 / 1,8 ms | 15,7 KB/s | 2,0 KB/s | 10 | 7 / 7 |
+| 16 | juntos | 3,4 % | 93 MB | 1,0 / 5,1 ms | 68,7 KB/s | 4,3 KB/s | 10 | 15 / 15 |
+| 16 | repartidos | 3,2 % | 93 MB | 0,9 / 5,6 ms | 53,5 KB/s | 3,3 KB/s | 10 | 14,8 / 15 |
+| 32 | juntos | 7,9 % | 94 MB | 3,0 / 14,6 ms | 222 KB/s | 7,0 KB/s | 10 | 24 / 24 |
+| 32 | repartidos | 7,5 % | 94 MB | 2,9 / 17,9 ms | 183 KB/s | 5,8 KB/s | 10 | 24 / 24 |
+| 64 | juntos | 17,4 % | 96 MB | 7,6 / 47,5 ms | 497 KB/s | 7,8 KB/s | 10 | 24 / 24 |
+| 64 | repartidos | 17,2 % | 96 MB | 7,4 / 39,1 ms | 453 KB/s | 7,1 KB/s | 10 | 24 / 24 |
+
+Ninguna desconexión ni error del servidor en ninguna pasada. Lo que dicen estas cifras y lo que no:
+
+- **El tope de vecinos funciona**: de 32 a 64 aluxes lo que recibe cada jugador casi no crece (7,0 →
+  7,8 KB/s). El coste por jugador lo fija el tope, no la gente que haya en la plaza.
+- **El servidor tiene margen de CPU con 32** (un paso cuesta 3 ms de los 50 disponibles). **Con 64
+  el paso medio sigue siendo bajo, pero los picos rozan los 50 ms**: a ese tamaño hay que quitar
+  el «todos contra todos» de la visibilidad (la rejilla) antes de darlo por bueno.
+- **Memoria: unos 95 MB por proceso de zonas**, casi independiente del número de aluxes. Sumados a
+  los 270 MB de la imagen actual quedan dentro de los 512 MB de Render, con poco margen; hay que
+  medirlo en la imagen real antes de publicar la plaza.
+- La plaza mide 68 m de lado y el radio de visión es de 36–44 m: «repartidos» apenas se distingue
+  de «juntos». En una región más grande la diferencia será mayor.
+- **No mide el navegador.** Con dos aluxes la plaza son unas 270 llamadas de dibujo en el
+  navegador de pruebas (render por software, 1–2 FPS, no representativo). Cuántos aluxes dibuja
+  bien un equipo real es **la medida que falta** y la que de verdad fija la capacidad.
+- Son bots en la misma máquina: sin latencia ni pérdida de red reales.
+
+**Capacidad configurada del prototipo: 32** (`ALUX_ZONE_CAPACITY`), la mayor que pasó con margen
+claro. No es una promesa: se revisará con navegadores reales.
 
 ## 10. Fases
 
@@ -213,8 +248,8 @@ Cada fase es pequeña, jugable y se puede publicar o descartar sin tocar las mis
 
 | Fase | Qué entrega | Criterio de aceptación |
 | --- | --- | --- |
-| **0. Base** *(en curso, Alpha 0.4)* | Pantalla completa. Personalizador 3D con el modelo real, guardado y replicado | Hecho: pantalla completa ([FULLSCREEN.md](FULLSCREEN.md)). El aspecto elegido se ve igual en otro navegador |
-| **1. Prototipo del lobby** | Una plaza inspirada en Mérida en el servidor de zonas: movimiento autoritativo, aluxes visibles por proximidad, capacidad configurable, portal al Claro de los Aluxes | Dos navegadores se ven moverse; el portal lleva a una sala del Claro y la sala funciona como siempre; pruebas de 8, 16 y 32 jugadores simulados con sus medidas; las pruebas de las misiones siguen pasando |
+| **0. Base** *(hecha, Alpha 0.4 sin publicar)* | Pantalla completa. Personalizador 3D con el modelo real, guardado y replicado | Hecho: [FULLSCREEN.md](FULLSCREEN.md) y [PERSONALIZADOR.md](PERSONALIZADOR.md). El aspecto elegido se ve igual en otro navegador |
+| **1. Prototipo del lobby** *(hecho, sin publicar; ver §13)* | Una plaza inspirada en Mérida en el servidor de zonas: movimiento autoritativo, aluxes visibles por proximidad, capacidad configurable, portal al Claro de los Aluxes | Hecho: dos navegadores se ven moverse; el portal lleva a una sala del Claro y la sala funciona como siempre; medidas con 8, 16, 32 y 64 simulados (§9). Falta desplegarlo (proxy y arranque del segundo proceso en la imagen) y medir con navegadores reales |
 | **2. Lobby social** | Grupos por proximidad, gestos y frases hechas, personaje de bienvenida, acceso al personalizador desde la plaza, volver a la plaza al terminar una misión | Un grupo formado en la plaza entra junto a la misión y vuelve junto |
 | **3. Primer camino** | Mérida → Motul: una región abierta pequeña con puntos de interés y criaturas por zona | Viaje de ida y vuelta recuperable; criaturas sólo donde hay jugadores; medidas de servidor con 16 |
 | **4. Amigos y persistencia del mundo** | Amigos, última zona, puntos descubiertos, viaje rápido | Reconectar devuelve al mismo sitio; migraciones sólo aditivas |
@@ -241,3 +276,32 @@ de cosas que sólo existen en la página y que el servidor no distinga de dónde
 Hoy dependen de la página el inicio de sesión (habría que resolverlo), la música y los ambientes
 (fuera del navegador suenan con el motor, con los bucles provisionales) y el vídeo de las
 cinemáticas (sin él se ven con el motor).
+
+## 13. Lo construido: el prototipo de la plaza
+
+Código de la Alpha 0.4, **sin publicar** (la versión publicada no lo tiene).
+
+| Pieza | Dónde | Qué hace |
+| --- | --- | --- |
+| Datos y movimiento compartidos | `game/scripts/shared/zone_def.gd` | La plaza (68 m de lado, árbol, fuente, quiosco, arcos, bancos, faroles, portal), el paso de movimiento determinista y los radios de interés |
+| Servidor de zonas | `game/scripts/server/zone_server.gd` (`-- --zone`, puerto 9081) | Ticket de zona de un solo uso, movimiento autoritativo, visibilidad con margen de entrada y salida, tope de 24 vecinos, 10 estados/s para los cercanos y 4 para los lejanos, capacidad configurable, aspecto releído de la API |
+| Ticket de zona | `POST /v1/zones/merida/ticket` (API) | Firma el pase con el perfil y el aspecto; su audiencia es distinta de la de las salas |
+| Cliente de la plaza | `game/scripts/client/zone_client.gd`, `plaza_builder.gd` | Escenario, predicción y corrección, vecinos interpolados, música y ambiente, personalizador, portal |
+| Portal web | `/plaza` y botón «Ir a la plaza» | Abre el juego en modo plaza |
+
+Lo que **no** hace todavía: grupos, amigos, gestos ni chat; personaje de bienvenida; volver a la
+plaza al terminar una misión (se vuelve al portal web); llevar al grupo junto por el portal (cada
+alux abre su propia sala); varias instancias de la plaza; guardar la posición. El escenario es
+arte provisional de formas simples.
+
+El servidor de mazmorras no cambió: el único archivo compartido que se tocó es el verificador de
+tickets, que ahora distingue para qué servidor es cada uno (un ticket de sala no abre la plaza, ni
+al revés).
+
+Pruebas: `npm run test:zone` (7, con bots: tickets, trampas de movimiento, proximidad, ritmo por
+distancia, aspecto, reconexión, capacidad y tope), `npm run test:plaza` (dos navegadores) y
+`npm run zone:load -w @alux/tests` (carga).
+
+**Para publicarlo falta**: arrancar el segundo proceso en la imagen de Render y encaminar su
+WebSocket por el proxy (`ZONE_WS_URL`), medir la memoria de la imagen con los dos servidores y
+probar con navegadores y personas reales.
