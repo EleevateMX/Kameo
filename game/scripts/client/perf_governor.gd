@@ -20,8 +20,9 @@ extends Node
 ##     scale              escala actual (sólo lectura)
 ##     info()             {scale, fps, target, min, max, enabled, changes, struggling, pixel_bound}
 ##     señal scale_changed(scale)     cada vez que cambia la escala
-##     señal struggling()             lleva varios segundos en el suelo y sigue por debajo del
-##                                    objetivo: quien la escuche puede bajar la calidad gráfica
+##     señal struggling()             sigue por debajo del objetivo y la resolución ya no da más de
+##                                    sí (está en el suelo, o bajarla no mejora nada): quien la
+##                                    escuche puede bajar la calidad gráfica y llamar a configure()
 ##
 ## Cómo decide: mide por ventanas de un segundo (cuenta cuadros; no usa el contador del motor).
 ## Si faltan cuadros dos ventanas seguidas (un tirón suelto no cuenta) baja, en proporción a lo que
@@ -32,6 +33,9 @@ extends Node
 ## en vez de emborronar la imagen para nada. Ignora los cuadros larguísimos (pestaña en segundo
 ## plano, carga) y los primeros segundos. Cada cambio reasigna los búferes del 3D, por eso se cambia
 ## poco y a pasos.
+##
+## Pendiente de medir en un navegador con tarjeta gráfica real: los umbrales (objetivo, márgenes,
+## segundos de espera) están razonados, no afinados; el entorno de desarrollo dibuja por software.
 
 signal scale_changed(scale: float)
 signal struggling()
@@ -58,6 +62,7 @@ var _warm := WARMUP
 var _fps := 0.0
 var _good := 0                 # ventanas buenas seguidas
 var _slow := 0                 # ventanas lentas seguidas
+var _long := 0                 # cuadros de más de un segundo seguidos
 var _need_good := 4            # las que hacen falta para subir (se dobla si la subida sale mal)
 var _slow_at_floor := 0
 var _rose := false             # la última decisión fue subir
@@ -91,6 +96,9 @@ func configure(opts: Dictionary) -> void:
 	_slow = 0
 	_slow_at_floor = 0
 	_struggling = false
+	_probe = false
+	_useless = 0
+	_hold = 0
 	if is_inside_tree():
 		_refresh_limits()
 		_apply(clampf(scale, _floor, _ceil))
@@ -117,10 +125,15 @@ func _process(delta: float) -> void:
 	if not enabled:
 		return
 	if delta > 1.0:
-		# pestaña en segundo plano, una carga… no es una medida de la tarjeta gráfica
-		_frames = 0
-		_time = 0.0
-		return
+		# Un cuadro larguísimo suelto es la pestaña que vuelve del segundo plano o una carga: no es
+		# una medida de la tarjeta gráfica. Tres seguidos sí lo son: el equipo va a menos de 1 FPS.
+		_long += 1
+		if _long < 3:
+			_frames = 0
+			_time = 0.0
+			return
+	else:
+		_long = 0
 	if _warm > 0.0:
 		_warm -= delta
 		return
@@ -148,6 +161,11 @@ func _decide() -> void:
 				_hold = HOLD_WINDOWS
 				_pixel_bound = false
 				_apply(clampf(_probe_from, _floor, _ceil))
+				# Bajar la calidad (menos pases y sombras) sí puede ayudar; salvo que el equipo vaya
+				# clavado a 30: eso es una pantalla o un navegador limitado a 30 Hz, no falta de potencia
+				if absf(_fps - 30.0) > 1.6:
+					_struggling = true
+					struggling.emit()
 				return
 		else:
 			_useless = 0

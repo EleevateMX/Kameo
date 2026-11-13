@@ -288,10 +288,11 @@ Código de la Alpha 0.4, **sin publicar** (la versión publicada no lo tiene).
 | Datos y movimiento compartidos | `game/scripts/shared/zone_def.gd` | La plaza (68 m de lado, árbol, fuente, quiosco, arcos, bancos, faroles, portal), el paso de movimiento determinista y los radios de interés |
 | Servidor de zonas | `game/scripts/server/zone_server.gd` (`-- --zone`, puerto 9081) | Ticket de zona de un solo uso, movimiento autoritativo, visibilidad con margen de entrada y salida, tope de 24 vecinos, 10 estados/s para los cercanos y 4 para los lejanos, capacidad configurable, aspecto releído de la API |
 | Ticket de zona | `POST /v1/zones/merida/ticket` (API) | Firma el pase con el perfil y el aspecto; su audiencia es distinta de la de las salas |
-| Cliente de la plaza | `game/scripts/client/zone_client.gd`, `plaza_builder.gd` | Escenario, predicción y corrección, vecinos interpolados, música y ambiente, personalizador, portal |
+| Cliente de la plaza | `game/scripts/client/zone_client.gd`, `plaza_builder.gd` | Escenario, predicción y corrección, vecinos interpolados, música y ambiente, personalizador, portal, puntos de interés (F), panel F3 y calidad propia (F4, `?q=`) |
+| Regulador de resolución | `game/scripts/client/perf_governor.gd` | Sube y baja la escala del 3D para sostener ~55 FPS y acota las pantallas de alta densidad; reutilizable en la mazmorra (interfaz en su cabecera) |
 | Portal web | `/plaza` y botón «Ir a la plaza» | Abre el juego en modo plaza |
 
-Lo que **no** hace todavía: grupos, amigos, gestos ni chat; personaje de bienvenida; volver a la
+Lo que **no** hace todavía: grupos, amigos, gestos ni chat; volver a la
 plaza al terminar una misión (se vuelve al portal web); llevar al grupo junto por el portal (cada
 alux abre su propia sala); varias instancias de la plaza; guardar la posición. El escenario es
 arte provisional de formas simples.
@@ -303,6 +304,34 @@ al revés).
 Pruebas: `npm run test:zone` (7, con bots: tickets, trampas de movimiento, proximidad, ritmo por
 distancia, aspecto, reconexión, capacidad y tope), `npm run test:plaza` (dos navegadores) y
 `npm run zone:load -w @alux/tests` (carga).
+
+### La plaza como lobby (segundo pase)
+
+- **Composición**: el corro de llegada rodea al guía (al sur del gran árbol, que ahora tiene un
+  altar a sus pies); al sureste del árbol, el puesto de saberes y el tablón de misiones; el brazo
+  este es el camino al portal, marcado con luces de jade, farolas altas y guirnaldas. Jardineras
+  con árboles en flor, carreta de flores, torre del reloj, casas y selva alrededor. Atardecer.
+- **Puntos de interés (F)**, todos decorado del cliente (`Zone.POIS`; el servidor sólo conoce sus
+  obstáculos): **guía** (controles y qué hacer), **tablón** (la misión que existe y cómo ir) y
+  **puesto de saberes** (recompensas reales del perfil, `/api/v1/me`, y las habilidades actuales
+  del alux y de Balam con sus mejoras como «próximamente»). No hay moneda, compras ni cambios en la
+  API: la economía está por diseñar. Los nombres de los personajes son provisionales.
+- **Vida ambiental**, sin trabajo por cuadro salvo las palomas (una MultiMesh a 8 Hz que se espanta
+  si te acercas): banderines, luciérnagas, aves y agua se animan en sombreadores.
+- **Rendimiento**: todo lo estático va fundido en una malla por lote y material, con el color en
+  los vértices; ninguna luz de verdad salvo el sol (los faroles son emisivos y su luz va pintada
+  en el suelo); una sola sombra direccional de un mapa y poca distancia, que sólo arroja lo grande
+  y los aluxes cercanos; los lejanos van sin nombre ni sombra y con la animación a menos cuadros.
+  Medido con un alux y render por software a 1280×720 (llegada, con interfaz): de **235 llamadas
+  de dibujo a 90 en calidad alta y 74 en mínima**. Las primitivas suben (de ~29 000 a ~65 000 en
+  alta y ~46 000 en mínima): hay dos personajes más y mucho más escenario. El lienzo se dibuja a
+  la densidad completa de la pantalla (2560×1440 en una de 1280×720 a ×2); el regulador acota el
+  3D a ~2,6 millones de píxeles en alta y la interfaz sigue nítida. **Sin medir con tarjeta
+  gráfica real**: los FPS de aquí (1–8) no valen; F3 da las cifras en el navegador de cada cual.
+- Pruebas: con `?debug=1`, `window.ALUX_ACTION` admite además `guide`, `shop`, `board`, `close`,
+  `perf`, `quality`, `q:high|low|min` y `gov:off|on`; `window.ALUX_CAM = "giro,inclinación,distancia"`;
+  `__aluxState` trae `pois`, `npcs`, `ui.panel`, `quality` y `perf` (llamadas, primitivas, escala,
+  lienzo, densidad, GPU). Capturas en `tests/e2e/screenshots/plaza-nueva/`.
 
 **Para publicarlo falta**: arrancar el segundo proceso en la imagen de Render y encaminar su
 WebSocket por el proxy (`ZONE_WS_URL`), medir la memoria de la imagen con los dos servidores y

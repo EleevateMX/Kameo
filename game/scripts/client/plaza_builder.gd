@@ -880,8 +880,8 @@ func _portal() -> void:
 		_cyl("obra", 0.42, 0.9, STONE_DARK, p, 6, 0.7)
 		_cyl("obra", 0.62, 0.3, STONE, p + Vector3(0, 0.9, 0), 6, 1.25)
 		_cyl("brillo", 0.36, 0.95, JADE, p + Vector3(0, 1.15, 0), 5, 0.0, Color(0.85, 1.0, 0.8))
-		_pool(p, 4.0, JADE, 0.3)
-	_pool(Vector3(c.x - 2.6, 0, c.y), 6.5, JADE, 0.3)
+		_pool(p, 4.0, JADE, 0.2)
+	_pool(Vector3(c.x - 2.6, 0, c.y), 6.5, JADE, 0.2)
 	# La selva del Claro asoma detrás
 	for t in [[5.0, -6.0, 5.4], [7.5, 5.0, 6.2], [4.5, 9.5, 4.6], [10.0, -1.5, 7.0], [5.5, -12.0, 4.8]]:
 		var at := Vector3(c.x + float(t[0]), 0.0, c.y + float(t[1]))
