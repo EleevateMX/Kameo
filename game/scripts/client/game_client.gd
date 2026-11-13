@@ -15,6 +15,15 @@ const WorldBuilder := preload("res://scripts/client/world_builder.gd")
 const Hud := preload("res://scripts/client/hud.gd")
 const Fx := preload("res://scripts/client/fx.gd")
 const Beacons := preload("res://scripts/client/beacons.gd")
+const PerfGovernor := preload("res://scripts/client/perf_governor.gd")
+## Resolución del 3D por nivel de calidad: techo, suelo y tope de píxeles (acota las pantallas de
+## alta densidad, donde el lienzo mide varias veces lo que se ve). El regulador se mueve entre el
+## suelo y el techo para sostener los cuadros; en «mínima» la escala es fija, como siempre.
+const RES_PROFILES := [
+	{"min_scale": 0.6, "max_scale": 1.0, "max_pixels": 2.6e6},
+	{"min_scale": 0.5, "max_scale": 0.6, "max_pixels": 1.9e6},
+	{"min_scale": 0.5, "max_scale": 0.5, "max_pixels": 1.2e6},
+]
 const Audio := preload("res://scripts/client/audio.gd")
 const Story := preload("res://scripts/shared/story_def.gd")
 const Cutscene := preload("res://scripts/client/cinematics/cutscene.gd")
@@ -85,6 +94,7 @@ var _boss: BossView     # Nojoch Tuunich (lo crea la primera instantánea que tr
 var _boss_state: Array = []
 var _arena: BossArena  # anclas, columnas, cadenas y glifos del combate con el guardián
 var _beacons: Node3D   # balizas sobre el objetivo activo del combate con el guardián
+var _gov: PerfGovernor # regulador de resolución (el mismo de la plaza)
 var _guide_step := -1  # paso de la guía del jefe que toca ahora (para las pruebas)
 var _clang_hint_at := -100.0
 var _talk_npc := ""    # personaje con el que se puede hablar ahora mismo ("" si ninguno)
@@ -276,7 +286,12 @@ func _set_quality(level: int) -> void:
 	_quality = clampi(level, 0, 2)
 	var vp := get_viewport()
 	vp.msaa_3d = Viewport.MSAA_2X if _quality == 0 else Viewport.MSAA_DISABLED
-	vp.scaling_3d_scale = [1.0, 0.6, 0.5][_quality]
+	if _gov == null:
+		_gov = PerfGovernor.new()
+		add_child(_gov)
+	var res: Dictionary = RES_PROFILES[_quality]
+	_gov.configure(res)
+	_gov.set_scale(float(res.max_scale))   # cada nivel empieza en su techo; el regulador baja desde ahí si hace falta
 	_builder.set_quality(_quality)
 
 
@@ -2581,6 +2596,7 @@ func _perf_stats() -> Dictionary:
 		"tris": RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME),
 		"objects": RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME),
 		"enemies": _enemies.size(), "pending": _pending.size(),
+		"scale": snappedf(float(_gov.scale), 0.01) if _gov != null else 1.0, "canvas": [get_window().size.x, get_window().size.y],
 	}
 
 
@@ -2697,9 +2713,11 @@ func _update_perf(delta: float) -> void:
 	_metrics_sample()
 	if _perf_on:
 		var s := _perf_stats()
-		_hud.set_perf("%d FPS · ping %s ms · %s estados/s\n%d dibujados · %d enemigos · memoria %s MB%s" % [
+		_hud.set_perf("%d FPS · ping %s ms · %s estados/s\n%d dibujados · %d enemigos · memoria %s MB%s\ncalidad %s · 3D al %d %% de %d×%d\n%s" % [
 			s.fps, ("%.0f" % s.ping) if s.ping >= 0.0 else "—", "%.0f" % s.snaps, s.draws, s.enemies,
-			"%.0f" % s.mem, (" · JS %.0f MB" % s.heap) if s.heap >= 0.0 else ""])
+			"%.0f" % s.mem, (" · JS %.0f MB" % s.heap) if s.heap >= 0.0 else "",
+			["alta", "baja", "mínima"][_quality], roundi(float(s.scale) * 100.0), int(s.canvas[0]), int(s.canvas[1]),
+			RenderingServer.get_video_adapter_name()])
 
 
 ## Estado visible para las pruebas automáticas (sólo con ?debug=1 en la URL).
