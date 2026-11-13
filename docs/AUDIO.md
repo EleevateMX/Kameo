@@ -135,7 +135,8 @@ Además, el flujo de playtest y la prueba del jefe comprueban con el medidor que
 ambiente suenan y que la música cambia con cada fase.
 
 **Lo que estas pruebas no pueden decir:** si suena *bien*. Miden que hay señal, a qué nivel y que no
-recorta; nadie ha escuchado todavía el resultado. Ver «Validación pendiente».
+recorta. La única escucha humana es la de los sonidos de «Primera escucha humana»; ver también
+«Validación pendiente».
 
 ## Contenido (Alpha 0.3.1)
 
@@ -193,6 +194,14 @@ Ajustes de mezcla que acompañan (propuestos **por medición**, no de oído, y s
 del coloso sube 5 dB y su embestida 3 dB con la música bajando un momento, para que se le oiga
 venir; la losa baja 2 dB y el choque contra la columna 2 dB (rozaban el limitador); la columna rota
 baja 6 dB dentro del choque; la caída baja 3 dB porque suena a la vez que la liberación.
+
+**Nivel de los elegidos.** Los candidatos se escucharon igualados en sonoridad con el sonido al que
+sustituyen. En el juego los archivos conservan el pico de su familia (Balam −5 dBFS, Nojoch −3), y a
+igual pico los elegidos no suenan igual de fuertes que los anteriores, así que el juego los lanza
+compensados para que se oigan como se eligieron: gruñido +3,5 dB, zarpazo a plena carga +3 dB,
+choque −3 dB, caída −3 dB y despertar −5 dB (bufido y embestida no cambian). Sin esa compensación
+el despertar y el choque entrarían más fuerte en el limitador. Es un cálculo sobre la sonoridad
+momentánea máxima, no una escucha: queda por confirmar de oído dentro del juego.
 
 Todo lo demás —la música, el resto de efectos, los otros ambientes y las otras tres bandas sonoras—
 sigue aprobado **sólo provisionalmente para pruebas**.

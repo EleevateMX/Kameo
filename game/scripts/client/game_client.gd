@@ -1405,7 +1405,7 @@ func _show_action(slot: int, kind: String, yaw: float, power: float) -> void:
 			Fx.slash(self, pos + Vector3(0, 0.8, 0), yaw, ab.range * (1.0 + 0.2 * power), ab.arc, Color(1.0, 0.45, 0.15), 0.32)
 			Fx.burst(self, pos + Vector3(sin(yaw), 0.8, cos(yaw)) * 1.2, GOLD, 10 + int(power * 14.0), 5.0)
 			if power > 0.7:
-				Audio.play("balam_especial", pos, -2.0 if slot == _my_slot else -8.0)   # zarpazo a plena carga
+				Audio.play("balam_especial", pos, 1.0 if slot == _my_slot else -5.0)   # zarpazo a plena carga (+3: el elegido de oído tiene menos sonoridad a igual pico)
 		"pounce":
 			Fx.burst(self, pos + Vector3(0, 0.3, 0), Color(0.9, 0.8, 0.6), 10, 3.0)
 			Audio.play("balam_rugido", pos, 0.0 if slot == _my_slot else -6.0)   # el bufido de Balam al saltar
@@ -1845,7 +1845,7 @@ func _on_boss_event(ev: Array) -> void:
 	match str(ev[1]):
 		"awake":
 			_hud.banner("Nojoch Tuunich despierta", Color(1.0, 0.45, 0.7), 4.0)
-			Audio.play("jefe_despierta", at, 2.0, 0.0)
+			Audio.play("jefe_despierta", at, -3.0, 0.0)   # (-5: el elegido de oído suena más a igual pico; se eligió a esta sonoridad)
 			Audio.duck(-7.0, 1.0, 1.2)
 			_bump(0.22)
 			_refresh_music()
@@ -1940,7 +1940,7 @@ func _on_boss_event(ev: Array) -> void:
 			_bump(0.14)
 		"crash":
 			_arena.pillar_fx(int(ev[2]), true)
-			Audio.play("jefe_choque", at, 0.0)
+			Audio.play("jefe_choque", at, -3.0)   # (-3: igual que el despertar, a la sonoridad con que se eligió)
 			Audio.play("jefe_aturdido", at, 0.0)
 			Audio.play("pilar_rompe", at, -6.0)   # (el choque ya trae dentro la columna que se parte)
 			Audio.duck(-8.0, 0.6, 1.0)
@@ -2001,7 +2001,7 @@ func _on_boss_event(ev: Array) -> void:
 			_hud.banner("Nojoch Tuunich recuerda", JADE, 5.0)
 			_pt.freed = true
 			Audio.play("liberacion", null, 0.0, 0.0)
-			Audio.play("jefe_cae", at, -3.0, 0.0)   # (suena a la vez que la liberación)
+			Audio.play("jefe_cae", at, -6.0, 0.0)   # (suena a la vez que la liberación; -3 más por la sonoridad del elegido)
 			Audio.duck(-10.0, 1.5, 1.5)
 			Fx.pillar(self, at, JADE, 14.0, 2.6, 1.6)
 			Fx.ring(self, at + Vector3(0, 0.1, 0), 12.0, JADE, 1.2)
