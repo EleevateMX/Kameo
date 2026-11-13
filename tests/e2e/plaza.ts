@@ -104,12 +104,16 @@ await a.screenshot({ path: path.join(OUT, '03-portal.png') });
 await set(a, 'ALUX_ACTION', 'portal');
 await waitFor('la página pasa a una sala', async () => /\/play\/[A-Z0-9]{6}/.test(a.url()), 60_000);
 const code = /\/play\/([A-Z0-9]{6})/.exec(a.url())![1];
+// Beto la ve irse; después se cierra su navegador. Con render por software, su plaza y la carga
+// de la sala de Ana comparten un único proceso gráfico y el motor de Ana tardaba 297 s en
+// arrancar (5,6 s cuando está solo): es un límite de la máquina de pruebas, no del juego.
+await waitFor('Beto ve que Ana se fue', async () => (await st(b)).total === 1 && (await st(b)).players.length === 0, 60_000);
+await b.context().close();
 await waitFor('la sala del Claro está en marcha', async () => (await st(a, `room=${code}`))?.net === 'PLAYING', 300_000);
 const room = await st(a, `room=${code}`);
 assert.equal(room.room, code);
 assert.equal(room.players.length, 1);
 assert.deepEqual([room.players[0].name, room.players[0].hat, room.players[0].color], ['Ana', 6, '#8f5bd6'], 'entra al Claro con el aspecto que eligió en la plaza');
-await waitFor('Beto ve que Ana se fue', async () => (await st(b)).total === 1 && (await st(b)).players.length === 0, 30_000);
 await sleep(1500);
 await a.screenshot({ path: path.join(OUT, '04-claro.png') });
 ok(`Portal: Ana cruzó a la sala ${code} del Claro de los Aluxes, que funciona como siempre; Beto se queda en la plaza y la ve irse`);
