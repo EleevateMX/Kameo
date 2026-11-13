@@ -179,6 +179,8 @@ await Promise.all([
 ]);
 await page.keyboard.up('KeyJ');
 assert.ok(cleared(), 'la emboscada se supera');
+// Los compañeros siguen dando señales de vida mientras se miran el panel y las recompensas
+const keepAlive = cast.map((a) => a.idle(0, 1));
 await waitFor('panel de victoria', async () => (await ui(page)).result === true, 60_000);
 s = await state(page);
 assert.equal(s.encounter, 2);
@@ -197,6 +199,7 @@ ok(`Progresión: ${earned.xp} de experiencia y ${earned.seeds} semillas por juga
 ok(`Victoria: panel con resumen (${Math.round(s.stats.secs)} s, ${s.stats.kills} vencidos, ${s.stats.purified} purificadas, ${s.stats.falls} caídas)`);
 
 // 6b) El guardián duerme en el patio; en cuanto un compañero entra, despierta para todos
+keepAlive.forEach(clearInterval);
 s = await state(page);
 if (s.boss !== undefined) {
   assert.equal(s.boss[0], 0, 'con la emboscada recién superada, el guardián sigue dormido');
@@ -334,7 +337,8 @@ ok('Salir al portal desde el menú');
   ok(`Ciclo completo: ${me0.seeds} semillas ganadas jugando → amuleto «Semilla de ceiba» comprado (quedan ${shop.rpg.seeds}) → equipado → ${hp} de vida máxima en la sala (antes ${me0.stats.hp})`);
 }
 
-const bad = errors.filter((e) => !/favicon|WebGL|GPU stall|swiftshader|deprecated/i.test(e));
+// (el 402 es la compra que el paso 11 hace rechazar a propósito: «no te alcanzan las semillas»)
+const bad = errors.filter((e) => !/favicon|WebGL|GPU stall|swiftshader|deprecated|status of 402/i.test(e));
 if (bad.length) console.log('Errores de consola:\n  ' + bad.slice(0, 8).join('\n  '));
 assert.equal(bad.length, 0, 'sin errores en la consola del navegador');
 await browser.close();
