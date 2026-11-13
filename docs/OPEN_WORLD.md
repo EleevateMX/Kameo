@@ -230,8 +230,10 @@ Ninguna desconexión ni error del servidor en ninguna pasada. Lo que dicen estas
   el paso medio sigue siendo bajo, pero los picos rozan los 50 ms**: a ese tamaño hay que quitar
   el «todos contra todos» de la visibilidad (la rejilla) antes de darlo por bueno.
 - **Memoria: unos 95 MB por proceso de zonas**, casi independiente del número de aluxes. Sumados a
-  los 270 MB de la imagen actual quedan dentro de los 512 MB de Render, con poco margen; hay que
-  medirlo en la imagen real antes de publicar la plaza.
+  los 270 MB de la imagen de la 0.3.1 debían caber en los 512 MB de Render. **Medido en la imagen
+  real (13 nov 2026):** con los cinco procesos, 16 aluxes en la plaza y una partida completa del
+  jefe a la vez, el contenedor llegó a 242 MB y usó de media el 14 % de un núcleo (el plan da
+  medio núcleo). Ver [RELEASES.md](RELEASES.md).
 - La plaza mide 68 m de lado y el radio de visión es de 36–44 m: «repartidos» apenas se distingue
   de «juntos». En una región más grande la diferencia será mayor.
 - **No mide el navegador.** Con dos aluxes la plaza son unas 270 llamadas de dibujo en el
@@ -249,7 +251,7 @@ Cada fase es pequeña, jugable y se puede publicar o descartar sin tocar las mis
 | Fase | Qué entrega | Criterio de aceptación |
 | --- | --- | --- |
 | **0. Base** *(hecha, Alpha 0.4 sin publicar)* | Pantalla completa. Personalizador 3D con el modelo real, guardado y replicado | Hecho: [FULLSCREEN.md](FULLSCREEN.md) y [PERSONALIZADOR.md](PERSONALIZADOR.md). El aspecto elegido se ve igual en otro navegador |
-| **1. Prototipo del lobby** *(hecho, sin publicar; ver §13)* | Una plaza inspirada en Mérida en el servidor de zonas: movimiento autoritativo, aluxes visibles por proximidad, capacidad configurable, portal al Claro de los Aluxes | Hecho: dos navegadores se ven moverse; el portal lleva a una sala del Claro y la sala funciona como siempre; medidas con 8, 16, 32 y 64 simulados (§9). Falta desplegarlo (proxy y arranque del segundo proceso en la imagen) y medir con navegadores reales |
+| **1. Prototipo del lobby** *(hecho; sale con la Alpha 0.4; ver §13)* | Una plaza inspirada en Mérida en el servidor de zonas: movimiento autoritativo, aluxes visibles por proximidad, capacidad configurable, portal al Claro de los Aluxes | Hecho: dos navegadores se ven moverse; el portal lleva a una sala del Claro y la sala funciona como siempre; medidas con 8, 16, 32 y 64 simulados (§9). Desplegado con la Alpha 0.4 (segundo proceso en la imagen, `wss://DOMINIO/zone`). Falta medir con navegadores reales |
 | **2. Lobby social** | Grupos por proximidad, gestos y frases hechas, personaje de bienvenida, acceso al personalizador desde la plaza, volver a la plaza al terminar una misión | Un grupo formado en la plaza entra junto a la misión y vuelve junto |
 | **3. Primer camino** | Mérida → Motul: una región abierta pequeña con puntos de interés y criaturas por zona | Viaje de ida y vuelta recuperable; criaturas sólo donde hay jugadores; medidas de servidor con 16 |
 | **4. Amigos y persistencia del mundo** | Amigos, última zona, puntos descubiertos, viaje rápido | Reconectar devuelve al mismo sitio; migraciones sólo aditivas |

@@ -12,9 +12,9 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 
 | Closed Alpha 0.3 | Publicada el 12 nov 2026; **sustituida por la 0.3.1**. Commit `93007a0`: es el punto de rollback | Jefe Nojoch Tuunich completo (tres fases, modelo definitivo, cinemáticas de despertar y liberación con Kling), Pluma de Jade y pista del Cenote |
 
-| **Closed Alpha 0.3.1** | **Publicada** el 13 nov 2026 en <https://alux-beta.onrender.com> (commit `cdf1543`) | La 0.3 con el audio arreglado (no sonaba nada), mezclador propio, música original, ambientes por zona, bandas sonoras de las cinemáticas, 50 efectos nuevos y prueba de sonido en el menú |
+| Closed Alpha 0.3.1 | Publicada el 13 nov 2026 (commit `cdf1543`): **es el punto de rollback de la 0.4** | La 0.3 con el audio arreglado (no sonaba nada), mezclador propio, música original, ambientes por zona, bandas sonoras de las cinemáticas, 50 efectos nuevos y prueba de sonido en el menú |
 
-| Alpha 0.4 | **En desarrollo, sin publicar** (rama de trabajo) | Pantalla completa al pulsar JUGAR, personalizador 3D del alux, prototipo de la plaza social de Mérida con portal al Claro, primeros ajustes de sonido elegidos de oído |
+| **Closed Alpha 0.4** | **Candidata a publicación** (13 nov 2026). Rollback: `cdf1543` (0.3.1) | Pantalla completa al pulsar JUGAR, personalizador 3D del alux, plaza social de Mérida (prototipo) con portal al Claro, primeros sonidos elegidos de oído |
 
 ## Publicación en la rama `beta`
 
@@ -24,17 +24,34 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
 
-## ALUX Alpha 0.4 — El mundo empieza en una plaza (en desarrollo)
+## ALUX Closed Alpha 0.4 — El mundo empieza en una plaza
 
-**Sin publicar.** Nada de esto está en `beta`; la versión publicada sigue siendo la 0.3.1.
+**Candidata a publicación.** El commit candidato lleva el juego con la etiqueta «ALUX Closed Alpha
+0.4», el servidor de zonas dentro de la imagen de Render y las comprobaciones que siguen. Rollback:
+`git push --force-with-lease origin cdf1543:beta` (la 0.3.1 funciona con la base de datos de la 0.4:
+la migración sólo añade una columna y amplía un límite; un tocado nuevo se vería como el pelo de
+siempre).
 
 | Incremento | Estado | Documento |
 | --- | --- | --- |
-| Pantalla completa al pulsar JUGAR (Fullscreen API, preferencia guardada, botón discreto, Esc) | Hecho; 7 comprobaciones en Chromium. Firefox y Safari sin probar | [FULLSCREEN.md](FULLSCREEN.md) |
-| Personalizador 3D con el modelo real: 12 colores, 10 secundarios, 5 tonos de piel, 4 vestimentas, 7 tocados, 5 accesorios, 5 amuletos; cámara orbital; guardado y réplica | Hecho; 6 comprobaciones en navegador y reglas en la API | [PERSONALIZADOR.md](PERSONALIZADOR.md) |
-| Arquitectura del mundo abierto y mapa conceptual de Yucatán | Documentado | [OPEN_WORLD.md](OPEN_WORLD.md) |
-| Plaza social de Mérida (prototipo): servidor de zonas aparte, movimiento autoritativo, visibilidad por proximidad, portal al Claro | Hecho en local; 7 pruebas con bots, 5 comprobaciones con dos navegadores, carga medida con 8, 16, 32 y 64 simulados. **Falta desplegarlo y medir con navegadores reales** | [OPEN_WORLD.md](OPEN_WORLD.md) §9 y §13 |
-| Sonido: primeros ajustes elegidos de oído (Balam, voz de Chiich Yaxché, golpes de Nojoch) y mezcla | Adoptados en esta rama | [AUDIO.md](AUDIO.md) |
+| Pantalla completa al pulsar JUGAR (Fullscreen API, preferencia guardada, botón discreto, Esc) | 7 comprobaciones en Chromium. Firefox y Safari sin probar | [FULLSCREEN.md](FULLSCREEN.md) |
+| Personalizador 3D con el modelo real: 12 colores, 10 secundarios, 5 tonos de piel, 4 vestimentas, 7 tocados, 5 accesorios, 5 amuletos; cámara orbital; guardado y réplica | 6 comprobaciones en navegador y reglas en la API | [PERSONALIZADOR.md](PERSONALIZADOR.md) |
+| Plaza social de Mérida (prototipo): servidor de zonas aparte, movimiento autoritativo, visibilidad por proximidad, portal al Claro | 7 pruebas con bots, 5 con dos navegadores, carga con 8 a 64 simulados. **Sin medir con navegadores reales.** Sin grupos, personaje de bienvenida ni vuelta desde la misión | [OPEN_WORLD.md](OPEN_WORLD.md) §9 y §13 |
+| Sonido: los elegidos de oído (Balam, voz de Chiich Yaxché, golpes de Nojoch) y su mezcla | Aprobados provisionalmente para la beta. La mezcla no se ha oído dentro del juego | [AUDIO.md](AUDIO.md) |
+
+**La imagen de Render, con el servidor de zonas** (`scripts/test-beta-image.sh`, contenedor limitado
+a 512 MB como el plan actual):
+
+| Qué | Resultado |
+| --- | --- |
+| Procesos | Proxy, portal, API, servidor de mazmorras y servidor de zonas; si uno cae, el contenedor se reinicia entero |
+| Rutas | `wss://DOMINIO/ws` (mazmorras) y `wss://DOMINIO/zone` (plaza), por el proxy de siempre. Sin servicios ni variables nuevas en Render |
+| Memoria en reposo | 236–304 MB según la pasada |
+| Memoria con 16 aluxes en la plaza y una partida completa del jefe a la vez | Máximo 242 MB de 512; ningún reinicio por memoria |
+| CPU en esa misma carga | 14 % de un núcleo de media (el plan da medio núcleo). Medido en esta máquina, no en Render |
+| Plaza bajo esa carga | 16 de 16 conectados, 4,3 KB/s cada uno |
+| `beta:check` contra la imagen | 13 de 13, con los dos pasos nuevos de la plaza; repetido tras reiniciar aplicación y base de datos |
+| Costo | El mismo servicio y el mismo plan (`0.5c-512mb`) y la misma base de datos. Nada nuevo que contratar |
 
 **Qué cambia respecto a la 0.3.1 fuera del cliente:** una migración sólo aditiva (columna `look` y
 límite del tocado más amplio; la 0.3.1 sigue funcionando con la base nueva), el ticket de sala
@@ -57,10 +74,6 @@ asentado al alux con la cola de entradas del servidor a medio vaciar. Corregida 
 no el servidor ni la comprobación; 7 de 7 en siete pasadas seguidas. Estas pruebas miden que hay
 señal y que la partida funciona: **no dicen si la mezcla nueva suena bien**, eso sigue pendiente de
 oído dentro del juego.
-
-**Antes de publicar la 0.4 falta:** arrancar el servidor de zonas en la imagen y encaminar su
-WebSocket, construir y medir esa imagen, repetir la regresión sobre el commit exacto y tu visto
-bueno.
 
 ## ALUX Closed Alpha 0.3.1 — El claro vuelve a oírse
 

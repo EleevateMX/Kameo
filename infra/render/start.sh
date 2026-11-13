@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Arranque de la imagen única de ALUX: valida la configuración, aplica las migraciones y
-# levanta API, servidor de juego, portal y proxy. Si cualquiera de ellos cae, el contenedor
+# levanta API, servidor de juego (mazmorras), servidor de zonas (la plaza), portal y proxy. Si cualquiera de ellos cae, el contenedor
 # termina para que la plataforma lo reinicie entero.
 set -euo pipefail
 log() { echo "[inicio] $*"; }
@@ -16,6 +16,9 @@ export BASE_URL="${BASE_URL%/}"
 host="${BASE_URL#*://}"
 case "$BASE_URL" in https://*) ws="wss" ;; *) ws="ws" ;; esac
 export GAME_SERVERS="${GAME_SERVERS:-gs-1=${ws}://${host}/ws}"
+# La plaza social: otro proceso, por el mismo dominio y el mismo proxy (wss://DOMINIO/zone).
+# ALUX_ZONE=off la deja cerrada sin tocar nada más (el portal avisa de que no está abierta).
+if [ "${ALUX_ZONE:-on}" = "off" ]; then export ZONE_WS_URL=""; else export ZONE_WS_URL="${ZONE_WS_URL:-${ws}://${host}/zone}"; fi
 
 # ── Secretos obligatorios ──
 for name in SESSION_SECRET GAME_TICKET_SECRET SERVICE_KEY; do
@@ -29,6 +32,7 @@ fi
 # ── Todo lo interno escucha sólo dentro del contenedor ──
 export API_PORT=4000 API_HOST=127.0.0.1 API_URL=http://127.0.0.1:4000
 export ALUX_PORT=9080 ALUX_BIND=127.0.0.1 ALUX_SERVER_ID="${ALUX_SERVER_ID:-gs-1}" ALUX_API_URL=http://127.0.0.1:4000
+export ALUX_ZONE_PORT=9081
 export ALUX_TICKET_SECRET="$GAME_TICKET_SECRET" ALUX_SERVICE_KEY="$SERVICE_KEY"
 # En esta imagen nunca hay "entrada de prueba" abierta: se entra con Discord o con invitación
 export ALLOW_DEV_LOGIN=false
@@ -36,7 +40,7 @@ unset ALUX_ALLOW_DEV_SECRETS
 
 discord="no"; [ -n "${DISCORD_CLIENT_ID:-}" ] && [ -n "${DISCORD_CLIENT_SECRET:-}" ] && discord="sí"
 invites=$(printf '%s' "${BETA_INVITES:-}" | tr ',;' '\n\n' | grep -c ':' || true)
-log "URL pública: $BASE_URL · juego: ${GAME_SERVERS#*=}"
+log "URL pública: $BASE_URL · juego: ${GAME_SERVERS#*=} · plaza: ${ZONE_WS_URL:-cerrada}"
 log "Discord configurado: $discord · acceso de testers: ${BETA_ACCESS:-off} (${invites} invitación/es)"
 if [ "$discord" = "no" ] && { [ "${BETA_ACCESS:-}" != "invite" ] || [ "$invites" = "0" ]; }; then
   log "AVISO: sin Discord y sin invitaciones nadie podrá iniciar sesión."
@@ -75,7 +79,20 @@ wait_http() { # url, nombre
 
 start api npm run --silent start -w @alux/api
 wait_http http://127.0.0.1:4000/health "La API"
+wait_port() { # puerto, nombre
+  for _ in $(seq 1 60); do
+    (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null && return 0
+    sleep 1
+  done
+  die "$2 no abrió su puerto a tiempo."
+}
+
 start juego godot --headless --path /app/game -- --server
+wait_port 9080 "El servidor de juego"
+if [ -n "$ZONE_WS_URL" ]; then
+  start zona godot --headless --path /app/game -- --zone
+  wait_port 9081 "El servidor de zonas"
+fi
 start portal npx --no-install next start apps/portal -H 127.0.0.1 -p 3000
 wait_http http://127.0.0.1:3000/ "El portal"
 # El proxy va el último: el puerto público sólo se abre cuando todo lo demás responde

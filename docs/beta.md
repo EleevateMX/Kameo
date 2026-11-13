@@ -22,6 +22,7 @@ Render expone un único puerto HTTP por servicio y pone el HTTPS por delante. Po
 Internet ──HTTPS/WSS──► Render (certificado TLS) ──HTTP──► contenedor alux-beta, puerto $PORT
                                                               │ Caddy (proxy interno)
                          /ws ───────────────────────────────► │ servidor de juego Godot   127.0.0.1:9080
+                         /zone ─────────────────────────────► │ servidor de zonas (plaza) 127.0.0.1:9081
                          /api/v1/* ─────────────────────────► │ API                       127.0.0.1:4000
                          /game/* (estáticos comprimidos) ───► │ archivos del juego exportado
                          lo demás ──────────────────────────► │ portal Next.js            127.0.0.1:3000
@@ -35,6 +36,12 @@ Internet ──HTTPS/WSS──► Render (certificado TLS) ──HTTP──► c
 | Proxy interno | `infra/render/Caddyfile` |
 | Arranque (valida, migra, levanta y vigila) | `infra/render/start.sh` |
 | Blueprint de Render | `render.yaml` |
+
+Desde la Alpha 0.4 el contenedor lleva dos procesos de Godot: el servidor de mazmorras de siempre
+y el **servidor de zonas** (la plaza de Mérida), cada uno con su WebSocket por el mismo dominio. No
+hay servicios nuevos en Render ni variables nuevas que escribir: `wss://DOMINIO/zone` se deduce de
+la URL pública. `ALUX_ZONE=off` en el panel deja la plaza cerrada sin tocar el resto (el juego y
+las salas siguen igual). Consumo medido de la imagen completa: [RELEASES.md](RELEASES.md).
 
 El despliegue con varios contenedores y Caddy con Let's Encrypt (`infra/docker/`) sigue sirviendo
 para un servidor propio; ver [despliegue.md](despliegue.md).

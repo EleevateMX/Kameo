@@ -1,7 +1,9 @@
-# ALUX completo en UNA sola imagen: proxy interno (Caddy) + portal + API + servidor de juego.
+# ALUX completo en UNA sola imagen: proxy interno (Caddy) + portal + API + servidor de juego
+# (mazmorras) + servidor de zonas (la plaza).
 # Pensada para plataformas que exponen un único puerto HTTP y ponen el HTTPS por delante
 # (Render, Fly, Railway…). El proxy escucha en $PORT y reparte:
 #     /ws        → servidor de juego (WebSocket)        /api/v1/*  → API pública
+#     /zone      → servidor de zonas (WebSocket)
 #     /game/*    → juego exportado (archivos estáticos)  lo demás   → portal
 # Construir desde la raíz:  docker build -f infra/render/Dockerfile -t alux-beta .
 

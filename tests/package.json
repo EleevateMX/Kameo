@@ -20,6 +20,7 @@
     "beta:check": "tsx beta-check.ts",
     "beta:preflight": "tsx beta-preflight.ts",
     "beta:boss": "tsx beta-boss.ts",
+    "beta:load": "tsx image-load.ts",
     "shots": "tsx e2e/screenshot.ts"
   },
   "dependencies": {

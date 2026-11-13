@@ -174,6 +174,14 @@ await step('WebSocket seguro al servidor de juego', async () => {
   return `${secure ? 'wss' : 'ws'}:// abre y el servidor rechaza tickets falsos`;
 });
 
+await step('WebSocket seguro al servidor de zonas (la plaza)', async () => {
+  const { msg, ws } = await hello(`${wsBase}/zone`, 'ticket-inventado');
+  ws.close();
+  assert.equal(msg.t, 'error', 'un ticket inventado debe rechazarse');
+  assert.equal(msg.code, 'bad_ticket');
+  return `${secure ? 'wss' : 'ws'}:// abre y el servidor rechaza tickets falsos`;
+});
+
 if (code) {
   let me: any = null;
   let room: any = null;
@@ -267,6 +275,38 @@ if (code) {
     });
     assert.equal(res.status, 200, `las métricas respondieron ${res.status}`);
     return 'latido recibido y métricas guardadas';
+  });
+
+  await step('Plaza de Mérida: ticket y paseo por WebSocket seguro', async () => {
+    assert.ok(me, 'sin sesión');
+    const res = await call('/api/v1/zones/merida/ticket', { method: 'POST' });
+    assert.equal(res.status, 200, `el ticket de la plaza respondió ${res.status}`);
+    const t = await res.json();
+    if (secure) assert.match(t.wsUrl, /^wss:\/\//, `la plaza se anuncia como ${t.wsUrl}: debe ser wss://`);
+    assert.equal(new URL(t.wsUrl).host, new URL(base).host, 'el WebSocket debe ir por el mismo dominio que el portal');
+    // Un ticket de sala no vale para la plaza, ni al revés
+    const cross = await hello(`${wsBase}/ws`, t.ticket);
+    cross.ws.close();
+    assert.equal(cross.msg.t, 'error', 'el servidor de mazmorras aceptó un ticket de la plaza');
+    const { msg, ws } = await hello(t.wsUrl, t.ticket);
+    assert.equal(msg.t, 'welcome', `el servidor respondió ${JSON.stringify(msg).slice(0, 120)}`);
+    assert.equal(msg.id, me.id);
+    const now = await (await call('/api/v1/me')).json();
+    assert.equal(msg.me.n, now.character.name, 'la plaza debe mostrar el alux del perfil');
+    // Tres segundos andando: el servidor lo mueve y manda su estado
+    let states = 0, seq = 0, moved = 0;
+    const [x0, , z0] = msg.pos;
+    ws.onmessage = (ev) => {
+      const m = JSON.parse(String(ev.data));
+      if (m.t === 's') { states++; moved = Math.hypot(m.m[0] - x0, m.m[2] - z0); }
+    };
+    const input = setInterval(() => ws.send(JSON.stringify({ t: 'in', s: ++seq, x: -1, z: 0, j: 0, r: 0 })), 50);
+    await sleep(3000);
+    clearInterval(input);
+    ws.close();
+    assert.ok(states >= 15, `llegaron ${states} estados en 3 s (se esperan unos 30)`);
+    assert.ok(moved > 4, `el alux avanzó ${moved.toFixed(1)} m (se esperaban unos 15)`);
+    return `zona «${msg.zone}» · ${(states / 3).toFixed(0)} estados/s · avanzó ${moved.toFixed(1)} m · aforo ${msg.cap}`;
   });
 }
 

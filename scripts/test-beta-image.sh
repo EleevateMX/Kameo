@@ -7,7 +7,8 @@
 #   KEEP=1 …                                deja todo arriba al terminar (https://localhost:8443)
 #
 # Comprueba: migraciones al arrancar, acceso sólo con invitación, HTTPS/WSS a través de dos
-# proxies, partida por WebSocket, métricas y persistencia tras reiniciar los contenedores.
+# proxies, partida y plaza por WebSocket, métricas, consumo con los dos servidores trabajando a la
+# vez (LOAD_BOTS aluxes en la plaza, 16 por defecto; 0 lo salta) y persistencia tras reiniciar.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -73,6 +74,14 @@ echo "== Comprobación completa con una invitación =="
 check --code "${CODES[0]}" --mark "Persiste" --commit "$COMMIT"
 echo "== Memoria en uso (límite del contenedor: 512 MB) =="
 docker stats --no-stream --format '{{.Name}}  {{.MemUsage}}  CPU {{.CPUPerc}}' alux-beta-app alux-beta-db
+
+if [ "${LOAD_BOTS:-16}" != "0" ]; then
+  echo "== Consumo con todo a la vez: plaza llena de aluxes y una partida del jefe =="
+  GAME_TICKET_SECRET="$TICKET_SECRET" E2E_INVITES="$(IFS=,; echo "${CODES[*]}")" \
+    NODE_EXTRA_CA_CERTS=/tmp/alux-beta-root.crt NO_PROXY=localhost no_proxy=localhost \
+    npm run --silent beta:load -w @alux/tests -- "https://localhost:${PORT_PUBLIC}" --bots "${LOAD_BOTS:-16}" --container alux-beta-app
+  docker inspect alux-beta-app --format 'reinicios por falta de memoria: {{.State.OOMKilled}}'
+fi
 
 if [ -n "${AFTER_UP:-}" ]; then
   echo "== Pruebas adicionales =="
