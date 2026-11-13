@@ -10,10 +10,13 @@ como pendiente debe darse por hecho.
   <https://alux-beta.onrender.com> y comprobada desde fuera con un jugador; falta jugarla con cuatro
   personas a la vez. Las invitaciones ya están generadas.
 - **Aviso de pago en Render.** Seguía activo en la última captura; puede suspender el servicio.
-- **Nadie ha escuchado el audio.** Hasta la 0.3 el juego ni siquiera sonaba en el navegador (el
-  maestro quedaba desconectado de la salida; corregido en la candidata 0.3.1 y medido en la salida
-  real, ver [AUDIO.md](AUDIO.md)). La música, los ambientes, las cinemáticas y los efectos nuevos
-  están generados por código y comprobados con mediciones, no de oído: falta la escucha humana.
+- **Casi todo el audio sigue sin escuchar.** Hasta la 0.3 el juego ni siquiera sonaba en el
+  navegador (el maestro quedaba desconectado de la salida; corregido en la 0.3.1 y medido en la
+  salida real, ver [AUDIO.md](AUDIO.md)). La única escucha humana es la primera hoja (13 nov 2026):
+  Balam, la voz de Chiich Yaxché, las aves, cenote y ruinas, y los golpes de Nojoch; lo elegido
+  está en la rama de la 0.4, sin publicar. La música, el resto de ambientes, las otras tres bandas
+  sonoras y los demás efectos están comprobados con mediciones, no de oído. Tampoco se ha
+  confirmado de oído, dentro del juego, la mezcla con que entran los sonidos elegidos.
 - **Nadie ha jugado la build con GPU ni por Internet.** Todo se ha probado con render por software
   (2–8 FPS), con bots y en una sola máquina. Las métricas de cada sesión real quedarán registradas.
 - **Equilibrio sin probar con personas**: daño, vida, energía, duración de la emboscada y dificultad
@@ -87,7 +90,8 @@ como pendiente debe darse por hecho.
     pedía un salto.
   - La pluma no se ve en el alux (sólo en el perfil y flotando ante el guardián).
   - En «El sello cede», publicada antes de que existiera, el patio sale **sin** el coloso.
-  - Las cinemáticas usan sonidos generados por código, no audio de Kling; nadie los ha escuchado.
+  - Las cinemáticas usan sonidos generados por código, no audio de Kling; sólo se ha escuchado la
+    voz de Chiich Yaxché de «El llamado».
   - El cambio entre las músicas de fase no va sincronizado al compás.
   - Sin medir con tarjeta gráfica. Con render por software el combate completo va a 1–3 FPS, como
     el resto del juego en ese entorno.

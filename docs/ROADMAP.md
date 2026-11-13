@@ -19,7 +19,7 @@ Pruebas: [PLAYTEST.md](PLAYTEST.md) · Versiones: [RELEASES.md](RELEASES.md).
 | Cinemáticas | Sistema híbrido y **tres producidas con Kling**: «El sello cede» (publicada; 284 créditos), «El despertar» y «La liberación» de Nojoch Tuunich (candidata 0.3; 488 créditos de 800). Quedan 1 887 créditos. |
 | Escenario | Un solo mapa, definido en un único archivo compartido (`world_def.gd`). **No hay soporte para varias zonas.** |
 | Arte | Alux, Balam, Chiich Yaxché y **Nojoch Tuunich (modelo definitivo)** modelados. Enemigos comunes con modelos provisionales. |
-| Audio | 69 sonidos generados por código (31 del jefe, con música por fase). **Nadie los ha escuchado.** |
+| Audio | 140 archivos de síntesis propia viajan con el juego (10 músicas, 10 ambientes, 8 pistas de cinemática y 112 efectos), sonando en el navegador desde la 0.3.1. **Sólo se han escuchado los sonidos de la primera hoja de escucha** ([AUDIO.md](AUDIO.md)); el resto está comprobado con mediciones, no de oído. |
 | Rendimiento | Medido sólo con render por software. **Sin datos de tarjeta gráfica**; las métricas de cada sesión real ya se registran. |
 | Acceso y datos | Invitaciones individuales, PostgreSQL en Render, migraciones automáticas. Discord real pendiente de credenciales. |
 | Infraestructura | Un contenedor de 512 MB (unos 300 MB con cuatro jugadores). Aviso de pago pendiente en la cuenta de Render. |
