@@ -80,7 +80,7 @@ export const ENEMY_KINDS = ['piedra', 'corrupta'] as const;
  *  glifosDelSuelo, glifosDelSueloNecesarios, contacto(0–100), quiénesLoTocan(máscara de slots), cuántosDebenTocarlo]
  * Eventos de combate propios (['boss', tipo, ...]):
  *  fase 1  awake [fase, glifos] · tele [ataque, segundos, ...] · slam · sweep · summon · glyph · far · phase [fase, silencio] · fail
- *  fase 2  transit · arena [fase] · pillar [zócalo, slot] · pillar_max · pillar_down · rain · charge [giro] · charge_end
+ *  fase 2  leap_w [x, z, segundos] · leap [x, z] · land [x, z, empujados(máscara)] (salto a la explanada) · transit · arena [fase] · pillar [zócalo, slot] · pillar_max · pillar_down · rain · charge [giro] · charge_end
  *          crash [zócalo, aturdido] · shake · anchor [i, activa] · bound [segundos, corazón] · unbound [liberado]
  *          clang [slot] (golpe sin efecto) · heart_hit [slot, daño, corazón] · heart [liberados, total, silencio, slot]
  *  fase 3  ritual [glifos] · lit [n, necesarios, slot] · contact [cuántos] · pulse · freed
@@ -88,7 +88,7 @@ export const ENEMY_KINDS = ['piedra', 'corrupta'] as const;
 export type BossStateArray = [number, number, number, number, number, number, number, number, number, number, number, number, number, number[][],
   number, number, number[][], number, number, number, number, number, number, number];
 export const BOSS_STATES = ['sleep', 'rise', 'idle', 'walk', 'slam_w', 'sweep_w', 'summon_w', 'recover', 'kneel', 'freed',
-  'transit', 'pillars_w', 'rain_w', 'rain', 'charge_w', 'charge', 'stunned', 'bound', 'ritual'] as const;
+  'transit', 'pillars_w', 'rain_w', 'rain', 'charge_w', 'charge', 'stunned', 'bound', 'ritual', 'leap_w', 'leap'] as const;
 export const ENEMY_STATES = ['idle', 'chase', 'windup', 'strike', 'recover', 'stun', 'dead', 'return'] as const;
 
 /**

@@ -101,7 +101,7 @@ export async function bossPhase2(bot: Bot, index: number, n: number, done: () =>
     const up = (b[B.pillars] as unknown as number[][]).map((p) => p[0]).sort((p, q) => p - q);
     const need = b[B.anchorsNeed];
     const onAnchor = n > 1 && index >= 1 && index <= need;
-    if (st === 'kneel' || st === 'transit' || st === 'rise' || st === 'sleep') {
+    if (st === 'kneel' || st === 'transit' || st === 'leap_w' || st === 'leap' || st === 'rise' || st === 'sleep') {
       // mientras sale del patio (o se despierta tras una derrota), a esperarlo en la explanada
       go(10.5 - (index % 2), index % 2 ? 3.6 : -3.6);
     } else if (st === 'stunned' || st === 'bound') {

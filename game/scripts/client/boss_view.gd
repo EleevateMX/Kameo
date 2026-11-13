@@ -25,10 +25,13 @@ const ANIMS := {
 	"transit": ["Walk", true], "rain_w": ["Summon", false], "rain": ["Idle", true],
 	"charge_w": ["Charge", true], "charge": ["Charge", true], "stunned": ["Stunned", true],
 	"bound": ["Kneel", false], "ritual": ["Kneel", false],
+	# Salto a la explanada: se agacha (sigue de rodillas) y en el aire levanta los brazos para caer golpeando
+	"leap_w": ["Kneel", false], "leap": ["Slam", false],
 }
 ## Velocidad de la animación en algunos estados (el resto, 1).
 ## (`Walk` está compuesta para 1.7 m/s: se acelera lo mismo que el paso del guardián.)
-const SPEEDS := {"transit": 1.88, "charge_w": 0.5, "charge": 1.0}
+## (`Slam` golpea a los 1.2 s: en el salto se frena para que el golpe coincida con la caída.)
+const SPEEDS := {"transit": 1.88, "charge_w": 0.5, "charge": 1.0, "leap": 1.2 / 1.7}
 
 var phase := Boss.ASLEEP
 var state := "sleep"
@@ -38,6 +41,7 @@ var _anim: AnimationPlayer
 var _mats := {}                 # nombre del material -> copia propia
 var _goal := Vector3(Boss.HOME.x, 0.0, Boss.HOME.y)
 var _goal_yaw := Boss.HOME_YAW
+var _state_t := 0.0             # segundos que le quedan al estado (lo dice el servidor; se descuenta aquí entre estados)
 var _label: Label3D
 var _rubble := {}               # clave de posición -> disco en el suelo
 var _rubble_mat: StandardMaterial3D
@@ -207,6 +211,7 @@ func apply(b: Array) -> void:
 	var new_state: String = Boss.STATES[clampi(int(b[4]), 0, Boss.STATES.size() - 1)]
 	_goal = Vector3(float(b[1]), World.terrain_h(float(b[1]), float(b[2])), float(b[2]))
 	_goal_yaw = float(b[3])
+	_state_t = float(b[5])
 	var repaint := new_phase != phase or int(b[7]) != glyphs
 	if b.size() >= 24 and new_phase == Boss.RECUERDO:
 		calm = clampf(0.35 * float(b[19]) / maxf(1.0, float(b[20])) + 0.65 * float(b[21]) / 100.0, 0.0, 1.0)
@@ -259,7 +264,7 @@ func _play() -> void:
 	if not _anim.has_animation(a[0]):
 		return
 	# De rodillas sigue de rodillas: no vuelve a levantarse para arrodillarse otra vez
-	if not bool(a[1]) and _anim.current_animation == str(a[0]) and not state.ends_with("_w"):
+	if not bool(a[1]) and _anim.current_animation == str(a[0]) and (not state.ends_with("_w") or state == "leap_w"):
 		return
 	var speed := float(SPEEDS.get(state, 1.0))
 	if state == "walk" and phase == Boss.FURIA:
@@ -318,6 +323,17 @@ func _paint() -> void:
 func update_view(delta: float) -> void:
 	_update_face(delta)
 	position = position.lerp(_goal, minf(1.0, delta * 9.0))
+	# Salto a la explanada: el servidor lo lleva en línea recta; la altura del arco sólo se dibuja.
+	# Antes de despegar se encoge (toma impulso) y al caer se aplasta un instante.
+	_state_t = maxf(0.0, _state_t - delta)
+	var squash := 1.0
+	if state == "leap":
+		var p := 1.0 - _state_t / float(Boss.LEAP.time)
+		position.y = _goal.y + Boss.leap_height(p)
+		squash = 1.0 + 0.08 * sin(p * PI)
+	elif state == "leap_w":
+		squash = 0.84 + 0.16 * clampf(_state_t / float(Boss.LEAP.windup), 0.0, 1.0)
+	scale.y = lerpf(scale.y, squash, minf(1.0, delta * 10.0))
 	rotation.y = lerp_angle(rotation.y, _goal_yaw, minf(1.0, delta * 6.0))
 	# Las vetas laten mientras está olvidado
 	_pulse += delta

@@ -19,7 +19,7 @@ const PHASE_NAMES: Array[String] = ["Dormido", "Olvido", "Furia", "Recuerdo", "L
 
 ## Estados (su índice viaja en el estado del jefe).
 const STATES: Array[String] = ["sleep", "rise", "idle", "walk", "slam_w", "sweep_w", "summon_w", "recover", "kneel", "freed",
-	"transit", "pillars_w", "rain_w", "rain", "charge_w", "charge", "stunned", "bound", "ritual"]
+	"transit", "pillars_w", "rain_w", "rain", "charge_w", "charge", "stunned", "bound", "ritual", "leap_w", "leap"]
 
 ## Dónde duerme (al fondo del patio, tras el pedestal del cristal) y hacia dónde mira (al portal).
 const HOME := Vector2(32.0, 0.0)
@@ -63,11 +63,20 @@ static func in_arena(x: float, z: float, margin := 0.0) -> bool:
 
 
 # ───────────────────────── Fase 2: el corazón de piedra ─────────────────────────
-## El combate sale del patio a la explanada: el guardián cruza el portal andando (nadie se
-## teletransporta) y pelea alrededor de este punto.
+## El combate sale del patio a la explanada: el guardián salta por encima del muro del santuario
+## y cae en este punto, alrededor del cual pelea.
 const P2_HOME := Vector2(15.5, 0.0)
 const P2_RADIUS := 12.0
 const TRANSIT_SPEED := 3.2
+## El salto a la explanada: se agacha (aviso en el suelo donde va a caer), vuela en arco sin que
+## nada le estorbe y al caer empuja a quien esté debajo. No hace daño: es una entrada, no un ataque.
+## Antes salía andando por el portal y podía quedarse hasta 5 s empujando contra el pedestal.
+const LEAP := {"windup": 1.3, "time": 1.7, "height": 8.0, "radius": 5.0, "knock": 11.0}
+
+## Altura sobre el suelo a mitad del salto (p: 0 al despegar, 1 al caer).
+static func leap_height(p: float) -> float:
+	var q := clampf(p, 0.0, 1.0)
+	return 4.0 * float(LEAP.height) * q * (1.0 - q)
 
 ## Anclas mágicas de la explanada. Con el guardián aturdido, pisarlas lo sujeta con cadenas de jade.
 const ANCHORS: Array[Vector2] = [Vector2(10.8, -5.0), Vector2(10.8, 5.0), Vector2(19.4, 6.2), Vector2(8.4, 0.0)]

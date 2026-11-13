@@ -1808,8 +1808,12 @@ func _boss_objective() -> void:
 			if b.size() < 24:
 				return
 			var hearts := "(%d/%d)" % [int(b[18]), BossDef.EXPOSURES]
-			if st == "kneel" or st == "transit":
-				_hud.set_objective("El Silencio lo arrastra a la explanada", "alert", "Síguelo fuera del santuario")
+			if st == "kneel":
+				_hud.set_objective("El Silencio lo arrastra a la explanada", "alert", "Va a salir del santuario: síguelo fuera")
+			elif st == "leap_w" or st == "leap":
+				_hud.set_objective("¡Salta a la explanada!", "alert", "Apártate del círculo rojo: cae ahí  ·  la pelea sigue fuera del santuario")
+			elif st == "transit":
+				_hud.set_objective("El guardián se recoloca", "alert", "Síguelo")
 			elif st == "bound":
 				_hud.set_objective("¡Corazón expuesto!  %s" % hearts, "success",
 					"Golpéalo como Balam (2)  ·  quien pise un ancla, que no la suelte" if _connected > 1 else "Golpéalo como Balam (2) antes de que se suelte")
@@ -1918,6 +1922,30 @@ func _on_boss_event(ev: Array) -> void:
 				Fx.ring(self, at + Vector3(0, 0.1, 0), 8.0, JADE, 0.9)
 		"transit":
 			Audio.play("jefe_paso", at, 2.0)
+		"leap_w":
+			# Toma impulso: el círculo marca dónde va a caer durante todo el aviso y el vuelo
+			var land := Vector3(float(ev[2]), World.terrain_h(float(ev[2]), float(ev[3])) + 0.06, float(ev[3]))
+			Fx.telegraph(self, land, float(BossDef.LEAP.radius), float(ev[4]) + float(BossDef.LEAP.time))
+			Fx.ring(self, at + Vector3(0, 0.1, 0), 4.0, MAGENTA, 0.9)
+			Audio.play("jefe_aviso", at, 1.0)
+			Audio.play("jefe_embestida", at, 3.0)
+			Audio.duck(-3.0, 1.0, 0.6)
+			_hud.banner("¡Nojoch Tuunich salta a la explanada!", Color(1.0, 0.55, 0.35), 3.0)
+		"leap":
+			_bump(0.3)
+			Audio.play("jefe_losa", at, -2.0)
+			Fx.ring(self, at + Vector3(0, 0.1, 0), 5.0, Color(0.85, 0.78, 0.65), 0.6)
+			Fx.burst(self, at + Vector3(0, 0.4, 0), Color(0.8, 0.74, 0.62), 22, 6.0, 0.12, 0.8)
+		"land":
+			var where := Vector3(float(ev[2]), World.terrain_h(float(ev[2]), float(ev[3])) + 0.1, float(ev[3]))
+			_bump(0.55)
+			Audio.play("jefe_choque", where, -3.0)
+			Audio.duck(-4.0, 0.8, 0.8)
+			Fx.ring(self, where, float(BossDef.LEAP.radius), Color(1.0, 0.55, 0.35), 0.7)
+			Fx.ring(self, where, float(BossDef.LEAP.radius) * 1.6, Color(0.85, 0.78, 0.65), 1.0)
+			Fx.burst(self, where + Vector3(0, 0.3, 0), Color(0.8, 0.74, 0.62), 36, 8.0, 0.14, 1.0)
+			if (int(ev[4]) >> _my_slot) & 1 == 1:
+				_hud.hint("Te empujó al caer. No hace daño: es su entrada a la explanada", 4.0)
 		"arena":
 			if int(ev[2]) == BossDef.FURIA:
 				_tip("furia", "Sus golpes siguen sin hacerle nada. Despierta una columna (F como alux) y haz que choque con ella", 10.0)
@@ -2382,7 +2410,7 @@ func _boss_hint(here: Vector2, can_touch: bool) -> String:
 				for i in BossDef.ANCHORS.size():
 					if (int(b[14]) & (1 << i)) == 0 and (here - BossDef.ANCHORS[i]).length() < 4.0:
 						return "Pisa el ancla de jade"
-			if (b[16] as Array).size() < int(BossDef.PILLARS.count) and st != "kneel" and st != "transit":
+			if (b[16] as Array).size() < int(BossDef.PILLARS.count) and st != "kneel" and st != "transit" and st != "leap_w" and st != "leap":
 				for i in BossDef.PILLAR_SPOTS.size():
 					if not _arena.pillar_up(i) and (here - BossDef.PILLAR_SPOTS[i]).length() < float(BossDef.PILLARS.touch):
 						return "F  ·  Despertar la columna" if can_touch else "1  ·  Vuelve a ser alux para despertar la columna"

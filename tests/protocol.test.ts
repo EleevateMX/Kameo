@@ -950,7 +950,8 @@ describe('jefe: Nojoch Tuunich, combate completo', { concurrency: 3 }, () => {
       }
       assert.equal(a.snap!.w[5], 2, 'punto de control de la fase: se reaparece en la explanada');
 
-      // ── Fase 2 ── El guardián sale andando del patio; a nadie se le mueve de sitio
+      // ── Fase 2 ── El guardián sale del patio de un salto dirigido; a nadie se le mueve de sitio
+      const phaseAt = Date.now();
       const last = new Map<Bot, { x: number; z: number; dead: boolean }>();
       let maxJump = 0;
       const watch = setInterval(() => {
@@ -968,6 +969,11 @@ describe('jefe: Nojoch Tuunich, combate completo', { concurrency: 3 }, () => {
       await until('sale a la explanada', () => bossEv(a, 'arena').length >= 1, 40_000);
       clearInterval(watch);
       assert.ok(a.snap!.b![B.x] < 21, `el guardián está en la explanada (x=${a.snap!.b![B.x]})`);
+      // Sale siempre igual: aviso, salto y caída en el centro de la explanada, sin depender de caminar
+      assert.deepEqual([bossEv(a, 'leap_w').length, bossEv(a, 'leap').length, bossEv(a, 'land').length, bossEv(a, 'transit').length], [1, 1, 1, 0],
+        'un aviso, un salto y una caída; ya no camina hasta la salida');
+      assert.deepEqual([bossEv(a, 'land')[0][2], bossEv(a, 'land')[0][3]], [15.5, 0], 'cae en el centro de la explanada');
+      assert.ok(Date.now() - phaseAt < 8_000, `la salida dura lo mismo siempre (${Date.now() - phaseAt} ms desde el cambio de fase)`);
       assert.ok(maxJump < 2.5, `ningún jugador se teletransporta durante la transición (salto máximo ${maxJump.toFixed(2)} m)`);
       for (const b of bots) {
         assert.ok(Math.abs(b.snap!.b![B.x] - a.snap!.b![B.x]) < 1.5 && Math.abs(b.snap!.b![B.z] - a.snap!.b![B.z]) < 1.5, 'todos lo ven en el mismo sitio');

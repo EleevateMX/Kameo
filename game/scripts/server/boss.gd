@@ -65,6 +65,7 @@ var _dir := Vector2.ZERO        # dirección fijada de la embestida
 var _run_left := 0.0
 var _struck := {}
 var _path: Array = []           # puntos por los que camina al cambiar de sitio
+var _leap_from := Vector2.ZERO  # de dónde despegó el salto a la explanada
 var _leg_t := 0.0
 var _wave_t := 0.0
 var _pulse_t := 0.0
@@ -232,6 +233,13 @@ func tick(players: Array) -> void:
 				_begin_transit()
 		"transit":
 			_tick_transit(players)
+		"leap_w":
+			if t <= 0.0:
+				state = "leap"
+				t = float(Boss.LEAP.time)
+				combat.events.append(["boss", "leap", snappedf(aim.x, 0.01), snappedf(aim.y, 0.01)])
+		"leap":
+			_tick_leap(players)
 		"rain_w":
 			if t <= 0.0:
 				state = "rain"
@@ -522,17 +530,13 @@ func _begin_furia(players: Array) -> void:
 	combat.events.append(["boss", "phase", phase, int(round(silence))])
 
 
-## Camino a pie hasta el centro de la explanada, rodeando el pedestal y cruzando el portal.
+## Cambio de sitio al cambiar de fase. Si está dentro del santuario (o en su portal) sale de un
+## salto: no depende de rodear el pedestal ni de caber por el portal. Ya en la explanada, camina.
 func _begin_transit() -> void:
 	_path.clear()
-	if phase == Boss.FURIA and x > 22.0:
-		var side := 1.0 if z >= 0.0 else -1.0
-		if x > 27.4:
-			if absf(z) < 3.0:
-				_path.append(Vector2(x, side * 3.4))
-			_path.append(Vector2(26.4, side * 3.4))
-		_path.append(Vector2(24.8, 0.0))
-		_path.append(Vector2(20.2, 0.0))
+	if x > 20.6:
+		_begin_leap()
+		return
 	_path.append(Boss.P2_HOME)
 	_leg_t = 0.0
 	state = "transit"
@@ -559,10 +563,48 @@ func _tick_transit(players: Array) -> void:
 	_leg_t += DT
 	var next := Vector2(x, z) + to / d * step
 	# Si algo le estorba más de la cuenta, pasa igualmente: no puede quedarse atascado a mitad
-	if _leg_t < 5.0:
+	if _leg_t < 1.5:
 		next = Sim.move_xz(Vector2(x, z), to / d * step, World.terrain_h(x, z), Boss.RADIUS, true)
 	x = next.x
 	z = next.y
+
+
+func _begin_leap() -> void:
+	_leap_from = Vector2(x, z)
+	aim = Boss.P2_HOME
+	var to := aim - _leap_from
+	yaw = atan2(to.x, to.y)
+	aim_yaw = yaw
+	state = "leap_w"
+	t = float(Boss.LEAP.windup)
+	target_slot = -1
+	combat.events.append(["boss", "leap_w", snappedf(aim.x, 0.01), snappedf(aim.y, 0.01), snappedf(t, 0.01)])
+
+
+## En el aire va en línea recta de donde despegó a donde cae; la altura la pone el cliente con
+## Boss.leap_height (sólo es dibujo: en el aire no golpea ni se le puede tocar).
+func _tick_leap(players: Array) -> void:
+	var p := clampf(1.0 - t / float(Boss.LEAP.time), 0.0, 1.0)
+	var at := _leap_from.lerp(aim, p)
+	x = at.x
+	z = at.y
+	if t > 0.0:
+		return
+	x = aim.x
+	z = aim.y
+	# Al caer empuja a quien esté debajo o pegado (sin daño)
+	var pushed := 0
+	for pl in players:
+		if pl.conn_id == 0 or pl.state.dead:
+			continue
+		var d := Vector2(pl.state.pos.x - x, pl.state.pos.z - z)
+		if d.length() < float(Boss.LEAP.radius):
+			var away := d.normalized() if d.length() > 0.05 else Vector2(-1.0, 0.0)
+			pl.state.kx = away.x * float(Boss.LEAP.knock)
+			pl.state.kz = away.y * float(Boss.LEAP.knock)
+			pushed |= 1 << int(pl.slot)
+	combat.events.append(["boss", "land", snappedf(x, 0.01), snappedf(z, 0.01), pushed])
+	_arrive(players)
 
 
 func _arrive(players: Array) -> void:
@@ -618,7 +660,7 @@ func _tick_pillars() -> void:
 
 ## Un alux toca (F) el glifo de una columna dormida. Devuelve true si el toque era para eso.
 func raise_pillar(p: Variant) -> bool:
-	if phase != Boss.FURIA or state == "kneel" or state == "transit" or state == "rise":
+	if phase != Boss.FURIA or state == "kneel" or state == "transit" or state == "rise" or state == "leap_w" or state == "leap":
 		return false
 	var here := Vector2(p.state.pos.x, p.state.pos.z)
 	var best := -1
