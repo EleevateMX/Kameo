@@ -39,6 +39,16 @@ Nada de esto está en `beta`. Rollback cuando se publique: `7e8fc5b` (0.4.1).
 | Plaza de Mérida rehecha: ciudad modular, mercado, vegetación, luz de atardecer, vendedores | [OPEN_WORLD.md](OPEN_WORLD.md) §13 | 91 llamadas de dibujo en alta y 75 en mínima en la llegada (antes 90 y 74); servidor de zonas | FPS con GPU; rótulos y nombres provisionales |
 | Mundo abierto: el Camino a Motul (222 m al ENE), zonas seguras, 10 criaturas hostiles, descubrimientos, la misión de la cordelera, mapa con Izamal y Valladolid «próximamente» | [OPEN_WORLD.md](OPEN_WORLD.md) §14 | Servidor de zonas 11 de 11; navegador: plaza → arco → camino → misión → milpa → purificar → cartel de Motul → mapa → vuelta, con recompensas pagadas por la API real; carga con 32 aluxes: 11 % de un núcleo | Misión a medias no sobrevive a un reinicio del servidor; varios navegadores a la vez en el camino |
 
+**Verificada sobre el commit exacto `76aa754` (14 nov 2026, copia limpia, una prueba cada vez, todo a
+la primera):** API 20 (memoria) · catálogos 3 · equilibrio RPG 3 · simulación sin violaciones ·
+servidor de mazmorras 17 · servidor de zonas 11 · audio 11 · vídeo 7 · flujo 15 + ciclo de
+progresión · jefe completo 7 · cuatro navegadores 10 · pantalla completa 7 · personalizador 6 ·
+plaza 5 · muros del santuario 6 · camino a Motul 9. Imagen de despliegue: la migración `rpg` se
+aplica al arrancar (sólo crea tablas), 43 comprobaciones, 255 MB como máximo de 512 con 16 aluxes en
+la plaza y una partida del jefe a la vez (360 MB contando los binarios cargados), 11 % de un núcleo,
+persistencia tras reiniciar. Revisión previa superada; `beta` avanzaría de `7e8fc5b` sin reescribir
+historia. Mismo servicio y mismo plan de Render: sin costos nuevos.
+
 ## ALUX Closed Alpha 0.4.1 — Pulido de lo publicado
 
 Respuesta a la primera prueba del dueño en su ordenador. **Publicada el 13 nov 2026** con su visto
