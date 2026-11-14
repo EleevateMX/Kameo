@@ -11,7 +11,7 @@ Pruebas: [PLAYTEST.md](PLAYTEST.md) · Versiones: [RELEASES.md](RELEASES.md).
 | Área | Estado real |
 | --- | --- |
 | Versión candidata | Ninguna ahora mismo. |
-| Versión publicada | **Closed Alpha 0.4.1** (13 nov 2026, commit `7e8fc5b`): la 0.4 pulida tras la primera prueba del dueño (plaza más ligera y viva, portal como menú del juego, pelea de Nojoch más clara y su salida de un salto). Ver [RELEASES.md](RELEASES.md). Pendiente: sus cifras de F3 en un navegador real y su evaluación. Siguiente prioridad acordada: volver del Claro a la plaza conservando identidad, grupo, apariencia y progreso. |
+| Versión publicada | **Closed Alpha 0.5** (14 nov 2026, commit `76aa754`): progresión RPG, el santuario que se abre, la plaza rehecha y el Camino a Motul. Ver [RELEASES.md](RELEASES.md). **Sin funciones nuevas hasta la prueba del dueño.** |
 | Multijugador | Servidor autoritativo, 4 jugadores, reconexión, salas. Verificado con bots, navegadores y contra el servicio desplegado (un jugador). **Cuatro personas reales a la vez: sin probar.** |
 | Combate y formas | Alux y Balam, dos enemigos, emboscada, derrota y otra ronda. Datos modulares (`combat_def.gd`). Equilibrio sin probar con personas. |
 | Historia | Introducción, un personaje con diálogo, primer objetivo narrativo, **jefe con tres fases y cierre del capítulo** con la Pluma de Jade y la pista del Cenote (candidata 0.3). Falta «El vínculo de Balam». |

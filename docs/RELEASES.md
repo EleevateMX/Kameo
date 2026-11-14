@@ -16,9 +16,9 @@ Qué lleva cada versión, qué se comprobó y cuál está publicada. Plan de las
 
 | Closed Alpha 0.4 | Publicada el 13 nov 2026 (commit `b27e4c1`): **es el punto de rollback de la 0.4.1** | Pantalla completa al pulsar JUGAR, personalizador 3D del alux, plaza social de Mérida (prototipo) con portal al Claro, primeros sonidos elegidos de oído |
 
-| **Closed Alpha 0.4.1** | **Publicada** el 13 nov 2026 en <https://alux-beta.onrender.com> (commit `7e8fc5b`). Rollback: `b27e4c1` (0.4) | Pulido de la 0.4: plaza más ligera y viva, portal como menú del juego, guía de la pelea con Nojoch y su salida del santuario de un salto |
+| Closed Alpha 0.4.1 | Publicada el 13 nov 2026 (commit `7e8fc5b`): **punto de rollback inmediato de la 0.5** | Pulido de la 0.4: plaza más ligera y viva, portal como menú del juego, guía de la pelea con Nojoch y su salida del santuario de un salto |
 
-| Closed Alpha 0.5 | **Candidata, sin publicar** (rama de trabajo). Pendiente del visto bueno del dueño | Progresión RPG (nivel 1–10, Semillas de Jade, Puesto de Saberes, amuletos y gachapón), el santuario se abre al despertar Nojoch, plaza de Mérida rehecha y primera ruta del mundo abierto: el Camino a Motul |
+| **Closed Alpha 0.5** | **Publicada** el 14 nov 2026 en <https://alux-beta.onrender.com> (commit `76aa754`). Rollback: `7e8fc5b` (0.4.1) o `b27e4c1` (0.4) | Progresión RPG (nivel 1–10, Semillas de Jade, Puesto de Saberes, amuletos y gachapón), el santuario se abre al despertar Nojoch, plaza de Mérida rehecha y primera ruta del mundo abierto: el Camino a Motul |
 
 ## Publicación en la rama `beta`
 
@@ -28,9 +28,27 @@ esa versión, qué se comprobó antes de publicarla y cómo volver a ella.
 Para saber qué hay desplegado en este momento: `npm run beta:check -- <URL>` muestra el commit que
 informa el servicio, y `--commit <hash>` exige que sea uno concreto.
 
-## ALUX Closed Alpha 0.5 — Los Caminos del Mayab (candidata, sin publicar)
+## ALUX Closed Alpha 0.5 — Los Caminos del Mayab
 
-Nada de esto está en `beta`. Rollback cuando se publique: `7e8fc5b` (0.4.1).
+**Publicada el 14 nov 2026** con el visto bueno del dueño: en `beta` está `76aa754`, el mismo commit
+sobre el que se hizo toda la verificación. Rollback en Render → `alux-beta` → Events → el despliegue
+de `7e8fc5b` (0.4.1) o de `b27e4c1` (0.4), sin reconstruir. Las versiones anteriores funcionan con
+la base de datos de la 0.5: la migración `rpg` sólo añade tablas que ellas ignoran.
+
+**En producción, tras desplegar (unos 4 minutos):**
+
+| Qué | Resultado |
+| --- | --- |
+| Versión y estado | `/healthz` informa `76aa754` y base de datos en marcha |
+| Migración y perfiles | El perfil de verificación, leído antes y después: nombre, aspecto, formas, Sello del Claro, Pluma de Jade y capítulo, idénticos; la progresión nueva aparece en nivel 1 (las tablas existen) |
+| `beta:check` | 13 de 13 |
+| Plaza → Camino a Motul → combate y purificación | Navegador real: arco, viaje, misión de la cordelera, milpa descubierta, criatura purificada, una caída con reaparición en la zona segura (las criaturas pegan con fuerza completa), cartel de Motul, mapa y vuelta |
+| Recompensas y subida de nivel | Pagadas por la API: nivel 2 con 140 de experiencia y 53 semillas tras el camino; nivel 5 con 745 y 335 tras una partida completa del Claro (con el salto del guardián) |
+| Compra y equipamiento | Puesto de Saberes: «Semilla de ceiba» por 80 semillas (quedan 255), equipada: vida 104 → 106 |
+| Claro con el amuleto | Sala nueva: 106/106 de vida y el HUD con «NIVEL 5» y 255 semillas; todo sigue guardado al releer el perfil |
+
+**Sin comprobar:** registros, memoria y reinicios en el panel de Render; FPS con tarjeta gráfica;
+varias personas a la vez en el camino.
 
 | Qué | Dónde | Comprobado | Sin comprobar |
 | --- | --- | --- | --- |
